@@ -972,6 +972,7 @@ export function SessionSidebar({ selectedSessionId, optimisticSession, onSelectS
     else sessionsByProject.set(project, [session]);
   }
 
+  const normalizedProjectFilter = projectFilter.trim().toLowerCase();
   const projectGroups = projectPaths.flatMap((project) => {
     const key = normalizeProjectKey(project);
     const segments = project.replace(/[\\/]+$/, "").split(/[\\/]/);
@@ -1003,21 +1004,6 @@ export function SessionSidebar({ selectedSessionId, optimisticSession, onSelectS
     return counts;
   }, [sessionsForDisplay, runningSessionIds, unreadSessionIds]);
 
-  const normalizedProjectFilter = projectFilter.trim().toLowerCase();
-  const projectGroups = projectPaths.flatMap((project) => {
-    const segments = project.replace(/[\\/]+$/, "").split(/[\\/]/);
-    const name = segments.at(-1) || project;
-    const sessions = sessionsByProject.get(project) ?? [];
-    if (!normalizedProjectFilter) return [{ project, name, sessions }];
-
-    const projectMatches = name.toLowerCase().includes(normalizedProjectFilter);
-    const matchingSessions = sessions.filter((session) => {
-      const title = session.name || session.firstMessage.slice(0, 50) || session.id.slice(0, 12);
-      return title.toLowerCase().includes(normalizedProjectFilter);
-    });
-    if (!projectMatches && matchingSessions.length === 0) return [];
-    return [{ project, name, sessions: projectMatches ? sessions : matchingSessions }];
-  });
 
   const showWorktreeSwitcher = Boolean(
     worktreeState?.isGit
