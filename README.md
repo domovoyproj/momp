@@ -54,7 +54,7 @@ momp
    ```
 2. **Установите зависимости и соберите проект**:
    ```bash
-   bun install --backend=copyfile
+   bun install
    bun run build
    ```
 3. **Запустите сервер**:

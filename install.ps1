@@ -31,16 +31,19 @@ if ($gitInstalled) {
     if (Test-Path "$installDir\.git") {
         Push-Location $installDir
         try {
-            git pull
+            Write-Host "      Обновление репозитория..." -ForegroundColor DarkGray
+            git pull --ff-only
         } catch {
-            Write-Host "Не удалось обновить git, продолжаем..." -ForegroundColor DarkGray
+            Write-Host "      Не удалось обновить git, продолжаем..." -ForegroundColor DarkGray
         }
         Pop-Location
     } else {
         if (Test-Path $installDir) { Remove-Item -Recurse -Force $installDir }
-        git clone https://github.com/domovoyproj/momp.git $installDir
+        Write-Host "      Клонирование репозитория..." -ForegroundColor DarkGray
+        git clone --depth 1 https://github.com/domovoyproj/momp.git $installDir
     }
 } else {
+    Write-Host "      Скачивание архива исходного кода..." -ForegroundColor DarkGray
     $zipUrl = "https://github.com/domovoyproj/momp/archive/refs/heads/main.zip"
     $zipPath = "$env:TEMP\momp-main.zip"
     $extractPath = "$env:TEMP\momp-extract"
@@ -60,19 +63,24 @@ if ($gitInstalled) {
 Push-Location $installDir
 Write-Host "[3/4] Установка зависимостей и сборка проекта..." -ForegroundColor Yellow
 
+# Попытка добавить папки в исключения Защитника Windows для максимальной скорости (если запущен с правами админа)
 try {
-    bun pm cache rm | Out-Null
-    bun install --backend=copyfile
+    Add-MpPreference -ExclusionPath $installDir, "$HOME\.bun" -ErrorAction SilentlyContinue
+} catch {}
+
+Write-Host "      → Установка пакетов (Bun)..." -ForegroundColor Cyan
+try {
+    & bun install --frozen-lockfile
 } catch {
-    Write-Host "Bun install не удался, пробуем через npm..." -ForegroundColor DarkGray
-    npm install
+    Write-Host "      → Повторная попытка установки пакетов..." -ForegroundColor DarkGray
+    & bun install
 }
 
-Write-Host "Сборка Next.js..." -ForegroundColor Yellow
-bun run build
+Write-Host "      → Сборка веб-интерфейса (Next.js)..." -ForegroundColor Cyan
+Write-Host "        (Компиляция обычно занимает 30-60 сек, пожалуйста, подождите)" -ForegroundColor DarkGray
+& bun run build
 
 Pop-Location
-
 # 4. Регистрация глобальной команды `momp`
 Write-Host "[4/4] Настройка команды 'momp' в системе..." -ForegroundColor Yellow
 

@@ -20,10 +20,10 @@ echo "[2/4] Загрузка исходного кода в $INSTALL_DIR..."
 
 if command -v git &> /dev/null; then
     if [ -d "$INSTALL_DIR/.git" ]; then
-        cd "$INSTALL_DIR" && git pull || true
+        cd "$INSTALL_DIR" && git pull --ff-only || true
     else
         rm -rf "$INSTALL_DIR"
-        git clone https://github.com/domovoyproj/momp.git "$INSTALL_DIR"
+        git clone --depth 1 https://github.com/domovoyproj/momp.git "$INSTALL_DIR"
     fi
 else
     rm -rf "$INSTALL_DIR" "$HOME/.momp-temp.zip"
@@ -36,9 +36,10 @@ fi
 # 3. Сборка
 cd "$INSTALL_DIR"
 echo "[3/4] Установка зависимостей и сборка..."
-bun install
+echo "      → Установка пакетов (Bun)..."
+bun install --frozen-lockfile || bun install
+echo "      → Сборка веб-интерфейса (Next.js)..."
 bun run build
-
 # 4. Настройка глобальной команды
 echo "[4/4] Настройка команды momp..."
 mkdir -p "$INSTALL_DIR/cmd"
