@@ -1,7 +1,5 @@
-<p align="center">
-  <img src="https://raw.githubusercontent.com/domovoyproj/momp/main/docs/hero.png?v=3" alt="momp-web — Browser workspace for momp" width="100%">
-</p>
-1
+![Uploading image.png…]()
+
 <p align="center">
   <a href="https://github.com/domovoyproj/momp/releases"><img src="https://img.shields.io/github/v/release/domovoyproj/momp?color=CB3837&colorA=222222&label=momp%20max" alt="version"></a>
   <a href="https://github.com/domovoyproj/momp/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-58A6FF?style=flat&colorA=222222" alt="License"></a>
