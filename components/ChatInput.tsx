@@ -4,6 +4,7 @@ import React, { useRef, useState, useCallback, useEffect, useImperativeHandle, f
 import type { BuiltinSlashCommandResult, CompactResultInfo, QueuedMessages } from "@/hooks/useAgentSession";
 import type { ModelRoleAssignment, SkillsResponse } from "@/lib/api-types";
 import type { ContextUsage, SlashCommandInfo } from "@/lib/omp-types";
+import { LimitsModal } from "./LimitsModal";
 import type { TextContent, UserMessage } from "@/lib/types";
 import {
   clearDraft,
@@ -396,6 +397,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   const [toolDropdownOpen, setToolDropdownOpen] = useState(false);
   const [thinkingDropdownOpen, setThinkingDropdownOpen] = useState(false);
   const [controlsMenuOpen, setControlsMenuOpen] = useState(false);
+  const [limitsOpen, setLimitsOpen] = useState(false);
   const [attachedImages, setAttachedImages] = useState<AttachedImage[]>(() => (
     draftKey ? draftImagesToAttachedImages(getDraft(draftKey)?.images) : []
   ));
@@ -797,7 +799,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     ? t(slashQuery ? "chat.match" : "chat.command")
     : t(slashQuery ? "chat.matches" : "chat.commands", { count: filteredSlashCommands.length });
   const hasInputText = Boolean(value.trim());
-  const canQueueStreamingMessage = hasInputText && attachedImages.length === 0;
+  const canQueueStreamingMessage = hasInputText || attachedImages.length > 0;
 
   // ── @ file autocomplete ──────────────────────────────────────────────────
   // Recomputed from the text before the caret on every change/caret move.
@@ -984,7 +986,6 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   const sendQueued = useCallback((mode: "steer" | "followup") => {
     const msg = value.trim();
     if (!msg && !attachedImages.length) return;
-    if (attachedImages.length) return;
     onAudioUnlock?.();
     const streamingBehavior = mode === "steer" ? "steer" : "followUp";
     if (msg.startsWith("/") && onPromptWithStreamingBehavior) {
@@ -1894,7 +1895,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                 <button
                   onClick={() => sendQueued("steer")}
                   disabled={!canQueueStreamingMessage}
-                  title={attachedImages.length ? "Изображения нельзя ставить в очередь во время работы агента" : "Прервать текущий ход и отправить сообщение сейчас"}
+                  title="Прервать текущий ход и отправить сообщение сейчас"
                   style={{
                     display: "flex", alignItems: "center", gap: 5,
                     padding: "7px 12px",
@@ -1917,7 +1918,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                 <button
                   onClick={() => sendQueued("followup")}
                   disabled={!canQueueStreamingMessage}
-                  title={attachedImages.length ? "Image attachments cannot be queued while the agent is running" : "Queue this message after the agent finishes"}
+                  title="Поставить сообщение в очередь после завершения работы агента"
                   style={{
                     display: "flex", alignItems: "center", gap: 5,
                     padding: "7px 12px",
@@ -2530,27 +2531,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
             {!isStreaming && (
               <div>
                 <button
-                  onClick={async () => {
-                    try {
-                      const target = model ? (model.provider + "/" + model.modelId) : "";
-                      const res = await fetch("/api/models-config/limits" + (target ? "?model=" + encodeURIComponent(target) : ""));
-                      const data = await res.json();
-                      if (data.limits && data.limits.length > 0) {
-                        const info = data.limits[0];
-                        const lines = [
-                          `📊 Статус лимитов: ${info.agent || info.provider || "Текущая модель"}`,
-                          `Остаток / Квота: ${info.remaining}`,
-                        ];
-                        if (info.details) lines.push(`Информация: ${info.details}`);
-                        if (info.error) lines.push(`Ошибка: ${info.error}`);
-                        alert(lines.join("\n\n"));
-                      } else {
-                        alert("Не удалось получить информацию о лимитах для текущей модели.");
-                      }
-                    } catch (e) {
-                      alert("Ошибка при запросе лимитов к API провайдера");
-                    }
-                  }}
+                  onClick={() => setLimitsOpen(true)}
                   style={{
                     display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
                     padding: isMobile ? "0 6px" : "8px 12px",
@@ -2573,6 +2554,8 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                 </button>
               </div>
             )}
+
+            {limitsOpen && <LimitsModal onClose={() => setLimitsOpen(false)} />}
 
             {!isStreaming && onCompact && (
               <div>

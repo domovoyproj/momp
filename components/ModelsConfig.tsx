@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { ModelRolesPanel } from "./ModelRolesPanel";
 import { SearchableSelect } from "./SearchableSelect";
+import { LimitsModal } from "./LimitsModal";
 import { useI18n } from "@/hooks/useI18n";
 import type { ModelCatalogPreset, ModelCatalogRecommendation } from "@/lib/model-catalog";
 import type { DiscoveredModel } from "@/lib/model-discovery";
@@ -1759,6 +1760,7 @@ export function ModelsConfig({ cwd, onClose, embedded = false, onModelsChanged }
   const [oauthProviders, setOauthProviders] = useState<OAuthProvider[]>([]);
   const [apiKeyProviders, setApiKeyProviders] = useState<ApiKeyProvider[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [limitsOpen, setLimitsOpen] = useState(false);
 
   const loadOAuthProviders = useCallback(() => {
     fetch("/api/auth/providers")
@@ -1966,28 +1968,12 @@ export function ModelsConfig({ cwd, onClose, embedded = false, onModelsChanged }
           <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
              <span style={{ fontSize: 15, fontWeight: 700, color: "var(--text)" }}>{t("common.models")}</span>
             <code style={{ fontSize: 11, color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>~/.momp/agent/models.yml</code>
-            <button onClick={async () => {
-              try {
-                const res = await fetch("/api/models-config/limits");
-                const data = await res.json();
-                if (data.limits && data.limits.length > 0) {
-                  const text = data.limits.map((l: any) => {
-                    let line = `• ${l.agent || l.provider}: ${l.remaining}`;
-                    if (l.details) line += `\n  (${l.details})`;
-                    if (l.error) line += `\n  [Ошибка: ${l.error}]`;
-                    return line;
-                  }).join("\n\n");
-                  alert("📊 Статус лимитов и баланса авторизованных агентов:\n\n" + text);
-                } else {
-                  alert("Нет подключенных провайдеров для проверки лимитов.");
-                }
-              } catch (e) {
-                alert("Ошибка при запросе лимитов");
-              }
-            }} style={{ fontSize: 12, padding: "2px 8px", background: "none", border: "1px solid var(--border)", borderRadius: 4, cursor: "pointer", color: "var(--text-muted)" }}>Лимиты</button>
+            <button onClick={() => setLimitsOpen(true)} style={{ fontSize: 12, padding: "2px 8px", background: "none", border: "1px solid var(--border)", borderRadius: 4, cursor: "pointer", color: "var(--text-muted)" }}>Лимиты</button>
           </div>
           <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", fontSize: 20, lineHeight: 1, padding: "2px 6px" }}>×</button>
         </div>
+
+        {limitsOpen && <LimitsModal onClose={() => setLimitsOpen(false)} />}
 
         {/* Body */}
         <div style={{ flex: 1, display: "flex", flexDirection: isMobile ? "column" : "row", overflow: "hidden" }}>

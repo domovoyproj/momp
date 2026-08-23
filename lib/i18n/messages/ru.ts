@@ -10,6 +10,8 @@ export const ruLocale: LocalePlugin = {
     "common.skills": "Навыки",
     "common.plugins": "Плагины",
     "common.settings": "Настройки",
+    "settings.themes": "Темы оформления",
+    "settings.themesDesc": "Веб-интерфейс использует те же темы, что и momp. Изменения сохраняются в ~/.momp/agent/config.yml и применяются сразу.",
     "updates.available": "Доступно обновление momp-web",
     "updates.availableTitle": "Доступна версия momp-web {version}",
     "updates.dialogEyebrow": "Релиз momp-web",

@@ -11,6 +11,8 @@ export const enLocale: LocalePlugin = {
     "common.skills": "Skills",
     "common.plugins": "Plugins",
     "common.settings": "Settings",
+    "settings.themes": "Themes",
+    "settings.themesDesc": "The web interface uses the same themes as momp. Changes are saved to ~/.momp/agent/config.yml and applied immediately.",
     "updates.available": "momp-web update available",
     "updates.availableTitle": "momp-web {version} is available",
     "updates.dialogEyebrow": "momp-web release",
