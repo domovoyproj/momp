@@ -1,0 +1,9 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "bundle": {
+    "resources": {
+      "./server/bun-darwin-aarch64": "bun-darwin-aarch64",
+      "./server/bun-darwin-x64": "bun-darwin-x64"
+    }
+  }
+}

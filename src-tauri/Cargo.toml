@@ -1,0 +1,18 @@
+[package]
+name = "omp-desktop"
+version = "0.2.10"
+description = "Tauri v2 desktop shell for omp-web"
+authors = ["omp-web contributors"]
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/ddallabenetta/omp-web"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-opener = "2"
+tauri-plugin-updater = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
