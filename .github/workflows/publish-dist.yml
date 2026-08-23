@@ -1,0 +1,47 @@
+name: Publish dist release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tag to attach the dist asset to
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: dist-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build and attach prebuilt dist
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.2.x"
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Build
+        run: bun run build
+      - name: Pack prebuilt dist
+        run: >-
+          tar --exclude='.next/cache' --exclude='.next/dev'
+          -czf momp-web-dist.tar.gz
+          .next public bin next.config.ts package.json bun.lock
+      - name: Attach to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag || github.ref_name }}
+          files: momp-web-dist.tar.gz
