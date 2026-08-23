@@ -39,7 +39,7 @@ jobs:
         run: >-
           tar --exclude='.next/cache' --exclude='.next/dev'
           -czf momp-web-dist.tar.gz
-          .next public bin next.config.ts package.json bun.lock
+          .next public bin next.config.js package.json bun.lock
       - name: Attach to release
         uses: softprops/action-gh-release@v2
         with:
