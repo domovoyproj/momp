@@ -1134,13 +1134,13 @@ function ModelDetail({
           />
           <div>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-              <SectionTitle>Thinking level map</SectionTitle>
+              <SectionTitle>Маппинг уровней размышлений (Thinking level map)</SectionTitle>
               {model.thinkingLevelMap && (
                 <button
                   onClick={() => set("thinkingLevelMap", undefined)}
                   style={{ fontSize: 10, padding: "2px 7px", background: "none", border: "1px solid var(--border)", borderRadius: 4, color: "var(--text-dim)", cursor: "pointer" }}
                 >
-                  clear all
+                  очистить все
                 </button>
               )}
             </div>
@@ -1164,7 +1164,7 @@ function ModelDetail({
       </div>
 
       <div>
-        <SectionTitle>Cost (per million tokens)</SectionTitle>
+        <SectionTitle>Стоимость (за миллион токенов)</SectionTitle>
         <div style={{ marginTop: 8, display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8 }}>
           {(["input", "output", "cacheRead", "cacheWrite"] as const).map((k) => (
             <Field key={k} label={k}>
@@ -1499,7 +1499,7 @@ function ApiKeyDetail({ provider, onRefresh }: { provider: ApiKeyProvider; onRef
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-         <SectionTitle>API Key</SectionTitle>
+        <SectionTitle>API-ключ</SectionTitle>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <span style={{ width: 7, height: 7, borderRadius: "50%", background: provider.configured ? "#4ade80" : "var(--border)", display: "inline-block" }} />
           <span style={{ fontSize: 11, color: provider.configured ? "#4ade80" : "var(--text-dim)" }}>
@@ -1510,11 +1510,11 @@ function ApiKeyDetail({ provider, onRefresh }: { provider: ApiKeyProvider; onRef
 
       <p style={{ margin: 0, fontSize: 12, color: "var(--text-muted)", lineHeight: 1.5 }}>
         {provider.configured
-          ? `API key is stored. Enter a new key below to replace it, or disconnect to remove it.`
-          : `Enter your ${provider.displayName} API key to enable ${provider.modelCount} model${provider.modelCount !== 1 ? "s" : ""}.`}
+          ? `API-ключ сохранен. Введите новый ключ ниже для замены или отключите провайдера для удаления.`
+          : `Введите API-ключ ${provider.displayName} для подключения моделей (${provider.modelCount}).`}
       </p>
 
-      <Field label="API Key">
+      <Field label="API-ключ">
         <div style={{ display: "flex", gap: 6 }}>
           <SecretTextInput
             value={apiKey}
@@ -1692,8 +1692,8 @@ function AddProviderPicker({
                   onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.background = "var(--bg-panel)"; }}
                 >
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>OpenAI / Anthropic compatible</div>
-                     <div style={{ fontSize: 10, color: "var(--text-dim)", marginTop: 2 }}>{t("i18n.customEndpoint")}</div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Совместимый с OpenAI / Anthropic</div>
+                    <div style={{ fontSize: 10, color: "var(--text-dim)", marginTop: 2 }}>Кастомный эндпоинт</div>
                   </div>
                   <span style={{ width: 26, height: 26, borderRadius: 5, background: "var(--bg-hover)", border: "1px dashed var(--border)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--text-dim)" }}>
@@ -1721,7 +1721,7 @@ function AddProviderPicker({
               ))}
 
               {availableApiKey.length > 0 && (
-                <div style={{ gridColumn: "1 / -1", paddingTop: availableOAuth.length > 0 ? 6 : 0, fontSize: 10, fontWeight: 600, color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.07em" }}>API Key</div>
+                <div style={{ gridColumn: "1 / -1", paddingTop: availableOAuth.length > 0 ? 6 : 0, fontSize: 10, fontWeight: 600, color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.07em" }}>API-ключ</div>
               )}
               {availableApiKey.map((p) => (
                 <button key={p.id} onClick={() => { onSelectApiKey(p.id); onClose(); }}
@@ -1731,7 +1731,7 @@ function AddProviderPicker({
                 >
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.displayName}</div>
-                    <div style={{ fontSize: 10, color: "var(--text-dim)", marginTop: 2 }}>{p.modelCount} models</div>
+                    <div style={{ fontSize: 10, color: "var(--text-dim)", marginTop: 2 }}>моделей: {p.modelCount}</div>
                   </div>
                   <ProviderIcon id={p.id} size={28} />
                 </button>
@@ -1971,7 +1971,15 @@ export function ModelsConfig({ cwd, onClose, embedded = false, onModelsChanged }
                 const res = await fetch("/api/models-config/limits");
                 const data = await res.json();
                 if (data.limits && data.limits.length > 0) {
-                  alert("Остаток лимитов:\n" + data.limits.map((l: { agent: string, remaining: string }) => `${l.agent}: ${l.remaining}`).join("\n"));
+                  const text = data.limits.map((l: any) => {
+                    let line = `• ${l.agent || l.provider}: ${l.remaining}`;
+                    if (l.details) line += `\n  (${l.details})`;
+                    if (l.error) line += `\n  [Ошибка: ${l.error}]`;
+                    return line;
+                  }).join("\n\n");
+                  alert("📊 Статус лимитов и баланса авторизованных агентов:\n\n" + text);
+                } else {
+                  alert("Нет подключенных провайдеров для проверки лимитов.");
                 }
               } catch (e) {
                 alert("Ошибка при запросе лимитов");

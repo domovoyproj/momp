@@ -1,24 +1,13 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { checkProviderLimits } from "@/lib/limits-checker";
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
     const url = new URL(request.url);
     const model = url.searchParams.get("model");
     
-    // In a real implementation, this would call provider APIs
-    // e.g., OpenAI /v1/dashboard/billing/subscription or OpenRouter /api/v1/auth/key
-    
-    // For now, return a mock response or indicate it's not supported
-    return NextResponse.json({
-      limits: [
-        {
-          agent: model || "all",
-          remaining: "Неизвестно (API провайдера не поддерживает запрос баланса)",
-          used: "N/A",
-          total: "N/A",
-        }
-      ]
-    });
+    const limits = await checkProviderLimits(model);
+    return NextResponse.json({ limits });
   } catch (error) {
     return NextResponse.json({ error: String(error) }, { status: 500 });
   }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useI18n } from "@/hooks/useI18n";
 import { ModelsConfig } from "./ModelsConfig";
 import { SkillsConfig } from "./SkillsConfig";
 import { PluginsConfig } from "./PluginsConfig";
@@ -194,7 +195,7 @@ export function SettingsConfig({ cwd, sessionId, initialSection = "models", onCl
   const [needsReload, setNeedsReload] = useState(false);
   const [reloading, setReloading] = useState(false);
   const { theme, toggleTheme } = useTheme();
-
+  const { t } = useI18n();
   const loadSettings = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
@@ -271,15 +272,15 @@ export function SettingsConfig({ cwd, sessionId, initialSection = "models", onCl
   };
 
   const renderThemeSection = () => {
-    if (!settings) return <div className={styles.empty}>{loading ? "Loading themes…" : loadError ?? "Themes unavailable"}</div>;
+    if (!settings) return <div className={styles.empty}>{loading ? (t("common.loading") || "Загрузка тем…") : loadError ?? (t("common.unavailable") || "Темы недоступны")}</div>;
     return (
       <div className={styles.scrollContent}>
-        <header className={styles.contentHeader}><h2 className={styles.contentTitle}>Themes</h2><p className={styles.contentDescription}>The web interface uses the same dark and light theme mappings as omp. Changes are persisted to <code>~/.omp/agent/config.yml</code> and applied here immediately.</p></header>
+        <header className={styles.contentHeader}><h2 className={styles.contentTitle}>{t("settings.themes") || "Темы оформления"}</h2><p className={styles.contentDescription}>{t("settings.themesDesc") || "Веб-интерфейс использует те же темы, что и momp. Изменения сохраняются в ~/.momp/agent/config.yml и применяются сразу."}</p></header>
         <div className={styles.settingsBody}>
           <div className={styles.themeGrid}>{(["dark", "light"] as const).map((mode) => {
             const field = settings.fields.find((item) => item.path === `theme.${mode}`)!;
             const palette = settings.theme.palettes[mode];
-            return <div className={styles.themeCard} key={mode}><ThemePreview palette={palette} /><div className={styles.themeCardBody}><div className={styles.themeCardHeader}><span className={styles.themeSlot}>{mode} mapping</span>{theme === mode && <span className={styles.themeActive}>Active on web</span>}</div><SearchableSelect value={String(field.value)} disabled={saving.has(field.path)} ariaLabel={`${mode} theme`} options={(field.options ?? []).map((option) => ({ value: option.value, label: option.label, description: option.description }))} onChange={(value) => void saveSetting(field, value)} />{theme !== mode && <button type="button" className={styles.closeButton} style={{ marginTop: 8 }} onClick={() => toggleTheme()}>Preview {mode}</button>}</div></div>;
+            return <div className={styles.themeCard} key={mode}><ThemePreview palette={palette} /><div className={styles.themeCardBody}><div className={styles.themeCardHeader}><span className={styles.themeSlot}>{mode === "dark" ? "Темная тема" : "Светлая тема"}</span>{theme === mode && <span className={styles.themeActive}>Активна в веб</span>}</div><SearchableSelect value={String(field.value)} disabled={saving.has(field.path)} ariaLabel={`${mode} theme`} options={(field.options ?? []).map((option) => ({ value: option.value, label: option.label, description: option.description }))} onChange={(value) => void saveSetting(field, value)} />{theme !== mode && <button type="button" className={styles.closeButton} style={{ marginTop: 8 }} onClick={() => toggleTheme()}>Предпросмотр ({mode})</button>}</div></div>;
           })}</div>
           {renderFields(settings.fields.filter((field) => field.tab === "appearance" && field.group === "Theme" && !field.path.startsWith("theme.")), ["Theme"])}
         </div>
@@ -288,22 +289,22 @@ export function SettingsConfig({ cwd, sessionId, initialSection = "models", onCl
   };
 
   const renderGenericSettings = () => {
-    if (loading) return <div className={styles.empty}>Loading omp settings…</div>;
-    if (loadError || !settings) return <div className={styles.empty}>{loadError ?? "Settings unavailable"}</div>;
+    if (loading) return <div className={styles.empty}>{t("common.loading") || "Загрузка настроек momp…"}</div>;
+    if (loadError || !settings) return <div className={styles.empty}>{loadError ?? (t("common.unavailable") || "Настройки недоступны")}</div>;
     return (
       <div className={styles.scrollContent}>
         <header className={styles.contentHeader}>
           <h2 className={styles.contentTitle}>{pageTitle}</h2>
           <p className={styles.contentDescription}>
             {query.trim()
-              ? "Matching canonical /settings entries across every category."
-              : "Canonical omp /settings values. Changes are saved immediately to the shared agent configuration."}
+              ? "Найденные параметры настроек во всех категориях."
+              : "Настройки momp. Изменения сохраняются в конфигурации агента."}
           </p>
           {needsReload && sessionId && (
             <div className={styles.reloadNotice}>
-              <span>Saved. Reload the active session to apply runtime settings.</span>
+              <span>Сохранено. Перезагрузите активную сессию для применения.</span>
               <button type="button" onClick={() => void reloadActiveSession()} disabled={reloading}>
-                {reloading ? "Reloading…" : "Reload session"}
+                {reloading ? "Перезагрузка…" : "Перезагрузить сессию"}
               </button>
             </div>
           )}
@@ -311,25 +312,34 @@ export function SettingsConfig({ cwd, sessionId, initialSection = "models", onCl
         <div className={styles.settingsBody}>
           {filteredFields.length
             ? renderFields(filteredFields, selectedTab?.groups ?? [])
-            : <div className={styles.empty}>No settings match this search.</div>}
+            : <div className={styles.empty}>Настройки не найдены.</div>}
         </div>
       </div>
     );
   };
 
+  const coreSectionLabels: Record<string, string> = {
+    models: t("common.models") || "Модели",
+    themes: t("settings.themes") || "Темы",
+    skills: t("common.skills") || "Навыки",
+    plugins: t("common.plugins") || "Плагины",
+    mcp: "MCP",
+    access: "Доступ",
+  };
+
   return (
     <div className={styles.backdrop} onMouseDown={(event) => { if (event.target === event.currentTarget) close(); }}>
-      <div className={styles.window} role="dialog" aria-modal="true" aria-label="Settings">
+      <div className={styles.window} role="dialog" aria-modal="true" aria-label={t("common.settings") || "Настройки"}>
         <aside className={styles.sidebar}>
-          <div className={styles.brand}><div className={styles.eyebrow}>omp /settings</div><h1 className={styles.title}>Settings</h1><code className={styles.context} title={cwd ?? "Global configuration"}>{cwd ?? "Global configuration"}</code></div>
-          <div className={styles.searchWrap}><svg className={styles.searchIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input className={styles.search} value={query} placeholder="Search /settings" onChange={(event) => setQuery(event.target.value)} /></div>
+          <div className={styles.brand}><div className={styles.eyebrow}>momp /settings</div><h1 className={styles.title}>{t("common.settings") || "Настройки"}</h1><code className={styles.context} title={cwd ?? "Глобальная конфигурация"}>{cwd ?? "Глобальная конфигурация"}</code></div>
+          <div className={styles.searchWrap}><svg className={styles.searchIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input className={styles.search} value={query} placeholder="Поиск настроек..." onChange={(event) => setQuery(event.target.value)} /></div>
           <nav className={styles.nav}>
-            <div className={styles.navLabel}>Configuration</div>
-            {CORE_SECTIONS.map((item) => <button key={item.id} type="button" className={styles.navButton} data-active={!query && section === item.id} disabled={item.requiresCwd && !cwd} title={item.requiresCwd && !cwd ? `${item.label} requires a project` : item.label} onClick={() => { setQuery(""); setSection(item.id); }}><SettingsIcon kind={item.icon}/><span>{item.label}</span></button>)}
-            <div className={styles.navLabel}>OMP settings</div>
+            <div className={styles.navLabel}>Конфигурация</div>
+            {CORE_SECTIONS.map((item) => <button key={item.id} type="button" className={styles.navButton} data-active={!query && section === item.id} disabled={item.requiresCwd && !cwd} title={item.requiresCwd && !cwd ? `${coreSectionLabels[item.id] || item.label} требует открытого проекта` : (coreSectionLabels[item.id] || item.label)} onClick={() => { setQuery(""); setSection(item.id); }}><SettingsIcon kind={item.icon}/><span>{coreSectionLabels[item.id] || item.label}</span></button>)}
+            <div className={styles.navLabel}>Параметры MOMP</div>
             {settings?.tabs.map((tab) => <button key={tab.id} type="button" className={styles.navButton} data-active={!query && activeTab === tab.id} onClick={() => { setQuery(""); setSection(`settings:${tab.id}`); }}><SettingsIcon kind={tab.id}/><span>{tab.label}</span></button>)}
           </nav>
-          <div className={styles.closeRail}><button type="button" className={styles.closeButton} onClick={close}><span>Close settings</span><span aria-hidden="true">×</span></button></div>
+          <div className={styles.closeRail}><button type="button" className={styles.closeButton} onClick={close}><span>Закрыть настройки</span><span aria-hidden="true">×</span></button></div>
         </aside>
         <main className={styles.content}>
           {query.trim() ? renderGenericSettings() : section === "models" ? <ModelsConfig cwd={cwd} embedded onClose={close} onModelsChanged={onModelsChanged} /> : section === "themes" ? renderThemeSection() : section === "skills" && cwd ? <SkillsConfig cwd={cwd} embedded onClose={close} /> : section === "plugins" && cwd ? <PluginsConfig cwd={cwd} sessionId={sessionId} embedded onClose={close} onReloaded={onReloaded} /> : section === "mcp" ? <McpSettings cwd={cwd} sessionId={sessionId} onReloaded={onReloaded} /> : section === "access" ? <AccessConfig /> : renderGenericSettings()}

@@ -3,16 +3,16 @@ import type { MetadataRoute } from "next";
 export default function manifest(): MetadataRoute.Manifest {
   return {
     id: "/",
-    name: "omp-web",
-    short_name: "omp-web",
-    description: "Local web view for the omp (oh-my-pi) coding agent",
+    name: "momp max",
+    short_name: "momp",
+    description: "Веб-интерфейс для кодинг-агента momp (momp max)",
     start_url: "/",
     scope: "/",
     display: "standalone",
     background_color: "#151820",
     theme_color: "#151820",
     categories: ["developer", "productivity"],
-    lang: "en",
+    lang: "ru",
     icons: [
       {
         src: "/icons/icon-192.png",

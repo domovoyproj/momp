@@ -2532,13 +2532,23 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                 <button
                   onClick={async () => {
                     try {
-                      const res = await fetch("/api/models-config/limits" + (model?.modelId ? "?model=" + encodeURIComponent(model.modelId) : ""));
+                      const target = model ? (model.provider + "/" + model.modelId) : "";
+                      const res = await fetch("/api/models-config/limits" + (target ? "?model=" + encodeURIComponent(target) : ""));
                       const data = await res.json();
                       if (data.limits && data.limits.length > 0) {
-                        alert("Остаток лимита: " + data.limits[0].remaining);
+                        const info = data.limits[0];
+                        const lines = [
+                          `📊 Статус лимитов: ${info.agent || info.provider || "Текущая модель"}`,
+                          `Остаток / Квота: ${info.remaining}`,
+                        ];
+                        if (info.details) lines.push(`Информация: ${info.details}`);
+                        if (info.error) lines.push(`Ошибка: ${info.error}`);
+                        alert(lines.join("\n\n"));
+                      } else {
+                        alert("Не удалось получить информацию о лимитах для текущей модели.");
                       }
                     } catch (e) {
-                      alert("Ошибка при запросе лимитов");
+                      alert("Ошибка при запросе лимитов к API провайдера");
                     }
                   }}
                   style={{

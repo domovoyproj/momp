@@ -19,15 +19,15 @@ const MIN_PASSWORD_LENGTH = 8;
 
 function describeState(status: WebAccessStatus): string {
   if (status.managedByEnvironment) {
-    return "Every request needs the password from OMP_WEB_PASSWORD.";
+    return "Каждый запрос требует пароль из переменной MOMP_WEB_PASSWORD (или OMP_WEB_PASSWORD).";
   }
   if (status.unreadable) {
-    return "The credential file exists but could not be read, so every request is being refused.";
+    return "Файл учетных данных существует, но не может быть прочитан. Запросы отклоняются.";
   }
-  if (!status.configured) return "No password is set. Anyone who can reach this server can use it.";
+  if (!status.configured) return "Пароль не установлен. Любой пользователь в сети может открыть веб-интерфейс.";
   return status.enabled
-    ? "Every request needs the username and password."
-    : "A password is stored but the lock is off.";
+    ? "Каждый запрос требует имя пользователя и пароль."
+    : "Пароль сохранен, но защита паролем отключена.";
 }
 
 export function AccessConfig() {
@@ -106,7 +106,7 @@ export function AccessConfig() {
   }, [send]);
 
   if (!status) {
-    return <div className={styles.empty}>{loadError ?? "Loading password access…"}</div>;
+    return <div className={styles.empty}>{loadError ?? "Загрузка настроек доступа…"}</div>;
   }
 
   const readOnly = status.managedByEnvironment;
@@ -115,32 +115,30 @@ export function AccessConfig() {
   return (
     <div className={styles.scrollContent}>
       <header className={styles.contentHeader}>
-        <h2 className={styles.contentTitle}>Access</h2>
+        <h2 className={styles.contentTitle}>Защита доступа</h2>
         <p className={styles.contentDescription}>
-          A password locks the web interface and every API endpoint behind HTTP Basic Auth, with the fixed
-          username <code>{status.username}</code>. It is stored as a scrypt hash in <code>{status.file}</code> —
-          omp-web never keeps the password itself, which is why forgetting it means recovering rather than reading it back.
+          Пароль блокирует веб-интерфейс и все API-эндпоинты через HTTP Basic Auth со стандартным
+          именем пользователя <code>{status.username}</code>. Пароль хранится в виде scrypt-хэша в <code>{status.file}</code> —
+          momp-web не сохраняет пароль в открытом виде.
         </p>
         {readOnly && (
           <div className={styles.readOnlyNotice}>
-            Read-only · <code>OMP_WEB_PASSWORD</code> is set and overrides the stored credential. Unset it and restart
-            omp-web to manage the password here.
+            Только чтение · Переменная <code>MOMP_WEB_PASSWORD</code> активна и переопределяет сохраненный пароль.
           </div>
         )}
         {notice && (
           <div className={styles.reloadNotice}><span>{notice}</span></div>
         )}
       </header>
-
       <div className={styles.settingsBody}>
         <section className={styles.group}>
-          <h3 className={styles.groupTitle}>Password access</h3>
+          <h3 className={styles.groupTitle}>Защита паролем</h3>
           <div className={styles.settingRow}>
             <div>
-              <div className={styles.settingLabel}>Require a password</div>
+              <div className={styles.settingLabel}>Требовать пароль</div>
               <div className={styles.settingDescription}>{describeState(status)}</div>
               {!status.configured && !readOnly && (
-                <div className={styles.settingDescription}>Set a password below before turning this on.</div>
+                <div className={styles.settingDescription}>Установите пароль ниже перед включением.</div>
               )}
               {error && <div className={styles.error}>{error}</div>}
             </div>
@@ -159,12 +157,12 @@ export function AccessConfig() {
         </section>
 
         <section className={styles.group}>
-          <h3 className={styles.groupTitle}>{status.stored ? "Replace the password" : "Set a password"}</h3>
+          <h3 className={styles.groupTitle}>{status.stored ? "Сменить пароль" : "Установить пароль"}</h3>
           <div className={styles.settingRow}>
             <div>
-              <div className={styles.settingLabel}>New password</div>
+              <div className={styles.settingLabel}>Новый пароль</div>
               <div className={styles.settingDescription}>
-                At least {MIN_PASSWORD_LENGTH} characters. Saving a password also turns password access on.
+                Минимум {MIN_PASSWORD_LENGTH} символов. Сохранение пароля также активирует защиту.
               </div>
             </div>
             <div className={styles.settingControl}>
@@ -180,8 +178,8 @@ export function AccessConfig() {
           </div>
           <div className={styles.settingRow}>
             <div>
-              <div className={styles.settingLabel}>Confirm password</div>
-              <div className={styles.settingDescription}>Both entries have to match before it can be saved.</div>
+              <div className={styles.settingLabel}>Подтверждение пароля</div>
+              <div className={styles.settingDescription}>Оба поля должны совпадать.</div>
             </div>
             <div className={styles.settingControl}>
               <input
@@ -199,44 +197,42 @@ export function AccessConfig() {
             <div>
               <div className={styles.saveState}>
                 {status.stored && status.updatedAt
-                  ? `Last changed ${new Date(status.updatedAt).toLocaleString()}`
-                  : "No password stored yet"}
+                  ? `Изменен ${new Date(status.updatedAt).toLocaleString("ru-RU")}`
+                  : "Пароль еще не установлен"}
               </div>
             </div>
             <div style={{ display: "flex", gap: 8 }}>
               {status.stored && !readOnly && (
                 <button type="button" className={styles.dangerButton} disabled={busy} onClick={() => void clearPassword()}>
-                  Remove password
+                  Удалить пароль
                 </button>
               )}
               <button type="button" className={styles.primaryButton} disabled={!canSave} onClick={() => void savePassword()}>
-                {busy ? "Saving…" : "Save password"}
+                {busy ? "Сохранение…" : "Сохранить пароль"}
               </button>
             </div>
           </div>
         </section>
 
         <section className={styles.group}>
-          <h3 className={styles.groupTitle}>If you forget it</h3>
+          <h3 className={styles.groupTitle}>Восстановление доступа</h3>
           <div className={styles.settingRow}>
             <div>
-              <div className={styles.settingLabel}>Recovery</div>
+              <div className={styles.settingLabel}>Восстановление пароля</div>
               <div className={styles.settingDescription}>
-                Run <code>omp-web --reset-password</code> on this machine to set a new one, or open <code>/recover</code> in
-                the browser: omp-web prints a one-time code on its own console, and entering that code sets a new password.
-                Both paths require access to the machine running the server — nothing can hand the password back.
+                Выполните команду <code>momp-web --reset-password</code> на сервере или откройте страницу <code>/recover</code> в браузере.
+                Сервер выведет одноразовый проверочный код в терминал, ввод которого позволит задать новый пароль.
               </div>
             </div>
             <div className={styles.settingControl}>
-              <a className={styles.linkButton} href="/recover" target="_blank" rel="noreferrer">Open /recover</a>
+              <a className={styles.linkButton} href="/recover" target="_blank" rel="noreferrer">Открыть /recover</a>
             </div>
           </div>
           <div className={styles.settingRow}>
             <div>
-              <div className={styles.settingLabel}>Basic Auth is not encryption</div>
+              <div className={styles.settingLabel}>Безопасность Basic Auth</div>
               <div className={styles.settingDescription}>
-                The password crosses the network in a reversible encoding. Over plain HTTP on an untrusted network it can be
-                read in transit, so put omp-web behind HTTPS or a trusted VPN before exposing it beyond loopback.
+                При работе в публичной или недоверенной сети рекомендуется использовать HTTPS или VPN перед открытием доступа наружу.
               </div>
             </div>
             <div className={styles.settingControl} />

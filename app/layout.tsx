@@ -5,7 +5,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "momp max",
-  description: "Web view for the omp (oh-my-pi) coding agent",
+  description: "Веб-интерфейс для кодинг-агента momp (momp max)",
   applicationName: "momp max",
   manifest: "/manifest.webmanifest",
   icons: {
@@ -53,7 +53,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" translate="no" className="notranslate" suppressHydrationWarning>
+    <html lang="ru" translate="no" className="notranslate" suppressHydrationWarning>
       <head>
         <meta name="google" content="notranslate" />
         <script

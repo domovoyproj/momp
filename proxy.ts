@@ -15,16 +15,16 @@ const RECOVERY_API = "/api/web-access/recovery";
 
 const AUTHENTICATE_HEADERS = {
   "Cache-Control": "no-store",
-  "WWW-Authenticate": 'Basic realm="omp-web", charset="UTF-8"',
+  "WWW-Authenticate": 'Basic realm="momp-web", charset="UTF-8"',
 };
 
 function unauthorizedPage(): string {
   return `<!doctype html>
-<html lang="en">
+<html lang="ru">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>omp-web · authentication required</title>
+<title>momp-web · требуется авторизация</title>
 <style>
   :root { color-scheme: dark light; }
   body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #14161a; color: #e6e8ea;
@@ -38,10 +38,9 @@ function unauthorizedPage(): string {
 </head>
 <body>
 <main>
-  <h1>Authentication required</h1>
-  <p>omp-web is locked. Reload the page and sign in with the username <code>omp</code> and your password.</p>
-  <p>Forgot it? <a href="${RECOVERY_PAGE}">Recover access</a> — you will need to read a one-time code off the console
-     of the machine running omp-web.</p>
+  <h1>Требуется авторизация</h1>
+  <p>momp-web защищен паролем. Перезагрузите страницу и войдите под именем пользователя <code>momp</code> и вашим паролем.</p>
+  <p>Забыли пароль? <a href="${RECOVERY_PAGE}">Восстановить доступ</a> — потребуется ввести проверочный код из консоли сервера momp-web.</p>
 </main>
 </body>
 </html>
@@ -69,8 +68,8 @@ export function proxy(request: NextRequest) {
   const decision = authorizeWebRequest(request.headers.get("authorization"));
 
   if (decision === "unavailable") {
-    const message = "Password access is enabled but the omp-web credential file could not be read."
-      + " Run `omp-web --reset-password` on the server to set a new password.";
+    const message = "Защита паролем включена, но файл учетных данных momp-web не может быть прочитан."
+      + " Выполните команду `momp-web --reset-password` на сервере для сброса пароля.";
     return isApiRequest
       ? NextResponse.json({ error: message }, { status: 503, headers: { "Cache-Control": "no-store" } })
       : new NextResponse(message, { status: 503, headers: { "Cache-Control": "no-store" } });

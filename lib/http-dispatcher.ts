@@ -43,7 +43,7 @@ function createUndiciClient(
   options: object,
 ): Undici.Dispatcher {
   return withUndiciErrorListener(
-    new undici.Client(origin, options as Undici.Client.Options),
+    new undici.Client(String(origin), options as Undici.Client.Options),
   );
 }
 
@@ -58,7 +58,7 @@ function createUndiciOriginDispatcher(
   }
 
   return withUndiciErrorListener(
-    new undici.Pool(origin, {
+    new undici.Pool(String(origin), {
       ...dispatcherOptions,
       factory: (factoryOrigin, factoryOptions) =>
         createUndiciClient(undici, factoryOrigin, factoryOptions),

@@ -5,9 +5,8 @@ import { getLocalePlugin, getSupportedLocales, resolveBrowserLocale } from "@/li
 import { translateMessage } from "@/lib/i18n/format";
 import type { Locale, LocalePlugin, TranslationParams } from "@/lib/i18n/types";
 
-const LOCALE_STORAGE_KEY = "pi-locale";
+const LOCALE_STORAGE_KEY = "momp-locale";
 const defaultLocale: Locale = "ru";
-
 interface I18nContextValue {
   locale: Locale;
   setLocale: (locale: Locale) => void;
@@ -29,7 +28,7 @@ function readInitialLocale(): Locale {
     const stored = window.localStorage.getItem(LOCALE_STORAGE_KEY);
     if (stored === "en" || stored === "zh-CN" || stored === "ru") return stored as Locale;
   } catch {
-    // 隐私模式或存储不可用时继续使用浏览器语言。
+    // storage error fallback
   }
   return resolveBrowserLocale(window.navigator.languages.length ? window.navigator.languages : [window.navigator.language]);
 }

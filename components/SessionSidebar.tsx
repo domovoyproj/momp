@@ -419,10 +419,8 @@ function PiWebTitle() {
   const [showVersion, setShowVersion] = useState(false);
   const [scrambling, setScrambling] = useState(false);
   const revertTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const target = showVersion ? `${process.env.NEXT_PUBLIC_APP_VERSION ?? "0.0.0"}/${process.env.NEXT_PUBLIC_OMP_VERSION ?? "0.0.0"}` : "omp";
+  const target = showVersion ? `${process.env.NEXT_PUBLIC_APP_VERSION ?? "0.0.0"}` : "momp";
   const display = useScramble(target, scrambling);
-
   const triggerScramble = useCallback((toVersion: boolean) => {
     setShowVersion(toVersion);
     setScrambling(true);

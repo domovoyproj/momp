@@ -34,9 +34,9 @@ export function getSupportedLocales(): string[] {
 export function resolveBrowserLocale(languages: readonly string[]): Locale {
   for (const language of languages) {
     const normalized = language.toLowerCase();
-    if (normalized === "en" || normalized.startsWith("en-")) return "en";
-    if (normalized === "zh" || normalized.startsWith("zh-")) return "zh-CN";
     if (normalized === "ru" || normalized.startsWith("ru-")) return "ru";
+    if (normalized === "zh" || normalized.startsWith("zh-")) return "zh-CN";
+    if (normalized === "en" || normalized.startsWith("en-")) return "en";
   }
   return "ru";
 }

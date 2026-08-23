@@ -2,13 +2,13 @@
   "name": "momp-web",
   "version": "0.2.14",
   "description": "Web view for the momp coding agent CLI",
-  "homepage": "https://github.com/ddallabenetta/momp-web#readme",
+  "homepage": "https://github.com/domovoyproj/momp#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ddallabenetta/momp-web.git"
+    "url": "git+https://github.com/domovoyproj/momp.git"
   },
   "bugs": {
-    "url": "https://github.com/ddallabenetta/momp-web/issues"
+    "url": "https://github.com/domovoyproj/momp/issues"
   },
   "keywords": [
     "omp",
@@ -22,8 +22,9 @@
     "bun": ">=1.3.14"
   },
   "bin": {
-    "momp": "bin/omp-web.js",
-    "momp-web": "bin/omp-web.js"
+    "momp": "bin/momp.js",
+    "momp-web": "bin/momp-web.js",
+    "omp-web": "bin/omp-web.js"
   },
   "files": [
     "bin",
