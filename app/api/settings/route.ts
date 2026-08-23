@@ -13,6 +13,7 @@ import {
   TAB_METADATA,
   type SettingPath,
 } from "@oh-my-pi/pi-coding-agent/config/settings-schema";
+import { translateTabLabel, translateGroupTitle, translateField } from "@/lib/i18n/settings-translations";
 import { getOmpRuntime, getSettingsForCwd } from "@/lib/omp-runtime";
 import { getAllowedFileRoots, isExistingFilePathAllowed } from "@/lib/file-access";
 import { getAvailableWebThemes, getWebThemeConfig } from "@/lib/omp-theme";
@@ -135,12 +136,13 @@ export async function GET(req: Request) {
         const ui = getUi(path);
         if (!fieldType || !ui) continue;
         const secret = isCredential(path);
+        const trans = translateField(path, ui.label, ui.description);
         fields.push({
           path,
           tab,
-          group: ui.group,
-          label: ui.label,
-          description: ui.description,
+          group: translateGroupTitle(ui.group || ""),
+          label: trans.label,
+          description: trans.description || ui.description,
           type: fieldType,
           value: secret ? null : serializableValue(settings.get(path)),
           defaultValue: secret ? null : serializableValue(getDefault(path)),
@@ -153,7 +155,11 @@ export async function GET(req: Request) {
     }
 
     const response: SettingsResponse = {
-      tabs: SETTING_TABS.map((id) => ({ id, label: TAB_METADATA[id].label, groups: [...TAB_GROUPS[id]] })),
+      tabs: SETTING_TABS.map((id) => ({
+        id,
+        label: translateTabLabel(id, TAB_METADATA[id].label),
+        groups: [...TAB_GROUPS[id]].map(translateGroupTitle),
+      })),
       fields,
       availableThemes,
       theme,
