@@ -33,6 +33,8 @@ export const zhCNLocale: LocalePlugin = {
     "history.full": "完整历史",
     "history.unsaved": "会话保存后才能查看完整历史",
     "history.label": "完整历史",
+    "limits.label": "额度",
+    "limits.check": "检查额度",
     "title.generating": "正在生成...",
     "title.updated": "标题已更新",
     "title.failed": "生成失败",

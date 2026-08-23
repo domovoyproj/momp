@@ -430,7 +430,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
 
-  const toggleVoiceInput = useCallback(() => {
+  const toggleVoiceInput = useCallback(async () => {
     if (typeof window === "undefined") return;
     const win = window as unknown as {
       SpeechRecognition?: SpeechRecognitionConstructor;
@@ -455,29 +455,39 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     }
 
     try {
+      if (navigator.mediaDevices?.getUserMedia) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          stream.getTracks().forEach((track) => track.stop());
+        } catch (micErr) {
+          console.warn("Microphone access denied or error:", micErr);
+        }
+      }
+
       const recognition = new SpeechRecognitionClass();
       recognition.continuous = true;
       recognition.interimResults = true;
       recognition.lang = locale === "ru" ? "ru-RU" : locale === "zh-CN" ? "zh-CN" : "en-US";
 
-      let finalTranscript = "";
+      const baseText = value.trim();
+      let accumulatedFinal = "";
 
       recognition.onresult = (event: SpeechRecognitionEventLike) => {
-        let interim = "";
+        let currentInterim = "";
         for (let i = event.resultIndex; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            finalTranscript += event.results[i][0].transcript;
-          } else {
-            interim += event.results[i][0].transcript;
+          const res = event.results[i];
+          if (res && res[0]) {
+            if (res.isFinal) {
+              accumulatedFinal += (accumulatedFinal ? " " : "") + res[0].transcript.trim();
+            } else {
+              currentInterim += (currentInterim ? " " : "") + res[0].transcript.trim();
+            }
           }
         }
-        const textToAppend = (finalTranscript || interim).trim();
-        if (textToAppend) {
-          setValue((prev) => {
-            const separator = prev.length > 0 && !prev.endsWith(" ") && !prev.endsWith("\n") ? " " : "";
-            return prev + separator + textToAppend;
-          });
-          finalTranscript = "";
+        const spoken = [accumulatedFinal, currentInterim].filter(Boolean).join(" ").trim();
+        if (spoken) {
+          const prefix = baseText ? `${baseText} ` : "";
+          setValue(prefix + spoken);
         }
       };
 
@@ -497,7 +507,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       console.error("Failed to start speech recognition:", err);
       setIsListening(false);
     }
-  }, [isListening, locale, setValue, t]);
+  }, [isListening, locale, setValue, t, value]);
 
   useEffect(() => {
     return () => {

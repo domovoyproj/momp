@@ -35,6 +35,8 @@ export const enLocale: LocalePlugin = {
     "history.full": "Full history",
     "history.unsaved": "Full history is available after the session is saved",
     "history.label": "Full history",
+    "limits.label": "Limits",
+    "limits.check": "Check limits",
     "title.generating": "Generating...",
     "title.updated": "Title updated",
     "title.failed": "Generation failed",

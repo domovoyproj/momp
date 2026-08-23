@@ -9,6 +9,7 @@ import { ChatWindow } from "./ChatWindow";
 import { FileViewer } from "./FileViewer";
 import { TabBar, type Tab } from "./TabBar";
 import { SettingsConfig } from "./SettingsConfig";
+import { LimitsModal } from "./LimitsModal";
 import { ProjectTrustDialog } from "./ProjectTrustDialog";
 import { OmpUpdateIndicator } from "./OmpUpdateIndicator";
 import { BranchNavigator } from "./BranchNavigator";
@@ -84,6 +85,7 @@ export function AppShell() {
   const [explorerRefreshKey, setExplorerRefreshKey] = useState(0);
   const [modelsRefreshKey, setModelsRefreshKey] = useState(0);
   const [settingsConfigOpen, setSettingsConfigOpen] = useState(false);
+  const [limitsOpen, setLimitsOpen] = useState(false);
   const [projectTrust, setProjectTrust] = useState<ProjectTrustStatus | null>(null);
   const [projectTrustDialogOpen, setProjectTrustDialogOpen] = useState(false);
   const [projectTrustBusy, setProjectTrustBusy] = useState(false);
@@ -1332,6 +1334,52 @@ export function AppShell() {
                 </svg>
                  {!isMobile && <span>{translate("system.label")}</span>}
               </button>
+              <button
+                type="button"
+                onClick={() => setLimitsOpen(true)}
+                title={translate("limits.check")}
+                aria-label={translate("limits.label")}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  height: "100%",
+                  padding: "0 12px",
+                  background: "none",
+                  border: "none",
+                  borderTop: "2px solid transparent",
+                  borderRight: "1px solid var(--border)",
+                  cursor: "pointer",
+                  color: "var(--text-muted)",
+                  fontSize: 11,
+                  whiteSpace: "nowrap",
+                  transition: "color 0.1s, background 0.1s",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = "var(--text)";
+                  e.currentTarget.style.background = "var(--bg-hover)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = "var(--text-muted)";
+                  e.currentTarget.style.background = "none";
+                }}
+              >
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  style={{ flexShrink: 0 }}
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="12 6 12 12 16 14" />
+                </svg>
+                {!isMobile && <span>{translate("limits.label")}</span>}
+              </button>
             </div>
           )}
           {/* Session stats — right-aligned in top bar */}
@@ -1960,6 +2008,9 @@ export function AppShell() {
         onModelsChanged={() => setModelsRefreshKey((key) => key + 1)}
         onReloaded={() => setSessionKey((key) => key + 1)}
       />
+    )}
+    {limitsOpen && (
+      <LimitsModal onClose={() => setLimitsOpen(false)} />
     )}
     {projectTrustDialogOpen && projectTrustCwd && (
       <ProjectTrustDialog

@@ -34,6 +34,8 @@ export const ruLocale: LocalePlugin = {
     "history.full": "Полная история",
     "history.unsaved": "Полная история доступна после сохранения сессии",
     "history.label": "Полная история",
+    "limits.label": "Лимиты",
+    "limits.check": "Проверить лимиты",
     "title.generating": "Генерация...",
     "title.updated": "Название обновлено",
     "title.failed": "Ошибка генерации",
