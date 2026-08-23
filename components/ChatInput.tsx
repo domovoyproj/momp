@@ -494,6 +494,11 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       recognition.onerror = (event: SpeechRecognitionErrorEventLike) => {
         console.warn("Speech recognition error:", event?.error);
         setIsListening(false);
+        if (event?.error === "network") {
+          alert(t("chat.voiceNetworkError"));
+        } else if (event?.error === "not-allowed" || event?.error === "service-not-allowed") {
+          alert(t("chat.voicePermissionError"));
+        }
       };
 
       recognition.onend = () => {

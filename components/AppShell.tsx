@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useGlobalKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { SessionSidebar } from "./SessionSidebar";
@@ -498,7 +498,7 @@ export function AppShell() {
     if (selectedSession) {
       setChatTabs((prev) => {
         const existingIdx = prev.findIndex((t) => t.id === selectedSession.id);
-        const sessionName = selectedSession.name || "Диалог";
+        const sessionName = selectedSession.name || selectedSession.firstMessage?.slice(0, 24) || "Диалог";
         const sessionCwd = selectedSession.cwd || "";
         if (existingIdx !== -1) {
           if (prev[existingIdx].name !== sessionName) {
@@ -518,6 +518,18 @@ export function AppShell() {
       });
     }
   }, [selectedSession, newSessionCwd]);
+
+  const activeChatTabs = useMemo(() => {
+    if (chatTabs.length > 0) return chatTabs;
+    if (selectedSession) {
+      const name = selectedSession.name || selectedSession.firstMessage?.slice(0, 24) || "Диалог";
+      return [{ id: selectedSession.id, name, cwd: selectedSession.cwd || "" }];
+    }
+    if (newSessionCwd) {
+      return [{ id: `new:${newSessionCwd}`, name: "Новый диалог", cwd: newSessionCwd }];
+    }
+    return [];
+  }, [chatTabs, selectedSession, newSessionCwd]);
 
   const handleSelectChatTab = useCallback((tab: ChatTabItem) => {
     if (tab.id.startsWith("new:")) {
@@ -1745,7 +1757,7 @@ export function AppShell() {
         {/* Chat content */}
         <div className="chat-content-layout">
           <div className="chat-session-column">
-          {chatTabs.length > 0 && (
+          {activeChatTabs.length > 0 && (
             <div style={{
               display: "flex",
               alignItems: "flex-end",
@@ -1756,7 +1768,7 @@ export function AppShell() {
               height: 34,
               paddingLeft: 4,
             }}>
-              {chatTabs.map((tab) => {
+              {activeChatTabs.map((tab: ChatTabItem) => {
                 const isActive = selectedSession?.id === tab.id || (tab.id.startsWith("new:") && newSessionCwd !== null);
                 return (
                   <div

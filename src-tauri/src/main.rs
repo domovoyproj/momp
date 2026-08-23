@@ -16,6 +16,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use tauri::{AppHandle, Manager, Url};
+use tauri_plugin_updater::UpdaterExt;
 
 const WINDOW_LABEL: &str = "main";
 const HOST: &str = "127.0.0.1";
@@ -110,9 +111,10 @@ fn main() {
             }
             if !tauri::is_dev() {
                 if let Err(error) = start_server(app) {
-                    desktop_log(&format!("[omp-desktop] failed to start the bundled server: {error}"));
+                    desktop_log(&format!("[momp-desktop] failed to start the bundled server: {error}"));
                     app.handle().exit(1);
                 }
+                check_for_updates(app.handle().clone());
             }
             Ok(())
         })
@@ -128,6 +130,42 @@ fn main() {
                 }
             }
         });
+}
+
+/// Checks the configured updater endpoint on startup and, when a newer signed
+/// release exists, downloads + installs it silently and restarts. The web
+/// frontend is plain HTML served over loopback and never calls the Tauri
+/// updater JS API, so the check has to be driven from Rust; run it off the main
+/// thread so a slow or unreachable endpoint never delays window startup.
+fn check_for_updates(handle: AppHandle) {
+    tauri::async_runtime::spawn(async move {
+        let updater = match handle.updater() {
+            Ok(updater) => updater,
+            Err(error) => {
+                desktop_log(&format!("[momp-desktop] updater unavailable: {error}"));
+                return;
+            }
+        };
+        match updater.check().await {
+            Ok(Some(update)) => {
+                desktop_log(&format!(
+                    "[momp-desktop] update {} available — downloading",
+                    update.version
+                ));
+                match update.download_and_install(|_, _| {}, || {}).await {
+                    Ok(()) => {
+                        desktop_log("[momp-desktop] update installed — restarting");
+                        handle.restart();
+                    }
+                    Err(error) => {
+                        desktop_log(&format!("[momp-desktop] update install failed: {error}"));
+                    }
+                }
+            }
+            Ok(None) => desktop_log("[momp-desktop] already up to date"),
+            Err(error) => desktop_log(&format!("[momp-desktop] update check failed: {error}")),
+        }
+    });
 }
 
 fn start_server(app: &mut tauri::App) -> Result<(), String> {
