@@ -1,6 +1,9 @@
 # === momp max Installer for Windows PowerShell ===
 $ErrorActionPreference = "Stop"
 
+# Переходим в домашнюю папку, чтобы не блокировать .momp-app текущим процессом терминала
+Set-Location $HOME
+
 Write-Host "==========================================" -ForegroundColor Cyan
 Write-Host "       Установка momp max                 " -ForegroundColor Cyan
 Write-Host "==========================================" -ForegroundColor Cyan
@@ -8,7 +11,6 @@ Write-Host "==========================================" -ForegroundColor Cyan
 $repo = "domovoyproj/momp"
 $installDir = "$HOME\.momp-app"
 $distUrl = "https://github.com/$repo/releases/latest/download/momp-web-dist.tar.gz"
-
 # 1. Проверка наличия Bun
 $bunInstalled = (Get-Command bun -ErrorAction SilentlyContinue)
 if (-not $bunInstalled) {
@@ -56,9 +58,11 @@ try {
     $tarExe = (Get-Command tar -ErrorAction SilentlyContinue)
     if (-not $tarExe) { throw "tar недоступен" }
     Write-Host "      → Скачивание готового пакета..." -ForegroundColor Cyan
-    Invoke-WebRequest -Uri $distUrl -OutFile $tarPath -UseBasicParsing
-    if (Test-Path $installDir) { Remove-Item -Recurse -Force $installDir }
-    New-Item -ItemType Directory -Path $installDir -Force | Out-Null
+    if (-not (Test-Path $installDir)) {
+        New-Item -ItemType Directory -Path $installDir -Force | Out-Null
+    } else {
+        Get-ChildItem -Path $installDir -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+    }
     Write-Host "      → Распаковка..." -ForegroundColor Cyan
     tar -xzf $tarPath -C $installDir
     Remove-Item -Force $tarPath -ErrorAction SilentlyContinue
@@ -109,9 +113,13 @@ if ($prebuilt) {
     Write-Host "[3/3] Установка зависимостей и сборка проекта..." -ForegroundColor Yellow
     Write-Host "      → Установка пакетов (Bun)..." -ForegroundColor Cyan
     try { & bun install --frozen-lockfile } catch { & bun install }
-    Write-Host "      → Сборка веб-интерфейса (Next.js)..." -ForegroundColor Cyan
     $env:OMP_WEB_FAST_BUILD = "1"
     & bun run build
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "Ошибка при сборке проекта." -ForegroundColor Red
+        Pop-Location
+        Exit 1
+    }
     Pop-Location
 }
 

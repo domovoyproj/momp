@@ -24,6 +24,7 @@ const nextConfig = {
   // Desktop builds (scripts/stage-desktop.mjs) redirect the production build
   // into src-tauri/server/.next so packaging never touches the dev `.next/`.
   distDir: process.env.OMP_WEB_DIST_DIR || ".next",
+  outputFileTracingRoot: __dirname,
   // The end-user installer sets OMP_WEB_FAST_BUILD=1 to skip type checks during
   // `next build` (a dev/CI concern via `bun run typecheck`), which only slows a
   // user's first install. Next 16 no longer supports an `eslint` config key and
