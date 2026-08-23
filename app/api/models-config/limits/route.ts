@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { getModelRuntime } from "@/lib/omp-runtime";
 
 export async function GET(request: Request) {
   try {

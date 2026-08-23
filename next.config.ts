@@ -25,10 +25,10 @@ const nextConfig: NextConfig = {
   // Desktop builds (scripts/stage-desktop.mjs) redirect the production build
   // into src-tauri/server/.next so packaging never touches the dev `.next/`.
   distDir: process.env.OMP_WEB_DIST_DIR || ".next",
-  // The end-user installer sets OMP_WEB_FAST_BUILD=1 to skip lint/type checks
-  // during `next build`. These are developer/CI concerns (run via `bun run
-  // lint` / `bun run typecheck`) and only slow down a user's first install.
-  eslint: { ignoreDuringBuilds: process.env.OMP_WEB_FAST_BUILD === "1" },
+  // The end-user installer sets OMP_WEB_FAST_BUILD=1 to skip type checks during
+  // `next build` (a dev/CI concern via `bun run typecheck`), which only slows a
+  // user's first install. Next 16 no longer supports an `eslint` config key and
+  // does not run ESLint during `next build`, so nothing is needed for linting.
   typescript: { ignoreBuildErrors: process.env.OMP_WEB_FAST_BUILD === "1" },
   serverExternalPackages: [
     "undici",
