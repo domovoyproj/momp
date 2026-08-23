@@ -39,7 +39,7 @@ echo "[3/4] Установка зависимостей и сборка..."
 echo "      → Установка пакетов (Bun)..."
 bun install --frozen-lockfile || bun install
 echo "      → Сборка веб-интерфейса (Next.js)..."
-bun run build
+OMP_WEB_FAST_BUILD=1 bun run build
 # 4. Настройка глобальной команды
 echo "[4/4] Настройка команды momp..."
 mkdir -p "$INSTALL_DIR/cmd"

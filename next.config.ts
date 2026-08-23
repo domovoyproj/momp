@@ -25,6 +25,11 @@ const nextConfig: NextConfig = {
   // Desktop builds (scripts/stage-desktop.mjs) redirect the production build
   // into src-tauri/server/.next so packaging never touches the dev `.next/`.
   distDir: process.env.OMP_WEB_DIST_DIR || ".next",
+  // The end-user installer sets OMP_WEB_FAST_BUILD=1 to skip lint/type checks
+  // during `next build`. These are developer/CI concerns (run via `bun run
+  // lint` / `bun run typecheck`) and only slow down a user's first install.
+  eslint: { ignoreDuringBuilds: process.env.OMP_WEB_FAST_BUILD === "1" },
+  typescript: { ignoreBuildErrors: process.env.OMP_WEB_FAST_BUILD === "1" },
   serverExternalPackages: [
     "undici",
     "@oh-my-pi/pi-coding-agent",

@@ -25,6 +25,31 @@ if (-not $bunInstalled) {
 # 2. Определение директории установки
 $installDir = "$HOME\.momp-app"
 Write-Host "[2/4] Загрузка исходного кода в $installDir..." -ForegroundColor Yellow
+# Ускорение: исключаем папки из проверки Защитника Windows.
+# Иначе антивирус синхронно сканирует каждый из ~50000 файлов при распаковке пакетов,
+# растягивая установку с секунд до 10-15 минут.
+function Test-Admin {
+    $id = [Security.Principal.WindowsIdentity]::GetCurrent()
+    (New-Object Security.Principal.WindowsPrincipal($id)).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+}
+$defenderPaths = @($installDir, "$HOME\.bun")
+try {
+    if (Test-Admin) {
+        Add-MpPreference -ExclusionPath $defenderPaths -ErrorAction SilentlyContinue
+        Write-Host "      Папки добавлены в исключения антивируса (ускорение установки)." -ForegroundColor DarkGray
+    } else {
+        Write-Host "      Запрашиваю права администратора, чтобы отключить сканирование антивирусом..." -ForegroundColor DarkGray
+        Write-Host "      (Подтвердите запрос UAC - это ускорит установку в 5-10 раз)" -ForegroundColor DarkGray
+        $excl = ($defenderPaths | ForEach-Object { "'$_'" }) -join ","
+        $cmd = "Add-MpPreference -ExclusionPath $excl -ErrorAction SilentlyContinue"
+        Start-Process powershell -Verb RunAs -WindowStyle Hidden -Wait -ArgumentList "-NoProfile","-Command",$cmd -ErrorAction Stop
+        Write-Host "      Готово: антивирус больше не замедляет установку." -ForegroundColor DarkGray
+    }
+} catch {
+    Write-Host "      Ускорение через антивирус пропущено (нет прав администратора)." -ForegroundColor DarkGray
+    Write-Host "      Совет: для мгновенной установки запустите PowerShell от имени администратора." -ForegroundColor DarkGray
+}
+
 
 $gitInstalled = (Get-Command git -ErrorAction SilentlyContinue)
 if ($gitInstalled) {
@@ -63,11 +88,6 @@ if ($gitInstalled) {
 Push-Location $installDir
 Write-Host "[3/4] Установка зависимостей и сборка проекта..." -ForegroundColor Yellow
 
-# Попытка добавить папки в исключения Защитника Windows для максимальной скорости (если запущен с правами админа)
-try {
-    Add-MpPreference -ExclusionPath $installDir, "$HOME\.bun" -ErrorAction SilentlyContinue
-} catch {}
-
 Write-Host "      → Установка пакетов (Bun)..." -ForegroundColor Cyan
 try {
     & bun install --frozen-lockfile
@@ -78,6 +98,7 @@ try {
 
 Write-Host "      → Сборка веб-интерфейса (Next.js)..." -ForegroundColor Cyan
 Write-Host "        (Компиляция обычно занимает 30-60 сек, пожалуйста, подождите)" -ForegroundColor DarkGray
+$env:OMP_WEB_FAST_BUILD = "1"
 & bun run build
 
 Pop-Location
