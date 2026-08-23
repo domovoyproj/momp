@@ -33,7 +33,8 @@
     "!.next/**/*.js.map",
     "public",
     "next.config.ts",
-    "package.json"
+    "package.json",
+    "bun.lock"
   ],
   "scripts": {
     "dev": "bun --bun next dev --webpack -H 127.0.0.1 -p 30141",
