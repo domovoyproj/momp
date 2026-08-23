@@ -1,4 +1,4 @@
-![Uploading image.png…]()
+<img width="1024" height="438" alt="image" src="https://github.com/user-attachments/assets/0ddc65e2-5e2d-4ce3-b255-3bc00974443b" />
 
 <p align="center">
   <a href="https://github.com/domovoyproj/momp/releases"><img src="https://img.shields.io/github/v/release/domovoyproj/momp?color=CB3837&colorA=222222&label=momp%20max" alt="version"></a>
