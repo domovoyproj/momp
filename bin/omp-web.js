@@ -28,7 +28,7 @@ const path = require("path");
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const fs = require("fs");
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { parseLaunchOptions } = require("./omp-web-options");
+const { parseLaunchOptions } = require("./momp-web-options");
 const {
   getWebAuthStatus,
   resolveWebAuthFile,
@@ -84,17 +84,17 @@ if (!bunPath) {
 function requireTerminal(flag) {
   if (isInteractive()) return;
   throw new Error([
-    `${flag} has to ask for a password, but omp-web is not attached to a terminal.`,
-    "Run omp-web once interactively to set the password, or pass OMP_WEB_PASSWORD in the environment.",
+    `${flag} has to ask for a password, but momp-web is not attached to a terminal.`,
+    "Run momp-web once interactively to set the password, or pass OMP_WEB_PASSWORD in the environment.",
   ].join("\n"));
 }
 
 async function setPasswordInteractively(intro) {
   console.log(intro);
-  console.log(`It is stored as a scrypt hash in ${webAuthFile} — omp-web never keeps the password itself.`);
+  console.log(`It is stored as a scrypt hash in ${webAuthFile} — momp-web never keeps the password itself.`);
   const password = await readNewPassword();
   const status = setWebPassword(password, { file: webAuthFile });
-  console.log(`Password saved. omp-web now asks for the username "${status.username}" and this password.`);
+  console.log(`Password saved. momp-web now asks for the username "${status.username}" and this password.`);
 }
 
 /**
@@ -113,7 +113,7 @@ async function configurePasswordAccess() {
       );
     }
     requireTerminal("--reset-password");
-    await setPasswordInteractively("Setting a new omp-web password.");
+    await setPasswordInteractively("Setting a new momp-web password.");
     return;
   }
 
@@ -132,18 +132,18 @@ async function configurePasswordAccess() {
   }
 
   requireTerminal("--authenticated");
-  await setPasswordInteractively("--authenticated was requested and no omp-web password has been set yet.");
+  await setPasswordInteractively("--authenticated was requested and no momp-web password has been set yet.");
 }
 
 function warnAboutExposure() {
   if (loopbackHostnames.has(hostname)) return;
   if (getWebAuthStatus({ file: webAuthFile }).enabled) {
     console.warn(
-      `Warning: omp-web is listening on ${hostname} with Basic Auth over HTTP. Use HTTPS or a trusted VPN to protect the password in transit.`,
+      `Warning: momp-web is listening on ${hostname} with Basic Auth over HTTP. Use HTTPS or a trusted VPN to protect the password in transit.`,
     );
   } else {
     console.warn(
-      `Warning: omp-web is listening on ${hostname} without authentication. Only use this on a trusted network, or start it with --authenticated.`,
+      `Warning: momp-web is listening on ${hostname} without authentication. Only use this on a trusted network, or start it with --authenticated.`,
     );
   }
 }
@@ -161,14 +161,14 @@ function startServer() {
       ...process.env,
       OMP_WEB_HOSTNAME: hostname,
       OMP_WEB_AUTH_FILE: webAuthFile,
-      // Preserve the directory from which `omp-web` was launched so relative
+      // Preserve the directory from which `momp-web` was launched so relative
       // project paths in the browser resolve against the user's shell cwd.
       OMP_WEB_LAUNCH_CWD: process.cwd(),
     },
   });
 
   child.on("error", (error) => {
-    console.error(`Failed to launch omp-web through Bun (${bunPath}): ${error.message}`);
+    console.error(`Failed to launch momp-web through Bun (${bunPath}): ${error.message}`);
     process.exit(1);
   });
 
