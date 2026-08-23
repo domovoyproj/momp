@@ -52,12 +52,14 @@ try {
 # (только ~275 production-пакетов, без сборки webpack на машине пользователя),
 # при неудаче — откат на сборку из исходников.
 $prebuilt = $false
-Write-Host "[2/3] Загрузка готовой сборки momp max..." -ForegroundColor Yellow
+Write-Host "[2/3] Загрузка momp max..." -ForegroundColor Yellow
 $tarPath = "$env:TEMP\momp-web-dist.tar.gz"
 try {
     $tarExe = (Get-Command tar -ErrorAction SilentlyContinue)
     if (-not $tarExe) { throw "tar недоступен" }
     Write-Host "      → Скачивание готового пакета..." -ForegroundColor Cyan
+    Invoke-WebRequest -Uri $distUrl -OutFile $tarPath -TimeoutSec 60
+    if (-not (Test-Path $tarPath) -or (Get-Item $tarPath).Length -lt 1000) { throw "файл пакета поврежден или не найден" }
     if (-not (Test-Path $installDir)) {
         New-Item -ItemType Directory -Path $installDir -Force | Out-Null
     } else {
@@ -69,7 +71,7 @@ try {
     if (-not (Test-Path "$installDir\.next")) { throw "в архиве нет .next" }
     $prebuilt = $true
 } catch {
-    Write-Host "      Готовая сборка недоступна ($($_.Exception.Message)), собираю из исходников..." -ForegroundColor DarkGray
+    Write-Host "      Сборка из исходников ($($_.Exception.Message))..." -ForegroundColor DarkGray
     Remove-Item -Force $tarPath -ErrorAction SilentlyContinue
 }
 
