@@ -19,54 +19,51 @@ The web view for [momp](https://github.com/can1357/momp). momp-web reads the ses
 It is not a separate agent: momp-web runs omp's own SDK in-process, against the same `~/.momp/agent` directory, so a session started in the terminal continues in the browser and back again.
 
 
-## Установка и запуск
+## ⚡ Быстрая установка в 1 команду
 
-momp-web работает на базе **Bun**. Убедитесь, что у вас установлен Bun 1.3.14 или новее.
+Вы можете установить и настроить **momp max** одной командой в терминале. Скрипт сам проверит и установит Bun, скачает последнюю версию приложения, выполнит сборку и сделает команду `momp` доступной из любой папки.
 
-### 1. Установка Bun
-
-**Для macOS / Linux:**
-```bash
-curl -fsSL https://bun.sh/install | bash
-```
-
-**Для Windows (в PowerShell):**
+### Для Windows (PowerShell):
+Откройте PowerShell и выполните:
 ```powershell
-powershell -c "irm bun.sh/install.ps1 | iex"
+irm https://raw.githubusercontent.com/domovoyproj/momp/main/install.ps1 | iex
 ```
 
-### 2. Установка momp max
-
-После установки Bun установите пакет глобально:
+### Для Linux / macOS (Bash):
 ```bash
-bun add -g momp-web
-# или через npm:
-npm install -g momp-web
+curl -fsSL https://raw.githubusercontent.com/domovoyproj/momp/main/install.sh | bash
 ```
 
-### 3. Запуск
+---
 
-Просто введите в терминале:
+## 🚀 Запуск
+
+После завершения установки просто введите в любом терминале:
 ```bash
-momp-web
+momp
 ```
-Приложение запустится локально и автоматически откроет браузер по адресу [http://127.0.0.1:30141](http://127.0.0.1:30141).
+Приложение запустится локально и автоматически откроет веб-интерфейс в браузере по адресу [http://127.0.0.1:30141](http://127.0.0.1:30141).
 
-**Быстрый запуск без установки (через bunx):**
-```bash
-bunx momp-web@latest
-```
-*(Если на Windows выпадает ошибка кэша, обновите bun: `bun upgrade` и очистите кэш `bun pm cache rm`)*
+---
 
-### Дополнительные опции
-Вы можете настроить запуск с помощью флагов:
-```bash
-momp-web --port 8080              # запустить на кастомном порту
-momp-web --hostname 0.0.0.0       # открыть доступ из локальной сети
-momp-web --no-open                # не открывать браузер автоматически
-momp-web --authenticated          # включить авторизацию по паролю
-momp-web --reset-password         # сбросить забытый пароль
-```
+## 🛠 Ручная установка и запуск из исходников
+
+Если вы хотите запустить проект напрямую из локальной папки:
+
+1. **Установите Bun** (если ещё не установлен):
+   ```powershell
+   powershell -c "irm bun.sh/install.ps1 | iex"   # Windows
+   curl -fsSL https://bun.sh/install | bash       # Linux/macOS
+   ```
+2. **Установите зависимости и соберите проект**:
+   ```bash
+   bun install --backend=copyfile
+   bun run build
+   ```
+3. **Запустите сервер**:
+   ```bash
+   bun run start
+   ```
 
 
 ## Password access

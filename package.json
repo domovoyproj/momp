@@ -22,7 +22,8 @@
     "bun": ">=1.3.14"
   },
   "bin": {
-    "momp-web": "bin/momp-web.js"
+    "momp": "bin/omp-web.js",
+    "momp-web": "bin/omp-web.js"
   },
   "files": [
     "bin",
