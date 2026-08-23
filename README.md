@@ -19,66 +19,55 @@ The web view for [momp](https://github.com/can1357/momp). momp-web reads the ses
 It is not a separate agent: momp-web runs omp's own SDK in-process, against the same `~/.momp/agent` directory, so a session started in the terminal continues in the browser and back again.
 
 
-## Quick Start
+## Установка и запуск
 
-momp-web serves its API on **Bun**, because that is what the omp SDK requires (it is published as TypeScript sources and imports `bun:` builtins). Install Bun 1.3.14 or newer:
+momp-web работает на базе **Bun**. Убедитесь, что у вас установлен Bun 1.3.14 или новее.
 
+### 1. Установка Bun
+
+**Для macOS / Linux:**
 ```bash
-curl -fsSL https://bun.sh/install | bash        # macOS / Linux
-powershell -c "irm bun.sh/install.ps1 | iex"    # Windows
+curl -fsSL https://bun.sh/install | bash
 ```
 
-**Run without installing:**
+**Для Windows (в PowerShell):**
+```powershell
+powershell -c "irm bun.sh/install.ps1 | iex"
+```
 
+### 2. Установка momp max
+
+После установки Bun установите пакет глобально:
+```bash
+bun add -g momp-web
+# или через npm:
+npm install -g momp-web
+```
+
+### 3. Запуск
+
+Просто введите в терминале:
+```bash
+momp-web
+```
+Приложение запустится локально и автоматически откроет браузер по адресу [http://127.0.0.1:30141](http://127.0.0.1:30141).
+
+**Быстрый запуск без установки (через bunx):**
 ```bash
 bunx momp-web@latest
 ```
+*(Если на Windows выпадает ошибка кэша, обновите bun: `bun upgrade` и очистите кэш `bun pm cache rm`)*
 
-On Windows, if `bunx` fails before startup with `EPERM: Operation not permitted (NtSetInformationFile())` while moving a package to the Bun cache, the failure is in Bun's Windows cache rename, not in momp-web. Update Bun and retry with a fresh cache:
-
-```powershell
-bun upgrade
-bun pm cache rm
-$env:BUN_INSTALL_CACHE_DIR = "$env:LOCALAPPDATA\momp-web-bun-cache"
-New-Item -ItemType Directory -Force $env:BUN_INSTALL_CACHE_DIR | Out-Null
-bunx momp-web@latest
-```
-
-If an antivirus or endpoint-security process still holds the extracted directory open, use npm for dependency installation; the `momp-web` launcher still starts the server through Bun:
-
-```powershell
-npm install -g momp-web@latest
-momp-web
-```
-
-**Or install globally:**
-
+### Дополнительные опции
+Вы можете настроить запуск с помощью флагов:
 ```bash
-bun add -g momp-web    # or: npm install -g momp-web
-momp-web
+momp-web --port 8080              # запустить на кастомном порту
+momp-web --hostname 0.0.0.0       # открыть доступ из локальной сети
+momp-web --no-open                # не открывать браузер автоматически
+momp-web --authenticated          # включить авторизацию по паролю
+momp-web --reset-password         # сбросить забытый пароль
 ```
 
-Then open [http://127.0.0.1:30141](http://127.0.0.1:30141). The CLI opens the browser automatically once the server is ready, and listens on `127.0.0.1` by default.
-
-The `momp-web` entrypoint itself runs under Node or Bun; it locates Bun and re-executes the server there. Point it at a specific build with `OMP_WEB_BUN=/path/to/bun`.
-
-**Options:**
-
-```bash
-momp-web --port 8080              # custom port
-momp-web --hostname 0.0.0.0       # expose on a trusted network
-momp-web -p 8080 -H 0.0.0.0       # combine options
-momp-web --no-open                # do not open the browser automatically
-momp-web --authenticated          # require a password (asks for one if none is set)
-momp-web --reset-password         # set a new password when the old one is lost
-
-PORT=8080 momp-web                 # environment variable is also supported
-OMP_WEB_HOSTNAME=0.0.0.0 momp-web  # explicit network exposure
-OMP_WEB_ALLOWED_HOSTS=omp.internal momp-web  # allow an exact proxy/custom hostname
-OMP_WEB_AUTHENTICATED=1 momp-web   # same as --authenticated
-OMP_WEB_PASSWORD='a-long-random-password' momp-web  # override the stored password
-OMP_WEB_NO_OPEN=1 momp-web         # useful when running as a background service
-```
 
 ## Password access
 
