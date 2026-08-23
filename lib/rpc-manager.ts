@@ -1,6 +1,8 @@
 import type { ThinkingLevel } from "@oh-my-pi/pi-agent-core";
 import {
+  applyResolvedSystemPromptInputs,
   createAgentSession,
+  type CreateAgentSessionOptions,
   discoverSessionExtensionPaths,
   getAgentDir,
   initTheme,
@@ -26,6 +28,7 @@ import { invalidateModelsCache } from "./models-cache";
 import { resolveVisibleModels, selectInitialModelScope } from "./model-scope";
 import { cacheSessionPath, invalidateSessionListCache } from "./session-reader";
 import { untrustedProjectSessionOptions } from "./project-trust";
+import { resolveSessionSystemPrompts } from "./session-system-prompt";
 import { readDefaultModelRole } from "./model-roles";
 import { getOmpRuntime, getSettingsForCwd } from "./omp-runtime";
 import { PRESET_FULL } from "./tool-presets";
@@ -1693,6 +1696,10 @@ export async function startRpcSession(
       ]);
       const untrusted = untrustedProjectSessionOptions(sessionCwd, agentDir, { extensionPaths, customToolPaths });
 
+      // `SYSTEM.md` / `APPEND_SYSTEM.md`, resolved against this session's cwd the
+      // way the CLI resolves them against its own (lib/session-system-prompt.ts).
+      const systemPrompts = await resolveSessionSystemPrompts(sessionCwd);
+
       const { modelRegistry } = runtime;
       const scope = await resolveVisibleModels(modelRegistry, settings.get("enabledModels"), settings);
       const defaultRole = readDefaultModelRole(settings);
@@ -1704,7 +1711,7 @@ export async function startRpcSession(
           ...(defaultRole ? { defaultModel: defaultRole } : {}),
           ...(thinkingLevel ? { thinkingLevel } : {}),
         });
-      const { session: inner, eventBus, setToolUIContext } = await createAgentSession({
+      const sessionOptions: CreateAgentSessionOptions = {
         cwd: sessionCwd,
         agentDir,
         settings,
@@ -1716,7 +1723,11 @@ export async function startRpcSession(
         ...(initial.scopedModels.length > 0 ? { scopedModels: initial.scopedModels } : {}),
         ...(toolsOption !== undefined ? { toolNames: toolsOption, restrictToolNames: true } : {}),
         ...(untrusted ?? {}),
-      });
+      };
+      // omp's own applier, so a prompt file goes through the same templates the
+      // CLI renders it with instead of overwriting the whole system prompt.
+      applyResolvedSystemPromptInputs(sessionOptions, systemPrompts.systemPrompt, systemPrompts.appendPrompt);
+      const { session: inner, eventBus, setToolUIContext } = await createAgentSession(sessionOptions);
 
       const persistedPreferences = await persistExplicitStartupPreferences(
         runtime.settings,

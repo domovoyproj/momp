@@ -41,7 +41,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const result = await installOmpWebUpdate({ manager: status.install.manager });
+    const result = await installOmpWebUpdate();
     return NextResponse.json({
       success: true,
       output: result.output,

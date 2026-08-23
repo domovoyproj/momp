@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { getSafeNpxEnv, redactNpxOutput } from "@/lib/npx";
+import { redactNpxOutput } from "@/lib/npx";
 import type {
   OmpWebInstallPlan,
   OmpWebPackageInfo,
@@ -8,17 +8,28 @@ import type {
   OmpWebUpdateResponse,
 } from "@/lib/api-types";
 
-export const OMP_WEB_GITHUB_RELEASE_API_URL = "https://api.github.com/repos/ddallabenetta/omp-web/releases/latest";
-export const OMP_WEB_NPM_LATEST_URL = "https://registry.npmjs.org/omp-web/latest";
+/**
+ * momp publishes to its own GitHub releases (a prebuilt `momp-web-dist.tar.gz`
+ * attached to each tag), not to npm. GitHub is therefore the single source of
+ * truth for "is a newer version out", and the installer scripts below are how a
+ * user actually pulls it down.
+ */
+export const MOMP_GITHUB_RELEASE_API_URL = "https://api.github.com/repos/domovoyproj/momp/releases/latest";
+const MOMP_REPO_URL = "https://github.com/domovoyproj/momp";
+
+/** One-liners that download + reinstall momp; also what auto-update runs. */
+const INSTALL_COMMAND_WINDOWS = "irm https://raw.githubusercontent.com/domovoyproj/momp/main/install.ps1 | iex";
+const INSTALL_COMMAND_UNIX = "curl -fsSL https://raw.githubusercontent.com/domovoyproj/momp/main/install.sh | bash";
 
 const RELEASE_CACHE_SECONDS = 60 * 60;
 const REQUEST_TIMEOUT_MS = 12_000;
-const UPDATE_TIMEOUT_MS = 120_000;
+// The installer downloads a prebuilt archive and runs `bun install`, which is
+// slower than a package-manager update, so give it a generous ceiling.
+const UPDATE_TIMEOUT_MS = 600_000;
 const MAX_CHANGELOG_LENGTH = 40_000;
 const execFileAsync = promisify(execFile);
 
 type Fetcher = (input: string, init?: RequestInit) => Promise<Response>;
-type UpdateManager = OmpWebInstallPlan["manager"];
 
 interface ParsedVersion {
   major: number;
@@ -35,19 +46,10 @@ interface GitHubReleasePayload {
   published_at?: unknown;
 }
 
-interface NpmPackagePayload {
-  version?: unknown;
-}
-
 interface UpdateStatusOptions {
   currentAppVersion?: string;
   fetcher?: Fetcher;
   env?: NodeJS.ProcessEnv;
-  runtime?: "bun" | "node";
-}
-
-interface InstallOptions {
-  manager: UpdateManager;
 }
 
 export interface OmpWebUpdateInstallResult {
@@ -116,14 +118,14 @@ function isNewerVersion(latest: string | null, current: string | null): boolean 
 
 function releaseFromPayload(payload: GitHubReleasePayload): OmpWebReleaseInfo {
   const version = canonicalVersion(payload.tag_name);
-  if (!version) throw new Error("The omp-web release did not contain a valid version tag");
+  if (!version) throw new Error("The momp release did not contain a valid version tag");
 
   const tagName = typeof payload.tag_name === "string" && payload.tag_name.trim()
     ? payload.tag_name.trim()
     : `v${version}`;
-  const htmlUrl = typeof payload.html_url === "string" && payload.html_url.startsWith("https://github.com/ddallabenetta/omp-web/")
+  const htmlUrl = typeof payload.html_url === "string" && payload.html_url.startsWith(`${MOMP_REPO_URL}/`)
     ? payload.html_url
-    : `https://github.com/ddallabenetta/omp-web/releases/tag/${encodeURIComponent(tagName)}`;
+    : `${MOMP_REPO_URL}/releases/tag/${encodeURIComponent(tagName)}`;
   const body = typeof payload.body === "string" ? payload.body.slice(0, MAX_CHANGELOG_LENGTH) : "";
 
   return {
@@ -136,31 +138,14 @@ function releaseFromPayload(payload: GitHubReleasePayload): OmpWebReleaseInfo {
   };
 }
 
-function releaseFromPackage(version: string): OmpWebReleaseInfo {
-  const tagName = `v${version}`;
-  return {
-    version,
-    tagName,
-    name: tagName,
-    body: "",
-    htmlUrl: `https://github.com/ddallabenetta/omp-web/releases/tag/${encodeURIComponent(tagName)}`,
-    publishedAt: null,
-  };
-}
-
-function publishedPackageFromPayload(payload: NpmPackagePayload): OmpWebPackageInfo | null {
-  const version = canonicalVersion(payload.version);
-  return version ? { version } : null;
-}
-
 async function fetchJson(url: string, fetcher: Fetcher): Promise<unknown> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
     const response = await fetcher(url, {
       headers: {
-        Accept: "application/json",
-        "User-Agent": "omp-web-update-check",
+        Accept: "application/vnd.github+json",
+        "User-Agent": "momp-update-check",
       },
       signal: controller.signal,
       // Next.js caches this server-side request so every browser tab does not
@@ -174,55 +159,38 @@ async function fetchJson(url: string, fetcher: Fetcher): Promise<unknown> {
   }
 }
 
-function selectManager(env: NodeJS.ProcessEnv, runtime: "bun" | "node"): UpdateManager {
-  if (env.OMP_WEB_UPDATE_MANAGER === "npm") return "npm";
-  if (env.OMP_WEB_UPDATE_MANAGER === "bun") return "bun";
-  if (env.npm_config_user_agent?.toLowerCase().includes("npm")) return "npm";
-  return runtime === "node" ? "npm" : "bun";
-}
-
-function commandForManager(manager: UpdateManager): { executable: string; args: string[]; command: string } {
-  if (manager === "npm") {
-    const executable = process.platform === "win32" ? "npm.cmd" : "npm";
-    const args = ["install", "--global", "omp-web@latest", "--no-audit", "--no-fund"];
-    return { executable, args, command: "npm install --global omp-web@latest" };
-  }
-  const executable = process.platform === "win32" ? "bun.exe" : "bun";
-  const args = ["add", "--global", "omp-web@latest"];
-  return { executable, args, command: "bun add --global omp-web@latest" };
+/** The platform installer command that auto-update runs and the UI displays. */
+function installerCommand(): { primary: string; alternate: string } {
+  return process.platform === "win32"
+    ? { primary: INSTALL_COMMAND_WINDOWS, alternate: INSTALL_COMMAND_UNIX }
+    : { primary: INSTALL_COMMAND_UNIX, alternate: INSTALL_COMMAND_WINDOWS };
 }
 
 export function buildInstallPlan({
   currentAppVersion,
-  latestPackage,
+  latestVersion,
   env = process.env,
-  runtime = "bun",
 }: {
   currentAppVersion: string | null;
-  latestPackage: OmpWebPackageInfo | null;
+  latestVersion: string | null;
   env?: NodeJS.ProcessEnv;
-  runtime?: "bun" | "node";
 }): OmpWebInstallPlan {
-  const manager = selectManager(env, runtime);
-  const command = commandForManager(manager);
-  const alternate = commandForManager(manager === "bun" ? "npm" : "bun");
-  const updateAvailable = Boolean(
-    latestPackage
-    && isNewerVersion(latestPackage.version, currentAppVersion),
-  );
-  const canInstall = updateAvailable && env.OMP_WEB_DISABLE_SELF_UPDATE !== "1";
+  const { primary, alternate } = installerCommand();
+  const updateAvailable = isNewerVersion(latestVersion, currentAppVersion);
+  const disabled = env.MOMP_WEB_DISABLE_SELF_UPDATE === "1" || env.OMP_WEB_DISABLE_SELF_UPDATE === "1";
+  const canInstall = updateAvailable && !disabled;
 
   let reason: OmpWebInstallPlan["reason"];
-  if (env.OMP_WEB_DISABLE_SELF_UPDATE === "1") reason = "disabled";
-  else if (!latestPackage) reason = "latest-package-unavailable";
+  if (disabled) reason = "disabled";
+  else if (!latestVersion) reason = "latest-package-unavailable";
   else if (!currentAppVersion) reason = "current-version-unknown";
 
   return {
     canInstall,
-    manager,
-    command: command.command,
-    alternateCommand: alternate.command,
-    packageVersion: latestPackage?.version,
+    manager: process.platform === "win32" ? "npm" : "bun",
+    command: primary,
+    alternateCommand: alternate,
+    packageVersion: latestVersion ?? undefined,
     reason,
     restartRequired: true,
   };
@@ -232,27 +200,16 @@ export async function getOmpWebUpdateStatus(options: UpdateStatusOptions = {}): 
   const fetcher = options.fetcher ?? fetch;
   const currentAppVersion = canonicalVersion(options.currentAppVersion ?? process.env.NEXT_PUBLIC_APP_VERSION) ?? "unknown";
 
-  const packagePayload = await fetchJson(OMP_WEB_NPM_LATEST_URL, fetcher) as NpmPackagePayload;
-  const latestPackage = publishedPackageFromPayload(packagePayload);
-  if (!latestPackage) throw new Error("The npm registry did not return a valid omp-web version");
-
-  let latestRelease = releaseFromPackage(latestPackage.version);
-  try {
-    const releasePayload = await fetchJson(OMP_WEB_GITHUB_RELEASE_API_URL, fetcher) as GitHubReleasePayload;
-    const candidate = releaseFromPayload(releasePayload);
-    if (compareVersions(candidate.version, latestPackage.version) === 0) latestRelease = candidate;
-  } catch {
-    // npm is the source of truth for installability; GitHub only enriches it with
-    // release notes and a release link.
-  }
+  const releasePayload = await fetchJson(MOMP_GITHUB_RELEASE_API_URL, fetcher) as GitHubReleasePayload;
+  const latestRelease = releaseFromPayload(releasePayload);
+  const latestPackage: OmpWebPackageInfo = { version: latestRelease.version };
 
   const install = buildInstallPlan({
-    currentAppVersion,
-    latestPackage,
+    currentAppVersion: currentAppVersion === "unknown" ? null : currentAppVersion,
+    latestVersion: latestRelease.version,
     env: options.env,
-    runtime: options.runtime,
   });
-  const updateAvailable = isNewerVersion(latestPackage.version, currentAppVersion);
+  const updateAvailable = isNewerVersion(latestRelease.version, currentAppVersion);
   const availability: OmpWebUpdateResponse["availability"] = !updateAvailable
     ? "up-to-date"
     : install.canInstall
@@ -270,16 +227,31 @@ export async function getOmpWebUpdateStatus(options: UpdateStatusOptions = {}): 
   };
 }
 
-export async function installOmpWebUpdate({ manager }: InstallOptions): Promise<OmpWebUpdateInstallResult> {
-  const command = commandForManager(manager);
-  const result = await execFileAsync(command.executable, command.args, {
+/**
+ * Run the momp installer in place. On Windows this pipes `install.ps1` into
+ * PowerShell; elsewhere it pipes `install.sh` into bash. Both download the
+ * latest prebuilt archive, reinstall into the app directory, and refresh the
+ * global launcher — after which the running server must be restarted.
+ */
+export async function installOmpWebUpdate(): Promise<OmpWebUpdateInstallResult> {
+  const isWindows = process.platform === "win32";
+  const executable = isWindows
+    ? (process.env.SystemRoot ? `${process.env.SystemRoot}\\System32\\WindowsPowerShell\\v1.0\\powershell.exe` : "powershell.exe")
+    : "bash";
+  const args = isWindows
+    ? ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", INSTALL_COMMAND_WINDOWS]
+    : ["-c", INSTALL_COMMAND_UNIX];
+
+  const result = await execFileAsync(executable, args, {
     timeout: UPDATE_TIMEOUT_MS,
-    maxBuffer: 1_000_000,
-    env: getSafeNpxEnv({
+    maxBuffer: 8_000_000,
+    windowsHide: true,
+    env: {
+      ...process.env,
+      // Non-interactive: never let the installer block on a prompt.
       CI: "1",
-      NPM_CONFIG_UPDATE_NOTIFIER: "false",
-      npm_config_yes: "true",
-    }),
+      MOMP_WEB_FAST_BUILD: "1",
+    },
   });
-  return { output: redactNpxOutput(`${result.stdout ?? ""}${result.stderr ?? ""}`).slice(-2000) };
+  return { output: redactNpxOutput(`${result.stdout ?? ""}${result.stderr ?? ""}`).slice(-4000) };
 }

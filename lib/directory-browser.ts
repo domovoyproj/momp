@@ -1,4 +1,4 @@
-import { readdir, realpath, stat } from "fs/promises";
+import { mkdir, readdir, realpath, stat } from "fs/promises";
 import { homedir } from "os";
 import path from "path";
 
@@ -69,6 +69,26 @@ export async function resolveDirectory(directory: string): Promise<string> {
     return resolved + "\\";
   }
   return resolved;
+}
+
+/**
+ * Create `name` inside `parent` and return the new absolute path.
+ *
+ * The name is a single path segment — separators, drive-relative prefixes and
+ * the characters Windows forbids in a filename are all rejected so a browse
+ * location cannot be turned into an arbitrary traversal. `mkdir` without
+ * `recursive` throws `EEXIST` when the folder already exists, which the caller
+ * surfaces verbatim.
+ */
+export async function createDirectory(parent: string, name: string): Promise<string> {
+  const trimmed = name.trim();
+  if (!trimmed || trimmed === "." || trimmed === ".." || /[\\/<>:"|?*\u0000-\u001f]/.test(trimmed)) {
+    throw new Error("Invalid folder name");
+  }
+  const resolvedParent = await resolveDirectory(parent);
+  const target = path.join(resolvedParent, trimmed);
+  await mkdir(target);
+  return target;
 }
 
 export async function listDirectories(directory: string): Promise<BrowsableDirectory[]> {
