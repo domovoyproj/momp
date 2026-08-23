@@ -238,6 +238,42 @@ export function AccessConfig() {
             <div className={styles.settingControl} />
           </div>
         </section>
+        <section className={styles.group}>
+          <h3 className={styles.groupTitle}>Системные уведомления</h3>
+          <div className={styles.settingRow}>
+            <div>
+              <div className={styles.settingLabel}>Уведомления браузера</div>
+              <div className={styles.settingDescription}>
+                Отправлять нативное системное уведомление Windows/macOS, когда агент закончил генерацию ответа, а вкладка находится в фоне.
+              </div>
+            </div>
+            <div className={styles.settingControl}>
+              <button
+                type="button"
+                className={styles.linkButton}
+                style={{ cursor: "pointer", border: "1px solid var(--border)", background: "var(--bg)" }}
+                onClick={async () => {
+                  if (!("Notification" in window)) {
+                    alert("Уведомления не поддерживаются в этом браузере.");
+                    return;
+                  }
+                  const perm = await Notification.requestPermission();
+                  if (perm === "granted") {
+                    new Notification("momp max", {
+                      body: "Уведомления успешно включены и работают!",
+                    });
+                  } else {
+                    alert("Разрешение на отправку уведомлений заблокировано в настройках браузера.");
+                  }
+                }}
+              >
+                {typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted"
+                  ? "✓ Уведомления разрешены (Проверить)"
+                  : "Включить уведомления"}
+              </button>
+            </div>
+          </div>
+        </section>
       </div>
     </div>
   );

@@ -47,3 +47,6 @@ src-tauri/server/nmingit.zip
 
 mingit/
 mingit.zip
+
+# standalone repos
+github-ru-extension/

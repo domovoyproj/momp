@@ -45,10 +45,11 @@ interface FileData {
   size: number;
 }
 
-type DisplayMode = "source" | "preview" | "diff";
+type DisplayMode = "source" | "edit" | "preview" | "diff";
 
 const DISPLAY_MODE_LABELS: Record<DisplayMode, string> = {
   source: "Source",
+  edit: "Правка",
   preview: "Preview",
   diff: "Diff",
 };
@@ -815,6 +816,55 @@ function TextFileViewer({ filePath, cwd, sourceSessionId, onOpenFile, onMentionL
   const gitDiffRequestRef = useRef(0);
   const contentRef = useRef<HTMLDivElement | null>(null);
   const [selectedLineRange, setSelectedLineRange] = useState<SelectedLineRange | null>(null);
+  const [editContent, setEditContent] = useState<string>("");
+  const [saving, setSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saved" | "error">("idle");
+  const isDirty = data !== null && editContent !== data.content;
+
+  useEffect(() => {
+    if (data?.content !== undefined) {
+      setEditContent(data.content);
+    }
+  }, [data?.content]);
+
+  const handleSave = useCallback(async () => {
+    if (saving) return;
+    setSaving(true);
+    setSaveStatus("idle");
+    try {
+      const encoded = encodeFilePathForApi(filePath);
+      const res = await fetch(`/api/files/${encoded}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: editContent }),
+      });
+      const result = (await res.json()) as { ok?: boolean; size?: number; error?: string };
+      if (!res.ok || result.error) {
+        setSaveStatus("error");
+      } else {
+        setSaveStatus("saved");
+        setData((prev) => (prev ? { ...prev, content: editContent, size: result.size ?? editContent.length } : null));
+        setTimeout(() => setSaveStatus("idle"), 2500);
+      }
+    } catch {
+      setSaveStatus("error");
+    } finally {
+      setSaving(false);
+    }
+  }, [editContent, filePath, saving]);
+
+  useEffect(() => {
+    if (displayMode !== "edit") return;
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        void handleSave();
+      }
+    };
+    window.addEventListener("keydown", handleGlobalKeyDown);
+    return () => window.removeEventListener("keydown", handleGlobalKeyDown);
+  }, [displayMode, handleSave]);
+
 
   const fetchContent = useCallback((filePath: string) => {
     return fetch(getFileApiUrl(filePath, "read", sourceSessionId))
@@ -1028,6 +1078,7 @@ function TextFileViewer({ filePath, cwd, sourceSessionId, onOpenFile, onMentionL
     ? ["diff"]
     : [
         "source",
+        "edit",
         ...(hasPreview ? ["preview" as const] : []),
         ...(hasGitDiff ? ["diff" as const] : []),
       ];
@@ -1120,6 +1171,40 @@ function TextFileViewer({ filePath, cwd, sourceSessionId, onOpenFile, onMentionL
                 <MentionIcon />
               </button>
             )}
+            {effectiveDisplayMode === "edit" && (
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                {isDirty && (
+                  <span style={{ color: "#eab308", fontSize: 11, fontWeight: 500 }}>
+                    • {t("files.unsavedChanges")}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => void handleSave()}
+                  disabled={saving || !isDirty}
+                  title="Ctrl+S"
+                  style={{
+                    display: "flex", alignItems: "center", gap: 4,
+                    padding: "3px 8px",
+                    background: isDirty ? "var(--accent)" : "var(--bg-panel)",
+                    border: "1px solid var(--border)",
+                    borderRadius: 4,
+                    color: isDirty ? "#fff" : "var(--text-dim)",
+                    cursor: isDirty && !saving ? "pointer" : "default",
+                    fontSize: 11,
+                    fontWeight: 500,
+                    transition: "background 0.12s, color 0.12s",
+                  }}
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                    <polyline points="17 21 17 13 7 13 7 21" />
+                    <polyline points="7 3 7 8 15 8" />
+                  </svg>
+                  {saving ? t("files.saving") : saveStatus === "saved" ? t("files.saved") : saveStatus === "error" ? t("files.saveError") : t("files.save")}
+                </button>
+              </div>
+            )}
             {effectiveDisplayMode === "source" && (
               <>
                 <button
@@ -1153,6 +1238,73 @@ function TextFileViewer({ filePath, cwd, sourceSessionId, onOpenFile, onMentionL
       <div ref={contentRef} className="file-viewer-content" style={{ flex: 1, overflow: "auto", background: "var(--bg)" }}>
         {effectiveDisplayMode === "diff" && hasGitDiff ? (
           <DiffView patch={gitDiff.patch!} />
+        ) : effectiveDisplayMode === "edit" ? (
+          <div style={{ display: "flex", height: "100%", width: "100%", overflow: "hidden" }}>
+            <div
+              style={{
+                width: 48,
+                minWidth: 48,
+                padding: "12px 10px 12px 0",
+                textAlign: "right",
+                color: "var(--text-dim)",
+                background: "var(--bg-panel)",
+                borderRight: "1px solid var(--border)",
+                fontFamily: "var(--font-mono)",
+                fontSize: 12,
+                lineHeight: "21px",
+                userSelect: "none",
+                flexShrink: 0,
+                overflow: "hidden",
+              }}
+            >
+              {editContent.split("\n").map((_, i) => (
+                <div key={i}>{i + 1}</div>
+              ))}
+            </div>
+            <textarea
+              value={editContent}
+              onChange={(e) => setEditContent(e.target.value)}
+              onKeyDown={(e) => {
+                if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+                  e.preventDefault();
+                  void handleSave();
+                  return;
+                }
+                if (e.key === "Tab") {
+                  e.preventDefault();
+                  const target = e.currentTarget;
+                  const start = target.selectionStart;
+                  const end = target.selectionEnd;
+                  const val = target.value;
+                  const nextVal = val.substring(0, start) + "  " + val.substring(end);
+                  setEditContent(nextVal);
+                  setTimeout(() => {
+                    target.selectionStart = target.selectionEnd = start + 2;
+                  }, 0);
+                }
+              }}
+              spellCheck={false}
+              style={{
+                flex: 1,
+                width: "100%",
+                height: "100%",
+                padding: "12px",
+                margin: 0,
+                border: "none",
+                outline: "none",
+                background: "var(--bg)",
+                color: "var(--text)",
+                fontFamily: "var(--font-mono)",
+                fontSize: 13,
+                lineHeight: "21px",
+                resize: "none",
+                whiteSpace: wrapLines ? "pre-wrap" : "pre",
+                overflowWrap: wrapLines ? "anywhere" : "normal",
+                overflow: "auto",
+                tabSize: 2,
+              }}
+            />
+          </div>
         ) : isHtml && effectiveDisplayMode === "preview" ? (
           <iframe
             srcDoc={content}

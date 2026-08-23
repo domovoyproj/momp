@@ -640,10 +640,10 @@ export function SessionSidebar({ selectedSessionId, optimisticSession, onSelectS
         return next;
       });
     }
-    const hasUnlistedRunningSession = newlyRunning.some(
+    const hasUnlistedRunningSession = [...runningSessionIds].some(
       (id) => !allSessions.some((session) => session.id === id),
     );
-    if (completedInBackground.length > 0 || hasUnlistedRunningSession) {
+    if (completedInBackground.length > 0 || hasUnlistedRunningSession || newlyRunning.length > 0) {
       loadSessions(false, true);
     }
     if (completedInBackground.length > 0) {

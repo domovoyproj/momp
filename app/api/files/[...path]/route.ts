@@ -240,6 +240,47 @@ export async function POST(
     return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
 }
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ path: string[] }> }
+) {
+  if (!isApiRequestAllowed(request)) {
+    return NextResponse.json({ error: "Untrusted API request" }, { status: 403 });
+  }
+
+  try {
+    const { path: segments } = await params;
+    const filePath = filePathFromSegments(segments);
+    const allowedRoots = await getAllowedFileRoots();
+    if (!isExistingFilePathAllowed(filePath, allowedRoots)) {
+      return NextResponse.json({ error: "Access denied or file not found" }, { status: 403 });
+    }
+
+    const stat = fs.statSync(filePath);
+    if (!stat.isFile()) {
+      return NextResponse.json({ error: "Cannot write to a directory or non-file" }, { status: 400 });
+    }
+
+    const body = (await request.json()) as { content?: string };
+    if (typeof body.content !== "string") {
+      return NextResponse.json({ error: "content string is required" }, { status: 400 });
+    }
+
+    fs.writeFileSync(filePath, body.content, "utf8");
+    const nextStat = fs.statSync(filePath);
+
+    return NextResponse.json({
+      ok: true,
+      size: nextStat.size,
+      mtime: nextStat.mtime.toISOString(),
+    });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Failed to write file" },
+      { status: 500 }
+    );
+  }
+}
 
 function createFileBodyStream(filePath: string, range?: { start: number; end: number }): ReadableStream<Uint8Array> {
   const fileStream = fs.createReadStream(filePath, range);

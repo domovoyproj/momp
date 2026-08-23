@@ -119,7 +119,7 @@ declare global {
   var __ompSessionListCache: { data: SessionInfo[]; ts: number } | undefined;
 }
 
-const SESSION_LIST_CACHE_TTL_MS = 30_000;
+const SESSION_LIST_CACHE_TTL_MS = 2_000;
 
 export function invalidateSessionListCache(): void {
   globalThis.__ompSessionListGeneration = (globalThis.__ompSessionListGeneration ?? 0) + 1;

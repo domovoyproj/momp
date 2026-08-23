@@ -1815,6 +1815,36 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
           return complete({ handled: true, message: "Copied last assistant message" });
         }
 
+        case "refactor": {
+          const prompt = args ? `Проведи рефакторинг следующего кода:\n\n${args}` : "Проведи рефакторинг кода в текущем проекте для улучшения архитектуры, читаемости и производительности.";
+          return complete({ handled: true, prompt });
+        }
+
+        case "tests": {
+          const prompt = args ? `Напиши модульные тесты для:\n\n${args}` : "Напиши комплексные юнит-тесты и проверки граничных случаев для файлов проекта.";
+          return complete({ handled: true, prompt });
+        }
+
+        case "review": {
+          const prompt = args ? `Проведи код-ревью для:\n\n${args}` : "Проведи подробное код-ревью текущего проекта: проверь качество кода, потенциальные ошибки, безопасность и производительность.";
+          return complete({ handled: true, prompt });
+        }
+
+        case "fix": {
+          const prompt = args ? `Исправь ошибку:\n\n${args}` : "Найди причину ошибки в коде проекта и исправь её, сохранив существующую логику.";
+          return complete({ handled: true, prompt });
+        }
+
+        case "explain": {
+          const prompt = args ? `Объясни следующий код:\n\n${args}` : "Подробно объясни структуру и логику работы этого проекта.";
+          return complete({ handled: true, prompt });
+        }
+
+        case "doc": {
+          const prompt = args ? `Напиши документацию для:\n\n${args}` : "Напиши подробную документацию, спецификации типов и комментарии к коду проекта.";
+          return complete({ handled: true, prompt });
+        }
+
         case "fork": {
           if (!sid) return complete({ handled: true, error: "No active session to fork" });
           const result = await handleFork();
@@ -1854,7 +1884,6 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
             if (sessionIdRef.current === sid) scheduleEventStreamClose(sid);
           }
         }
-
         default: {
           if (!sid) return complete({ handled: true, error: "No active session" });
           const result = await sendAgentCommand<{

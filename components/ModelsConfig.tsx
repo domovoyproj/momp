@@ -1762,6 +1762,65 @@ export function ModelsConfig({ cwd, onClose, embedded = false, onModelsChanged }
   const [pickerOpen, setPickerOpen] = useState(false);
   const [limitsOpen, setLimitsOpen] = useState(false);
 
+  const [localDiscovery, setLocalDiscovery] = useState<{
+    scanning: boolean;
+    services: Array<{ id: string; name: string; baseUrl: string; api: string; models: Array<{ id: string; name: string }> }>;
+    error: string | null;
+  }>({ scanning: false, services: [], error: null });
+
+  const scanLocalModels = useCallback(async () => {
+    setLocalDiscovery({ scanning: true, services: [], error: null });
+    try {
+      const res = await fetch("/api/models-config/local-discovery");
+      const data = (await res.json()) as {
+        services?: Array<{ id: string; name: string; baseUrl: string; api: string; models: Array<{ id: string; name: string }> }>;
+        error?: string;
+      };
+      if (!res.ok || data.error) {
+        setLocalDiscovery({ scanning: false, services: [], error: data.error ?? `HTTP ${res.status}` });
+      } else {
+        const found = data.services ?? [];
+        setLocalDiscovery({
+          scanning: false,
+          services: found,
+          error: found.length === 0 ? "Локальные сервисы Ollama / LM Studio не запущены" : null,
+        });
+      }
+    } catch (e) {
+      setLocalDiscovery({ scanning: false, services: [], error: String(e) });
+    }
+  }, []);
+
+  const connectLocalService = useCallback(
+    async (service: { id: string; name: string; baseUrl: string; api: string; models: Array<{ id: string; name: string }> }) => {
+      try {
+        const res = await fetch("/api/models-config/local-discovery", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            providerId: service.id,
+            baseUrl: service.baseUrl,
+            api: service.api,
+            models: service.models,
+          }),
+        });
+        if (res.ok) {
+          const configRes = await fetch("/api/models-config");
+          const nextConfig = (await configRes.json()) as ModelsJson;
+          setConfig(nextConfig.providers ? nextConfig : { ...nextConfig, providers: {} });
+          onModelsChanged?.();
+          setSelection({ type: "provider", name: service.id });
+          setLocalDiscovery((prev) => ({
+            ...prev,
+            services: prev.services.filter((s) => s.id !== service.id),
+          }));
+        }
+      } catch (e) {
+        console.error("Failed to connect local service:", e);
+      }
+    },
+    [onModelsChanged]
+  );
   const loadOAuthProviders = useCallback(() => {
     fetch("/api/auth/providers")
       .then((r) => r.json())
@@ -2115,6 +2174,59 @@ export function ModelsConfig({ cwd, onClose, embedded = false, onModelsChanged }
               >
                  + {t("i18n.addProvider")}
               </button>
+            </div>
+            {/* Local Models Auto-Discovery */}
+            <div style={{ borderTop: "1px solid var(--border)", padding: "8px 6px" }}>
+              <button
+                onClick={scanLocalModels}
+                disabled={localDiscovery.scanning}
+                style={{
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
+                  width: "100%", padding: "6px 0", background: "none", border: "1px solid var(--border)", borderRadius: 5,
+                  color: localDiscovery.scanning ? "var(--text-dim)" : "var(--text-muted)", cursor: localDiscovery.scanning ? "wait" : "pointer", fontSize: 11,
+                  transition: "border-color 0.12s, color 0.12s",
+                }}
+                onMouseEnter={(e) => {
+                  if (!localDiscovery.scanning) {
+                    e.currentTarget.style.borderColor = "var(--accent)";
+                    e.currentTarget.style.color = "var(--accent)";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!localDiscovery.scanning) {
+                    e.currentTarget.style.borderColor = "var(--border)";
+                    e.currentTarget.style.color = "var(--text-muted)";
+                  }
+                }}
+              >
+                {localDiscovery.scanning ? "Поиск Ollama / LM Studio..." : "🔍 Найти Ollama / LM Studio"}
+              </button>
+
+              {localDiscovery.services.length > 0 && (
+                <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 4 }}>
+                  {localDiscovery.services.map((service) => (
+                    <button
+                      key={service.id}
+                      onClick={() => void connectLocalService(service)}
+                      style={{
+                        padding: "5px 8px", background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.3)",
+                        borderRadius: 5, color: "#10b981", fontSize: 11, cursor: "pointer", textAlign: "left",
+                        transition: "background 0.12s",
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(16,185,129,0.2)"; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(16,185,129,0.12)"; }}
+                    >
+                      + Подключить {service.name} ({service.models.length})
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {localDiscovery.error && (
+                <div style={{ marginTop: 6, padding: "4px 6px", fontSize: 10, color: "var(--text-dim)", textAlign: "center", lineHeight: 1.3 }}>
+                  {localDiscovery.error}
+                </div>
+              )}
             </div>
           </div>
 

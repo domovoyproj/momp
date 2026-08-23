@@ -152,6 +152,12 @@ const BUILTIN_SLASH_COMMANDS: LocalBuiltinSlashCommand[] = [
   { name: "name", descriptionKey: "chat.commandName", source: "builtin" },
   { name: "session", descriptionKey: "chat.commandSession", source: "builtin" },
   { name: "copy", descriptionKey: "chat.commandCopy", source: "builtin" },
+  { name: "refactor", descriptionKey: "chat.commandRefactor", source: "builtin" },
+  { name: "tests", descriptionKey: "chat.commandTests", source: "builtin" },
+  { name: "review", descriptionKey: "chat.commandReview", source: "builtin" },
+  { name: "fix", descriptionKey: "chat.commandFix", source: "builtin" },
+  { name: "explain", descriptionKey: "chat.commandExplain", source: "builtin" },
+  { name: "doc", descriptionKey: "chat.commandDoc", source: "builtin" },
 ];
 
 const SLASH_SOURCES: SlashCommandSource[] = ["builtin", "extension", "custom", "mcp_prompt", "prompt", "file", "skill"];
@@ -374,6 +380,36 @@ export function ModelScopeWarningBanner({ warnings }: { warnings?: string[] }) {
   );
 }
 
+interface SpeechRecognitionEventLike {
+  readonly resultIndex: number;
+  readonly results: {
+    readonly length: number;
+    [index: number]: {
+      readonly isFinal: boolean;
+      readonly length: number;
+      [index: number]: { readonly transcript: string };
+    };
+  };
+}
+
+interface SpeechRecognitionErrorEventLike {
+  readonly error: string;
+}
+
+interface SpeechRecognitionInstance {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
+  onerror: ((event: SpeechRecognitionErrorEventLike) => void) | null;
+  onend: (() => void) | null;
+  start(): void;
+  stop(): void;
+  abort(): void;
+}
+
+type SpeechRecognitionConstructor = new () => SpeechRecognitionInstance;
+
 export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   onSend, onAbort, onSteer, onFollowUp, isStreaming, model, isAutoModelSelection, modelNames, modelList, modelError, modelScopeWarnings, onModelChange,
   modelRoles, onRoleModelChange, modelSwitching,
@@ -388,9 +424,92 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   cwd,
   contextUsage,
 }: Props, ref) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const isMobile = useIsMobile();
   const [value, setValue] = useState(() => (draftKey ? getDraft(draftKey)?.value ?? "" : ""));
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
+
+  const toggleVoiceInput = useCallback(() => {
+    if (typeof window === "undefined") return;
+    const win = window as unknown as {
+      SpeechRecognition?: SpeechRecognitionConstructor;
+      webkitSpeechRecognition?: SpeechRecognitionConstructor;
+    };
+    const SpeechRecognitionClass = win.SpeechRecognition || win.webkitSpeechRecognition;
+    if (!SpeechRecognitionClass) {
+      alert(t("chat.voiceNotSupported"));
+      return;
+    }
+
+    if (isListening) {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch {
+          // ignore
+        }
+      }
+      setIsListening(false);
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognitionClass();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = locale === "ru" ? "ru-RU" : locale === "zh-CN" ? "zh-CN" : "en-US";
+
+      let finalTranscript = "";
+
+      recognition.onresult = (event: SpeechRecognitionEventLike) => {
+        let interim = "";
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            finalTranscript += event.results[i][0].transcript;
+          } else {
+            interim += event.results[i][0].transcript;
+          }
+        }
+        const textToAppend = (finalTranscript || interim).trim();
+        if (textToAppend) {
+          setValue((prev) => {
+            const separator = prev.length > 0 && !prev.endsWith(" ") && !prev.endsWith("\n") ? " " : "";
+            return prev + separator + textToAppend;
+          });
+          finalTranscript = "";
+        }
+      };
+
+      recognition.onerror = (event: SpeechRecognitionErrorEventLike) => {
+        console.warn("Speech recognition error:", event?.error);
+        setIsListening(false);
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+      };
+
+      recognition.start();
+      recognitionRef.current = recognition;
+      setIsListening(true);
+    } catch (err) {
+      console.error("Failed to start speech recognition:", err);
+      setIsListening(false);
+    }
+  }, [isListening, locale, setValue, t]);
+
+  useEffect(() => {
+    return () => {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch {
+          // ignore
+        }
+      }
+    };
+  }, []);
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
   const [modelDropdownRect, setModelDropdownRect] = useState<{ top: number; left: number; width: number } | null>(null);
   const [modelFilter, setModelFilter] = useState("");
@@ -2625,6 +2744,57 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                  {t("chat.stop")}
               </button>
             )}
+            <button
+              type="button"
+              onClick={toggleVoiceInput}
+              title={isListening ? t("chat.voiceListening") : t("chat.voiceInput")}
+              aria-label={isListening ? t("chat.voiceListening") : t("chat.voiceInput")}
+              style={{
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
+                width: isMobile ? 32 : 32,
+                height: 32,
+                padding: 0,
+                background: isListening ? "rgba(239,68,68,0.15)" : "none",
+                border: isListening ? "1px solid rgba(239,68,68,0.4)" : "none",
+                borderRadius: 9,
+                color: isListening ? "#ef4444" : "var(--text-muted)",
+                cursor: "pointer",
+                transition: "background 0.12s, color 0.12s, border 0.12s",
+              }}
+              onMouseEnter={(e) => {
+                if (!isListening) {
+                  e.currentTarget.style.background = "var(--bg-hover)";
+                  e.currentTarget.style.color = "var(--text)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isListening) {
+                  e.currentTarget.style.background = "none";
+                  e.currentTarget.style.color = "var(--text-muted)";
+                }
+              }}
+            >
+              {isListening ? (
+                <span style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                    <line x1="12" y1="19" x2="12" y2="22" />
+                  </svg>
+                  <span style={{
+                    position: "absolute", top: -2, right: -2, width: 6, height: 6,
+                    borderRadius: "50%", background: "#ef4444",
+                    boxShadow: "0 0 6px #ef4444",
+                  }} />
+                </span>
+              ) : (
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+                  <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                  <line x1="12" y1="19" x2="12" y2="22" />
+                </svg>
+              )}
+            </button>
 
             {onSoundToggle !== undefined && (
               <button

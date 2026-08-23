@@ -475,6 +475,7 @@ export function AppShell() {
     invalidateWorkspaceRestore();
     setSelectedSession(null);
     setNewSessionCwd(cwd);
+    setRefreshKey((k) => k + 1);
     setSessionKey((k) => k + 1);
     setBranchTree([]);
     setBranchActiveLeafId(null);
@@ -483,6 +484,65 @@ export function AppShell() {
     if (isMobile) setSidebarOpen(false);
     router.replace("/", { scroll: false });
   }, [invalidateWorkspaceRestore, router, isMobile]);
+  interface ChatTabItem {
+    id: string;
+    name: string;
+    cwd: string;
+  }
+
+  const [chatTabs, setChatTabs] = useState<ChatTabItem[]>([]);
+
+  useEffect(() => {
+    if (selectedSession) {
+      setChatTabs((prev) => {
+        const existingIdx = prev.findIndex((t) => t.id === selectedSession.id);
+        const sessionName = selectedSession.name || "Диалог";
+        const sessionCwd = selectedSession.cwd || "";
+        if (existingIdx !== -1) {
+          if (prev[existingIdx].name !== sessionName) {
+            const next = [...prev];
+            next[existingIdx] = { ...next[existingIdx], name: sessionName };
+            return next;
+          }
+          return prev;
+        }
+        return [...prev, { id: selectedSession.id, name: sessionName, cwd: sessionCwd }];
+      });
+    } else if (newSessionCwd) {
+      setChatTabs((prev) => {
+        const newTabId = `new:${newSessionCwd}`;
+        if (prev.some((t) => t.id === newTabId)) return prev;
+        return [...prev, { id: newTabId, name: "Новый диалог", cwd: newSessionCwd }];
+      });
+    }
+  }, [selectedSession, newSessionCwd]);
+
+  const handleSelectChatTab = useCallback((tab: ChatTabItem) => {
+    if (tab.id.startsWith("new:")) {
+      setNewSessionCwd(tab.cwd);
+      setSelectedSession(null);
+    } else {
+      handleSelectSession({ id: tab.id, name: tab.name, cwd: tab.cwd } as SessionInfo);
+    }
+  }, [handleSelectSession]);
+
+  const handleCloseChatTab = useCallback((tabId: string) => {
+    setChatTabs((prev) => {
+      const next = prev.filter((t) => t.id !== tabId);
+      const isCurrent = (selectedSession?.id === tabId) || (tabId.startsWith("new:") && newSessionCwd !== null);
+      if (isCurrent) {
+        if (next.length > 0) {
+          const fallback = next[next.length - 1];
+          setTimeout(() => handleSelectChatTab(fallback), 0);
+        } else {
+          setSelectedSession(null);
+          setNewSessionCwd(null);
+        }
+      }
+      return next;
+    });
+  }, [handleSelectChatTab, newSessionCwd, selectedSession?.id]);
+
 
   // Global keyboard shortcuts (handles Esc, Ctrl+Alt+N etc.)
   useGlobalKeyboardShortcuts({
@@ -495,7 +555,7 @@ export function AppShell() {
   // handleCwdChange relies on. Hydrate it from the session list so switching
   // worktrees right after creating a session doesn't close the chat.
   const hydrateSelectedSession = useCallback((sessionId: string) => {
-    void fetch("/api/sessions", { cache: "no-store" })
+    void fetch("/api/sessions?force=1", { cache: "no-store" })
       .then((r) => (r.ok ? (r.json() as Promise<{ sessions: SessionInfo[] }>) : null))
       .then((d) => {
         const full = d?.sessions.find((s) => s.id === sessionId);
@@ -1637,6 +1697,88 @@ export function AppShell() {
         {/* Chat content */}
         <div className="chat-content-layout">
           <div className="chat-session-column">
+          {chatTabs.length > 0 && (
+            <div style={{
+              display: "flex",
+              alignItems: "flex-end",
+              background: "var(--bg-panel)",
+              borderBottom: "1px solid var(--border)",
+              overflowX: "auto",
+              flexShrink: 0,
+              height: 34,
+              paddingLeft: 4,
+            }}>
+              {chatTabs.map((tab) => {
+                const isActive = selectedSession?.id === tab.id || (tab.id.startsWith("new:") && newSessionCwd !== null);
+                return (
+                  <div
+                    key={tab.id}
+                    onClick={() => handleSelectChatTab(tab)}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      height: 33,
+                      padding: "0 10px",
+                      borderRight: "1px solid var(--border)",
+                      borderTop: isActive ? "2px solid var(--accent)" : "2px solid transparent",
+                      background: isActive ? "var(--bg)" : "transparent",
+                      color: isActive ? "var(--text)" : "var(--text-muted)",
+                      cursor: "pointer",
+                      fontSize: 12,
+                      fontWeight: isActive ? 600 : 400,
+                      maxWidth: 180,
+                      flexShrink: 0,
+                      userSelect: "none",
+                      transition: "background 0.1s, color 0.1s",
+                    }}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: isActive ? 1 : 0.6, flexShrink: 0 }}>
+                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                    </svg>
+                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }} title={tab.name}>
+                      {tab.name}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleCloseChatTab(tab.id);
+                      }}
+                      title={translate("tabs.closeTab")}
+                      style={{
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        width: 16, height: 16, border: "none", background: "none",
+                        color: "var(--text-dim)", cursor: "pointer", borderRadius: 3, padding: 0,
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = "var(--bg-hover)"; e.currentTarget.style.color = "var(--text)"; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = "none"; e.currentTarget.style.color = "var(--text-dim)"; }}
+                    >
+                      ×
+                    </button>
+                  </div>
+                );
+              })}
+              <button
+                type="button"
+                onClick={() => {
+                  const targetCwd = selectedSession?.cwd ?? effectiveNewSessionCwd ?? activeCwd ?? undefined;
+                  if (targetCwd) handleNewSession(`new-${Date.now()}`, targetCwd);
+                }}
+                title={translate("tabs.newChat")}
+                style={{
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  width: 26, height: 26, border: "none", background: "none",
+                  color: "var(--text-muted)", cursor: "pointer", borderRadius: 4, marginLeft: 4, marginBottom: 3,
+                  fontSize: 16, lineHeight: 1,
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = "var(--bg-hover)"; e.currentTarget.style.color = "var(--text)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = "none"; e.currentTarget.style.color = "var(--text-muted)"; }}
+              >
+                +
+              </button>
+            </div>
+          )}
           {showChat ? (
             <ChatWindow
               key={sessionKey}
