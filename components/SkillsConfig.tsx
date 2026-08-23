@@ -196,7 +196,7 @@ function SkillDetail({
           <span
             style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 500 }}
           >
-            Source
+            Источник
           </span>
           <a
             href={skill.install.skillsShUrl}
@@ -233,7 +233,7 @@ function SkillDetail({
           <span
             style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 500 }}
           >
-            Version
+            Версия
           </span>
           <div
             style={{
@@ -334,7 +334,7 @@ function SkillDetail({
         <span
           style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 500 }}
         >
-          Name
+          Название
         </span>
         <span
           style={{
@@ -351,7 +351,7 @@ function SkillDetail({
         <span
           style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 500 }}
         >
-          Description
+          Описание
         </span>
         <span
           style={{ fontSize: 14, color: "var(--text-muted)", lineHeight: 1.6 }}

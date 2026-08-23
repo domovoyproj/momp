@@ -367,7 +367,7 @@ export function ModelScopeWarningBanner({ warnings }: { warnings?: string[] }) {
   return (
     <ModelNoticeBanner
       tone="warning"
-      title={warnings.length > 1 ? "Model scope warnings" : "Model scope warning"}
+      title={warnings.length > 1 ? "Предупреждения области моделей" : "Предупреждение области моделей"}
       body={warnings.join("\n")}
     />
   );
@@ -1894,7 +1894,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                 <button
                   onClick={() => sendQueued("steer")}
                   disabled={!canQueueStreamingMessage}
-                  title={attachedImages.length ? "Image attachments cannot be queued while the agent is running" : "Interrupt the current run and inject this message now"}
+                  title={attachedImages.length ? "Изображения нельзя ставить в очередь во время работы агента" : "Прервать текущий ход и отправить сообщение сейчас"}
                   style={{
                     display: "flex", alignItems: "center", gap: 5,
                     padding: "7px 12px",
@@ -2082,7 +2082,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                       </svg>
                     )}
                     <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
-                      {currentName ?? (modelOptions.length > 0 ? "Select model" : "No models")}
+                      {currentName ?? (modelOptions.length > 0 ? "Выберите модель" : "Нет моделей")}
                     </span>
                   </button>
                   {modelDropdownOpen && modelDropdownRect && (() => {

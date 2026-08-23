@@ -343,7 +343,7 @@ function AddPluginPanel({
               />
               <path fill="#000" d="M517.36 400H634.72V634.72H517.36Z" />
             </svg>
-            oh-my-pi plugins
+            Каталог плагинов momp
           </a>
         </div>
         <div style={{ fontSize: 12, color: "var(--text-dim)", fontFamily: "var(--font-mono)" }}>
@@ -353,7 +353,7 @@ function AddPluginPanel({
 
       <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
         <label htmlFor="plugin-source" style={{ fontSize: 12, fontWeight: 600, color: "var(--text-muted)" }}>
-          Source
+          Источник (пакет / репозиторий)
         </label>
         <input
           id="plugin-source"
@@ -410,7 +410,7 @@ function AddPluginPanel({
 
       <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
         <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-muted)" }}>
-          Examples
+          Примеры
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {examples.map((example) => (
@@ -868,7 +868,7 @@ export function PluginsConfig({
                 </div>
               ) : packages.length === 0 ? (
                 <div style={{ padding: "10px 8px", fontSize: 11, color: "var(--text-dim)" }}>
-                  No plugins configured
+                  Нет настроенных плагинов
                 </div>
               ) : (
                 groupedPackages.map((group) => (

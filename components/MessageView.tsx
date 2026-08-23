@@ -1208,8 +1208,8 @@ function TodoChecklistPreview({ phases }: { phases: TodoPreviewPhase[] }) {
           <path d="M5.5 3.25h7M5.5 7h7M5.5 10.75h7" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
           <path d="m1.5 3.1 1 1 1.7-1.9M1.5 6.85l1 1 1.7-1.9M1.5 10.6l1 1 1.7-1.9" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
-        <span className="todo-checklist-title">Todo</span>
-        <span className="todo-checklist-count">{totalTasks} {totalTasks === 1 ? "task" : "tasks"}</span>
+        <span className="todo-checklist-title">Задачи</span>
+        <span className="todo-checklist-count">{totalTasks} {totalTasks === 1 ? "задача" : "задач"}</span>
         {completedTasks > 0 && completedTasks < totalTasks && (
           <span className="todo-checklist-progress">{completedTasks}/{totalTasks}</span>
         )}
@@ -1312,12 +1312,12 @@ function ConsoleOutputPreview({
         >
           {command || " "}
         </SyntaxHighlighter>
-        {local && <span className="shell-local-label">local</span>}
+        {local && <span className="shell-local-label">локально</span>}
       </div>
 
       <div className="shell-output-panel">
         <div className="shell-output-divider">
-          <span className="shell-output-label">Output</span>
+          <span className="shell-output-label">Вывод</span>
           {statusLabel && <span className={`shell-output-status${isError ? " is-error" : pending ? " is-pending" : ""}`}>{statusLabel}</span>}
         </div>
         <div className="shell-output-body" aria-live={pending ? "polite" : undefined}>
@@ -2051,7 +2051,7 @@ function BashExecutionView({ message, sessionId }: { message: BashExecutionMessa
             href={`${fullOutputUrl}&download=1`}
             style={{ marginLeft: showFullButton ? 10 : 0, color: "var(--accent)", fontSize: 11, textDecoration: "underline" }}
           >
-            download full output
+            скачать полный вывод
           </a>
           {fullError && <span style={{ marginLeft: 6, color: "var(--text-dim)", fontSize: 11 }}>({fullError})</span>}
         </div>
