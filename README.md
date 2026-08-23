@@ -1,22 +1,19 @@
 <p align="center">
-  <img src="./docs/hero.png" alt="momp-web — Browser workspace for omp" width="100%">
+  <img src="https://raw.githubusercontent.com/domovoyproj/momp/main/docs/hero.png?v=3" alt="momp-web — Browser workspace for momp" width="100%">
 </p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/momp-web"><img src="https://img.shields.io/npm/v/momp-web?style=flat&colorA=222222&colorB=CB3837" alt="npm version"></a>
-  <a href="https://github.com/ddallabenetta/momp-web/blob/main/LICENSE"><img src="https://img.shields.io/github/license/ddallabenetta/momp-web?style=flat&colorA=222222&colorB=58A6FF" alt="License"></a>
+  <a href="https://github.com/domovoyproj/momp/releases"><img src="https://img.shields.io/github/v/release/domovoyproj/momp?color=CB3837&colorA=222222&label=momp%20max" alt="version"></a>
+  <a href="https://github.com/domovoyproj/momp/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-58A6FF?style=flat&colorA=222222" alt="License"></a>
   <a href="https://www.typescriptlang.org"><img src="https://img.shields.io/badge/TypeScript-3178C6?style=flat&colorA=222222&logo=typescript&logoColor=white" alt="TypeScript"></a>
   <a href="https://bun.sh"><img src="https://img.shields.io/badge/runtime-Bun-f472b6?style=flat&colorA=222222" alt="Bun"></a>
 </p>
 
 <p align="center">
-  Fork of <a href="https://github.com/agegr/pi-web">pi-web</a> by <a href="https://github.com/agegr">@agegr</a> 
+  Fork of <a href="https://github.com/ddallabenetta/omp-web">omp-web</a>
 </p>
 
-
-The web view for [momp](https://github.com/can1357/momp). momp-web reads the sessions the `omp` CLI already writes and gives you a browser workspace for session browsing, real-time chat, model roles, provider configuration, skill management, and project file preview.
-
-It is not a separate agent: momp-web runs omp's own SDK in-process, against the same `~/.momp/agent` directory, so a session started in the terminal continues in the browser and back again.
+Веб-интерфейс для **momp max**. momp-web предоставляет удобное рабочее пространство в браузере: просмотр сессий, чат в реальном времени, настройку ролей моделей, мониторинг лимитов, управление навыками и предпросмотр файлов проекта.
 
 
 ## ⚡ Быстрая установка в 1 команду
