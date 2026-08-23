@@ -9,7 +9,7 @@ type OmpWordmarkProps = {
 };
 
 export function OmpWordmark({
-  label = "omp",
+  label = "momp",
   markSize = 22,
   gap = 10,
   style,
@@ -42,7 +42,7 @@ export function OmpWordmark({
             <stop offset="1" stopColor="oklch(0.81 0.14 200)" />
           </linearGradient>
         </defs>
-        <path fill={`url(#${gradientId})`} d="M10 14h44v9H43v33h-9V23h-9v22h-9V23H10z" />
+        <path fill={`url(#${gradientId})`} d="M6 10 h10 v38 H6 z M48 10 h10 v38 H48 z M6 10 L32 25 L58 10 L58 19 L32 34 L6 19 z M19 28 h10 v24 H19 z M35 28 h10 v30 h6 v-8 h-6 V28 z" />
       </svg>
       <span
         style={{
