@@ -8,7 +8,7 @@
 // Layout produced (src-tauri/server is gitignored):
 //   server/.next            production build, distDir via OMP_WEB_DIST_DIR
 //   server/node_modules     bun install --production --frozen-lockfile
-//   server/bin public next.config.ts package.json bun.lock
+//   server/bin public next.config.js package.json bun.lock
 //   server/bun-<triple>     Bun runtime(s) for this platform only
 //
 // The tauri.conf.json resources map points at ./server/*; the Bun binaries
@@ -41,7 +41,7 @@ if (skipBuild) {
 }
 
 // 2. static payload
-for (const entry of ["bin", "public", "next.config.ts", "package.json", "bun.lock"]) {
+for (const entry of ["bin", "public", "next.config.js", "package.json", "bun.lock"]) {
   cpSync(join(root, entry), join(server, entry), { recursive: true });
 }
 
@@ -68,7 +68,7 @@ rmSync(join(server, ".next", "cache"), { recursive: true, force: true });
 rmSync(join(server, ".next", "dev"), { recursive: true, force: true });
 
 // 5. production-only dependencies. jiti and the other build tooling stay in
-//    devDependencies: Next 16 loads next.config.ts without them, and the
+//    devDependencies: Next 16 loads next.config.js without them, and the
 //    only jiti users are the test files, which never ship. `--omit=optional`
 //    drops @next/swc-* (all platform variants), @huggingface/transformers +
 //    onnxruntime-* (~350MB, local embeddings/TTS workers) and sharp — none

@@ -32,7 +32,7 @@
     "!.next/dev",
     "!.next/**/*.js.map",
     "public",
-    "next.config.ts",
+    "next.config.js",
     "package.json",
     "bun.lock"
   ],
