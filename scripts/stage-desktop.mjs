@@ -19,7 +19,7 @@
 
 import { spawnSync } from "node:child_process";
 import { chmodSync, cpSync, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync } from "node:fs";
-import { join } from "node:path";
+import { join, sep } from "node:path";
 
 const root = join(import.meta.dir, "..");
 const server = join(root, "src-tauri", "server");
@@ -213,6 +213,31 @@ for (const triple of triples) {
   const dest = join(server, name);
   cpSync(src, dest);
   if (process.platform !== "win32") chmodSync(dest, 0o755);
+}
+
+// 6b. Strip non-runtime files from node_modules (typings, sourcemaps, docs,
+//     tests). `next start` never reads these, and dropping them cuts the file
+//     count that dominates NTFS extraction time on the client. The @oh-my-pi
+//     SDK is skipped wholesale: it runs from published .ts sources and imports
+//     .md prompt files at runtime, so nothing under it is safe to remove.
+const PRUNE_FILE = /\.(d\.ts|d\.mts|d\.cts|map)$/i;
+const PRUNE_DIR = new Set(["test", "tests", "__tests__", "docs", "doc", "example", "examples", ".github"]);
+const nmDir = join(server, "node_modules");
+if (existsSync(nmDir)) {
+  const stack = [nmDir];
+  while (stack.length) {
+    const dir = stack.pop();
+    if (dir.includes(`${sep}@oh-my-pi${sep}`)) continue;
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (PRUNE_DIR.has(entry.name.toLowerCase())) rmSync(full, { recursive: true, force: true });
+        else stack.push(full);
+      } else if (entry.isFile() && PRUNE_FILE.test(entry.name)) {
+        rmSync(full, { force: true });
+      }
+    }
+  }
 }
 
 // 7. report
