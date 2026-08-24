@@ -16,7 +16,6 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use tauri::{AppHandle, Manager, Url};
-use tauri_plugin_updater::UpdaterExt;
 
 const WINDOW_LABEL: &str = "main";
 const HOST: &str = "127.0.0.1";
@@ -114,7 +113,6 @@ fn main() {
                     desktop_log(&format!("[momp-desktop] failed to start the bundled server: {error}"));
                     app.handle().exit(1);
                 }
-                check_for_updates(app.handle().clone());
             }
             Ok(())
         })
@@ -132,60 +130,34 @@ fn main() {
         });
 }
 
-/// Checks the configured updater endpoint on startup and, when a newer signed
-/// release exists, downloads + installs it silently and restarts. The web
-/// frontend is plain HTML served over loopback and never calls the Tauri
-/// updater JS API, so the check has to be driven from Rust; run it off the main
-/// thread so a slow or unreachable endpoint never delays window startup.
-fn check_for_updates(handle: AppHandle) {
-    tauri::async_runtime::spawn(async move {
-        // Wait a few seconds after startup before checking for updates
-        std::thread::sleep(Duration::from_secs(4));
-        let updater = match handle.updater() {
-            Ok(updater) => updater,
-            Err(error) => {
-                desktop_log(&format!("[momp-desktop] updater unavailable: {error}"));
-                return;
-            }
-        };
-        match updater.check().await {
-            Ok(Some(update)) => {
-                desktop_log(&format!(
-                    "[momp-desktop] update {} available — downloading",
-                    update.version
-                ));
-                // Terminate sidecar first so bun-windows-x64.exe is not locked when installer runs
-                if let Some(server) = handle.try_state::<ServerChild>() {
-                    server.kill();
-                }
-                match update.download_and_install(|_, _| {}, || {}).await {
-                    Ok(()) => {
-                        desktop_log("[momp-desktop] update installed — restarting");
-                        handle.restart();
-                    }
-                    Err(error) => {
-                        desktop_log(&format!("[momp-desktop] update install failed: {error}"));
-                    }
-                }
-            }
-            Ok(None) => desktop_log("[momp-desktop] already up to date"),
-            Err(error) => desktop_log(&format!("[momp-desktop] update check failed: {error}")),
-        }
-    });
-}
 
 fn start_server(app: &mut tauri::App) -> Result<(), String> {
     let port = free_port().map_err(|error| error.to_string())?;
     let root = server_root(app)?;
 
-    let bun = root.join(bun_binary_name());
-    if !bun.is_file() {
-        return Err(format!(
-            "bundled Bun runtime not found: {} (expected next to the server payload in {})",
-            bun.display(),
-            root.display()
-        ));
+    let mut bun_candidates = vec![
+        root.join(bun_binary_name()),
+    ];
+    if let Ok(resources) = app.path().resource_dir() {
+        bun_candidates.push(resources.join(bun_binary_name()));
+        if let Some(parent) = resources.parent() {
+            bun_candidates.push(parent.join(bun_binary_name()));
+        }
     }
+    if let Some(parent) = root.parent() {
+        bun_candidates.push(parent.join(bun_binary_name()));
+    }
+
+    let bun = bun_candidates
+        .into_iter()
+        .find(|p| p.is_file())
+        .ok_or_else(|| {
+            format!(
+                "bundled Bun runtime ({}) not found near {}",
+                bun_binary_name(),
+                root.display()
+            )
+        })?;
 
     let mut command = Command::new(&bun);
     command
@@ -255,16 +227,40 @@ fn server_root(app: &tauri::App) -> Result<PathBuf, String> {
         .path()
         .resource_dir()
         .map_err(|error| error.to_string())?;
-    if resources.join("node_modules").is_dir() {
-        return Ok(resources);
-    }
+
+    let mut candidates = vec![
+        resources.clone(),
+        resources.join("server"),
+    ];
     if let Some(parent) = resources.parent() {
-        if parent.join("node_modules").is_dir() {
-            return Ok(parent.to_path_buf());
+        candidates.push(parent.to_path_buf());
+        candidates.push(parent.join("server"));
+        candidates.push(parent.join("resources"));
+    }
+    if let Ok(local_app_data) = std::env::var("LOCALAPPDATA") {
+        let local = PathBuf::from(local_app_data);
+        candidates.push(local.join("Programs").join("momp"));
+        candidates.push(local.join("Programs").join("momp").join("resources"));
+        candidates.push(local.join("Programs").join("omp-desktop"));
+        candidates.push(local.join("Programs").join("omp-desktop").join("resources"));
+        candidates.push(local.join("momp"));
+        candidates.push(local.join("momp").join("server"));
+    }
+    if let Ok(prog_files) = std::env::var("ProgramFiles") {
+        let pf = PathBuf::from(prog_files);
+        candidates.push(pf.join("momp"));
+        candidates.push(pf.join("momp").join("resources"));
+        candidates.push(pf.join("omp-desktop"));
+    }
+
+    for dir in candidates {
+        if dir.join("node_modules").is_dir() && dir.join(".next").is_dir() {
+            return Ok(dir);
         }
     }
+
     Err(format!(
-        "server payload not found: expected node_modules next to {}",
+        "server payload not found: please run momp_1.0.8_x64-setup.exe installer or extract the portable package. Checked: {}",
         resources.display()
     ))
 }

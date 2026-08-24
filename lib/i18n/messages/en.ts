@@ -21,6 +21,7 @@ export const enLocale: LocalePlugin = {
     "updates.changelog": "Changelog",
     "updates.viewRelease": "View release",
     "updates.install": "Install update",
+    "updates.download": "Download update",
     "updates.installing": "Installing…",
     "updates.installed": "momp {version} installed. Restart momp to finish.",
     "updates.manual": "Run one of these commands to update momp:",

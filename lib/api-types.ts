@@ -193,6 +193,8 @@ export interface OmpWebUpdateResponse {
   availability: OmpWebUpdateAvailability;
   install: OmpWebInstallPlan;
   checkedAt: string;
+  desktop: boolean;
+  releaseUrl: string;
 }
 
 /**

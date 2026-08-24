@@ -177,7 +177,7 @@ export function buildInstallPlan({
 }): OmpWebInstallPlan {
   const { primary, alternate } = installerCommand();
   const updateAvailable = isNewerVersion(latestVersion, currentAppVersion);
-  const disabled = env.MOMP_WEB_DISABLE_SELF_UPDATE === "1" || env.OMP_WEB_DISABLE_SELF_UPDATE === "1" || env.OMP_DESKTOP === "1";
+  const disabled = env.MOMP_WEB_DISABLE_SELF_UPDATE === "1" || env.OMP_WEB_DISABLE_SELF_UPDATE === "1";
   const canInstall = updateAvailable && !disabled;
 
   let reason: OmpWebInstallPlan["reason"];
@@ -224,6 +224,8 @@ export async function getOmpWebUpdateStatus(options: UpdateStatusOptions = {}): 
     availability,
     install,
     checkedAt: new Date().toISOString(),
+    desktop: (options.env ?? process.env).OMP_DESKTOP === "1",
+    releaseUrl: latestRelease.htmlUrl,
   };
 }
 

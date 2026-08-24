@@ -19,6 +19,7 @@ export const zhCNLocale: LocalePlugin = {
     "updates.changelog": "更新日志",
     "updates.viewRelease": "查看发布",
     "updates.install": "安装更新",
+    "updates.download": "下载更新",
     "updates.installing": "正在安装…",
     "updates.installed": "已安装 momp {version}。重启 momp 以完成更新。",
     "updates.manual": "运行以下任一命令更新 momp：",

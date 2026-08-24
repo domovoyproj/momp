@@ -20,6 +20,7 @@ export const ruLocale: LocalePlugin = {
     "updates.changelog": "Список изменений",
     "updates.viewRelease": "Посмотреть релиз",
     "updates.install": "Установить обновление",
+    "updates.download": "Скачать обновление",
     "updates.installing": "Установка...",
     "updates.installed": "momp {version} установлен. Перезапустите momp для завершения.",
     "updates.manual": "Выполните одну из этих команд для обновления momp:",

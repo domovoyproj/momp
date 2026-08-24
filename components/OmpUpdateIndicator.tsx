@@ -12,6 +12,33 @@ function displayVersion(version: string): string {
   return version === "unknown" ? version : `v${version}`;
 }
 
+/**
+ * Opens a URL in the OS browser. Inside the Tauri desktop shell
+ * (`withGlobalTauri`), routes through the opener plugin; otherwise falls back
+ * to a plain new-tab open. Narrows `window.__TAURI__` at runtime — the desktop
+ * bridge is injected, never typed.
+ */
+async function openExternalUrl(url: string): Promise<void> {
+  const fallback = () => { window.open(url, "_blank", "noreferrer"); };
+  const w: unknown = typeof window !== "undefined" ? window : undefined;
+  if (!w || typeof w !== "object" || !("__TAURI__" in w)) return fallback();
+  const tauri = w.__TAURI__;
+  if (!tauri || typeof tauri !== "object") return fallback();
+  try {
+    if ("opener" in tauri && tauri.opener && typeof tauri.opener === "object" && "openUrl" in tauri.opener) {
+      const openUrl = tauri.opener.openUrl;
+      if (typeof openUrl === "function") { await openUrl(url); return; }
+    }
+    if ("core" in tauri && tauri.core && typeof tauri.core === "object" && "invoke" in tauri.core) {
+      const invoke = tauri.core.invoke;
+      if (typeof invoke === "function") { await invoke("plugin:opener|open_url", { url }); return; }
+    }
+  } catch {
+    /* fall through to browser open */
+  }
+  fallback();
+}
+
 export function OmpUpdateIndicator() {
   const { locale, t } = useI18n();
   const [status, setStatus] = useState<OmpWebUpdateResponse | null>(null);
@@ -109,7 +136,15 @@ export function OmpUpdateIndicator() {
     }
   };
   const installUpdate = async () => {
-    if (!status.install.canInstall || installing) return;
+    if (installing) return;
+    // Desktop (Tauri): the bundled server can't self-overwrite while running,
+    // so route the single banner's action to the OS opener and pull the fresh
+    // portable build from the release page.
+    if (status.desktop) {
+      await openExternalUrl(status.releaseUrl);
+      return;
+    }
+    if (!status.install.canInstall) return;
     setInstalling(true);
     setMessage(null);
     try {
@@ -230,14 +265,14 @@ export function OmpUpdateIndicator() {
               </a>
             </div>
 
-            {status.install.canInstall ? (
+            {status.desktop || status.install.canInstall ? (
               <button
                 type="button"
                 onClick={() => void installUpdate()}
                 disabled={installing}
                 style={{ width: "100%", minHeight: 34, border: "1px solid var(--accent)", borderRadius: 7, background: installing ? "var(--bg-selected)" : "var(--accent)", color: installing ? "var(--accent)" : "var(--bg)", cursor: installing ? "wait" : "pointer", fontSize: 11, fontWeight: 700, fontFamily: "var(--font-mono)" }}
               >
-                {installing ? t("updates.installing") : t("updates.install")}
+                {installing ? t("updates.installing") : status.desktop ? t("updates.download") : t("updates.install")}
               </button>
             ) : (
               <div style={{ color: "var(--text-muted)", fontSize: 11, lineHeight: 1.45 }}>
