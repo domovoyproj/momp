@@ -1,4 +1,8 @@
-<img width="1024" height="438" alt="momp max" src="https://github.com/user-attachments/assets/0ddc65e2-5e2d-4ce3-b255-3bc00974443b" />
+
+
+https://github.com/user-attachments/assets/22bdcf05-e076-4f49-85b0-07613169f082
+
+
 
 <p align="center">
   <a href="https://github.com/domovoyproj/momp/releases"><img src="https://github.com/user-attachments/assets/6fa8c7b0-7180-4bcf-b775-f8c41742eb33" alt="version"></a>
