@@ -1,6 +1,6 @@
 <p align="center"><img src="https://github.com/user-attachments/assets/593fab63-caec-4629-8379-27ec69b43e2a" /></p>
 <p align="center">
-  <a href="https://github.com/domovoyproj/momp/releases"><img src="https://github.com/user-attachments/assets/6fa8c7b0-7180-4bcf-b775-f8c41742eb33" alt="version"></a>
+  <a href="https://github.com/domovoyproj/momp/releases"><img src="https://img.shields.io/github/v/release/domovoyproj/momp?style=flat&colorA=222222&colorB=58A6FF&logo=git&logoColor=white" alt="version"></a>  
   <a href="https://github.com/domovoyproj/momp/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-58A6FF?style=flat&colorA=222222" alt="License"></a>
   <a href="https://www.typescriptlang.org"><img src="https://img.shields.io/badge/TypeScript-3178C6?style=flat&colorA=222222&logo=typescript&logoColor=white" alt="TypeScript"></a>
   <a href="https://bun.sh"><img src="https://img.shields.io/badge/runtime-Bun-f472b6?style=flat&colorA=222222" alt="Bun"></a>
