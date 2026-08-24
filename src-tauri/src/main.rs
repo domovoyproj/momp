@@ -6,6 +6,7 @@
 // already running via beforeDevCommand and the webview loads devUrl.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use flate2::read::GzDecoder;
 use std::fs::OpenOptions;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{Ipv4Addr, SocketAddr, TcpListener, TcpStream};
@@ -14,8 +15,12 @@ use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
 use std::thread;
 use std::time::{Duration, Instant};
+use tar::Archive;
 
 use tauri::{AppHandle, Manager, Url};
+use tauri_plugin_updater::UpdaterExt;
+
+const MAGIC_SFX: &[u8; 8] = b"MOMP_SFX";
 
 const WINDOW_LABEL: &str = "main";
 const HOST: &str = "127.0.0.1";
@@ -28,7 +33,7 @@ fn desktop_log(line: &str) {
     if let Ok(mut file) = OpenOptions::new()
         .create(true)
         .append(true)
-        .open(std::env::temp_dir().join("omp-desktop.log"))
+        .open(std::env::temp_dir().join("momp-desktop.log"))
     {
         let _ = writeln!(file, "{line}");
     }
@@ -114,10 +119,38 @@ fn main() {
                     app.handle().exit(1);
                 }
             }
+
+            // Background auto-updater check
+            let handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                match handle.updater() {
+                    Ok(updater) => match updater.check().await {
+                        Ok(Some(update)) => {
+                            desktop_log(&format!(
+                                "[updater] new version {} available (current: {})",
+                                update.version, update.current_version
+                            ));
+                            let res = update
+                                .download_and_install(|_chunk, _total| {}, || {
+                                    desktop_log("[updater] download finished, installing update...");
+                                })
+                                .await;
+                            match res {
+                                Ok(()) => desktop_log("[updater] update installed successfully (will apply on restart)"),
+                                Err(err) => desktop_log(&format!("[updater] failed to install update: {err}")),
+                            }
+                        }
+                        Ok(None) => desktop_log("[updater] application is up to date"),
+                        Err(err) => desktop_log(&format!("[updater] update check failed: {err}")),
+                    },
+                    Err(err) => desktop_log(&format!("[updater] failed to initialize updater: {err}")),
+                }
+            });
+
             Ok(())
         })
         .build(tauri::generate_context!())
-        .expect("failed to build omp-desktop application")
+        .expect("failed to build momp application")
         .run(|app, event| {
             if matches!(
                 event,
@@ -130,10 +163,9 @@ fn main() {
         });
 }
 
-
 fn start_server(app: &mut tauri::App) -> Result<(), String> {
     let port = free_port().map_err(|error| error.to_string())?;
-    let root = server_root(app)?;
+    let root = ensure_server_extracted(app)?;
 
     let mut bun_candidates = vec![
         root.join(bun_binary_name()),
@@ -144,16 +176,13 @@ fn start_server(app: &mut tauri::App) -> Result<(), String> {
             bun_candidates.push(parent.join(bun_binary_name()));
         }
     }
-    if let Some(parent) = root.parent() {
-        bun_candidates.push(parent.join(bun_binary_name()));
-    }
 
     let bun = bun_candidates
         .into_iter()
         .find(|p| p.is_file())
         .ok_or_else(|| {
             format!(
-                "bundled Bun runtime ({}) not found near {}",
+                "bundled Bun runtime ({}) not found in {}",
                 bun_binary_name(),
                 root.display()
             )
@@ -169,8 +198,7 @@ fn start_server(app: &mut tauri::App) -> Result<(), String> {
         .arg(HOST)
         .arg("-p")
         .arg(port.to_string())
-        // Relative project paths in the browser resolve against this
-        // directory (lib/directory-browser.ts reads OMP_WEB_LAUNCH_CWD).
+        // Relative project paths in the browser resolve against this directory
         .env("MOMP_WEB_DISABLE_SELF_UPDATE", "1")
         .env("OMP_DESKTOP", "1")
         .env(
@@ -199,16 +227,16 @@ fn start_server(app: &mut tauri::App) -> Result<(), String> {
     let handle = app.handle().clone();
     thread::spawn(move || match wait_until_ready(port) {
         Ok(()) => {
-            desktop_log(&format!("[omp-desktop] server ready on http://{HOST}:{port}/"));
+            desktop_log(&format!("[momp-desktop] server ready on http://{HOST}:{port}/"));
             navigate_main(&handle, port);
         }
         Err(error) => {
-            desktop_log(&format!("[omp-desktop] bundled server failed to become ready: {error}"));
+            desktop_log(&format!("[momp-desktop] bundled server failed to become ready: {error}"));
             handle.exit(1);
         }
     });
 
-    desktop_log(&format!("[omp-desktop] omp-web server starting on http://{HOST}:{port}/"));
+    desktop_log(&format!("[momp-desktop] momp server starting on http://{HOST}:{port}/"));
     Ok(())
 }
 
@@ -219,50 +247,145 @@ fn free_port() -> std::io::Result<u16> {
     Ok(listener.local_addr()?.port())
 }
 
-/// Locates the server payload (node_modules, .next, public, the bundled Bun,
-/// ...). Resources land in the app's resource_dir; the parent directory is
-/// checked as a fallback for layouts that nest them one level deeper.
-fn server_root(app: &tauri::App) -> Result<PathBuf, String> {
-    let resources = app
-        .path()
-        .resource_dir()
-        .map_err(|error| error.to_string())?;
+use std::io::{Seek, SeekFrom};
 
-    let mut candidates = vec![
-        resources.clone(),
-        resources.join("server"),
-    ];
-    if let Some(parent) = resources.parent() {
-        candidates.push(parent.to_path_buf());
-        candidates.push(parent.join("server"));
-        candidates.push(parent.join("resources"));
-    }
-    if let Ok(local_app_data) = std::env::var("LOCALAPPDATA") {
-        let local = PathBuf::from(local_app_data);
-        candidates.push(local.join("Programs").join("momp"));
-        candidates.push(local.join("Programs").join("momp").join("resources"));
-        candidates.push(local.join("Programs").join("omp-desktop"));
-        candidates.push(local.join("Programs").join("omp-desktop").join("resources"));
-        candidates.push(local.join("momp"));
-        candidates.push(local.join("momp").join("server"));
-    }
-    if let Ok(prog_files) = std::env::var("ProgramFiles") {
-        let pf = PathBuf::from(prog_files);
-        candidates.push(pf.join("momp"));
-        candidates.push(pf.join("momp").join("resources"));
-        candidates.push(pf.join("omp-desktop"));
+/// Extracts appended SFX payload (tar or tar.gz) from the currently executing binary if present.
+fn extract_sfx_payload(runtime_dir: &PathBuf) -> Result<bool, String> {
+    let current_exe = std::env::current_exe().map_err(|e| e.to_string())?;
+    let mut file = std::fs::File::open(&current_exe)
+        .map_err(|e| format!("cannot open executable ({}): {e}", current_exe.display()))?;
+    let file_len = file.metadata().map_err(|e| e.to_string())?.len();
+    if file_len < 16 {
+        return Ok(false);
     }
 
-    for dir in candidates {
-        if dir.join("node_modules").is_dir() && dir.join(".next").is_dir() {
-            return Ok(dir);
+    file.seek(SeekFrom::End(-16)).map_err(|e| e.to_string())?;
+    let mut footer = [0u8; 16];
+    file.read_exact(&mut footer).map_err(|e| e.to_string())?;
+
+    if &footer[8..16] != MAGIC_SFX {
+        return Ok(false);
+    }
+
+    let payload_len = u64::from_le_bytes(footer[0..8].try_into().unwrap());
+    if payload_len == 0 || payload_len > file_len - 16 {
+        return Err("corrupt or invalid SFX payload footer".into());
+    }
+
+    let payload_offset = file_len - 16 - payload_len;
+    file.seek(SeekFrom::Start(payload_offset)).map_err(|e| e.to_string())?;
+
+    desktop_log(&format!(
+        "[momp-desktop] extracting SFX payload ({:.1} MB) to {}",
+        payload_len as f64 / 1024.0 / 1024.0,
+        runtime_dir.display()
+    ));
+
+    let _ = std::fs::create_dir_all(runtime_dir);
+
+    // Inspect magic bytes to detect gzip vs uncompressed tar
+    let mut magic = [0u8; 2];
+    file.read_exact(&mut magic).map_err(|e| e.to_string())?;
+    file.seek(SeekFrom::Start(payload_offset)).map_err(|e| e.to_string())?;
+
+    let stream = file.take(payload_len);
+    let buf_reader = std::io::BufReader::with_capacity(1024 * 1024 * 4, stream);
+
+    if magic == [0x1f, 0x8b] {
+        let decoder = GzDecoder::new(buf_reader);
+        let mut archive = Archive::new(decoder);
+        archive
+            .unpack(runtime_dir)
+            .map_err(|e| format!("failed to extract SFX gzip archive: {e}"))?;
+    } else {
+        let mut archive = Archive::new(buf_reader);
+        archive
+            .unpack(runtime_dir)
+            .map_err(|e| format!("failed to extract SFX tar archive: {e}"))?;
+    }
+
+    Ok(true)
+}
+
+/// Ensures the server payload is extracted to the local app data folder
+/// for the current application version (%LOCALAPPDATA%/momp/app-v<VERSION>).
+fn ensure_server_extracted(app: &tauri::App) -> Result<PathBuf, String> {
+    let version = app.package_info().version.to_string();
+    let runtime_base = if let Ok(local_app_data) = std::env::var("LOCALAPPDATA") {
+        PathBuf::from(local_app_data).join("momp")
+    } else if let Ok(data_dir) = app.path().app_local_data_dir() {
+        data_dir
+    } else {
+        std::env::temp_dir().join("momp")
+    };
+
+    let runtime_dir = runtime_base.join(format!("app-v{}", version));
+    let bun_path = runtime_dir.join(bun_binary_name());
+    let next_path = runtime_dir.join(".next");
+
+    // 1. If already extracted, return right away
+    if bun_path.is_file() && next_path.is_dir() {
+        return Ok(runtime_dir);
+    }
+
+    // 2. Attempt SFX extraction from current binary
+    match extract_sfx_payload(&runtime_dir) {
+        Ok(true) => {
+            let cleanup_base = runtime_base.clone();
+            let current_version = version.clone();
+            thread::spawn(move || {
+                clean_old_versions(&cleanup_base, &current_version);
+            });
+            return Ok(runtime_dir);
+        }
+        Ok(false) => {}
+        Err(err) => {
+            desktop_log(&format!("[momp-desktop] SFX extraction error: {err}"));
+        }
+    }
+
+    // 3. Fallback for dev / uncompressed builds
+    if let Ok(resources) = app.path().resource_dir() {
+        if resources.join(".next").is_dir() {
+            return Ok(resources);
+        }
+        if resources.join("server").join(".next").is_dir() {
+            return Ok(resources.join("server"));
+        }
+    }
+
+    if let Ok(exe_dir) = std::env::current_exe() {
+        if let Some(parent) = exe_dir.parent() {
+            if parent.join(".next").is_dir() {
+                return Ok(parent.to_path_buf());
+            }
+            if parent.join("server").join(".next").is_dir() {
+                return Ok(parent.join("server"));
+            }
         }
     }
 
     Err(format!(
-        "server payload not found: please run momp_1.0.8_x64-setup.exe installer or extract the portable package. Checked: {}",
-        resources.display()
+        "server payload not found in {} or standalone executable",
+        runtime_dir.display()
     ))
+}
+
+fn clean_old_versions(base: &PathBuf, current_version: &str) {
+    let current_dir_name = format!("app-v{}", current_version);
+    if let Ok(entries) = std::fs::read_dir(base) {
+        for entry in entries.filter_map(Result::ok) {
+            let path = entry.path();
+            if path.is_dir() {
+                if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                    if name.starts_with("app-v") && name != current_dir_name {
+                        desktop_log(&format!("[cleanup] removing old version folder: {}", path.display()));
+                        let _ = std::fs::remove_dir_all(&path);
+                    }
+                }
+            }
+        }
+    }
 }
 
 /// Polls the server until it answers an HTTP request (up to 60s).

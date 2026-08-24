@@ -45,6 +45,7 @@ src-tauri/target/
 src-tauri/gen/
 src-tauri/resources/
 src-tauri/server/
+src-tauri/server_payload.*
 
 mingit/
 mingit.zip

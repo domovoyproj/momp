@@ -115,6 +115,17 @@ for (const name of PRUNE) {
   rmSync(join(server, "node_modules", name), { recursive: true, force: true });
 }
 
+// 5b-2. prune foreign onnxruntime binaries
+const onnxBin = join(server, "node_modules", "onnxruntime-node", "bin", "napi-v6");
+if (existsSync(onnxBin)) {
+  const keepPlatform = process.platform === "win32" ? "win32" : process.platform === "darwin" ? "darwin" : "linux";
+  for (const plat of readdirSync(onnxBin)) {
+    if (plat !== keepPlatform) {
+      rmSync(join(onnxBin, plat), { recursive: true, force: true });
+    }
+  }
+}
+
 // Pruned packages leave dangling `.bin` symlinks behind; tauri-build's
 // resource walker fails on them (the server runtime never invokes .bin).
 const binDir = join(server, "node_modules", ".bin");
@@ -211,3 +222,33 @@ if (process.platform !== "win32") {
 } else {
   console.log("[stage-desktop] payload ready");
 }
+
+// 8. pack payload into single archive for standalone binary embedding
+const payloadArchive = join(root, "src-tauri", "server_payload.tar");
+console.log(`[stage-desktop] packing server payload into ${payloadArchive}...`);
+const items = [
+  ".next",
+  "bin",
+  "public",
+  "bun.lock",
+  "next.config.js",
+  "package.json",
+  "node_modules",
+];
+if (process.platform === "win32") {
+  items.push("bun-windows-x64.exe");
+} else {
+  for (const triple of triples) {
+    items.push(`bun-${triple}`);
+  }
+}
+const tarResult = spawnSync(
+  "tar",
+  ["-cf", payloadArchive, "-C", server, ...items],
+  { stdio: "inherit" }
+);
+if (tarResult.status !== 0) {
+  console.error("[stage-desktop] failed to create server_payload.tar");
+  process.exit(tarResult.status ?? 1);
+}
+console.log("[stage-desktop] server_payload.tar ready");

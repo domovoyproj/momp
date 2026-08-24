@@ -1,7 +1,7 @@
 [package]
-name = "omp-desktop"
+name = "momp"
 version = "1.0.8"
-description = "Tauri v2 desktop shell for omp-web"
+description = "Single standalone executable for momp"
 authors = ["omp-web contributors"]
 edition = "2021"
 license = "MIT"
@@ -16,3 +16,5 @@ tauri-plugin-opener = "2"
 tauri-plugin-updater = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+flate2 = "1"
+tar = "0.4"
