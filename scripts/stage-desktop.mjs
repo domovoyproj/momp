@@ -18,7 +18,7 @@
 // Usage: bun scripts/stage-desktop.mjs [--skip-build]
 
 import { spawnSync } from "node:child_process";
-import { chmodSync, cpSync, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync } from "node:fs";
+import { chmodSync, cpSync, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync } from "node:fs";
 import { join } from "node:path";
 
 const root = join(import.meta.dir, "..");
@@ -45,20 +45,35 @@ for (const entry of ["bin", "public", "next.config.js", "package.json", "bun.loc
   cpSync(join(root, entry), join(server, entry), { recursive: true });
 }
 
-// 3. production build straight into the staging dir (the dev `.next/` is
-//    never touched, so desktop builds cannot disturb `bun run dev`)
+// 3. production build. Next is given a top-level single-segment distDir
+//    (`.next-desktop`) rather than the nested `src-tauri/server/.next`: a
+//    relative distDir containing path separators makes Next's "Collecting
+//    page data" workers resolve the wrong directory, so pages-manifest.json is
+//    never found and the build dies with ENOENT. Building beside the default
+//    `.next` behaves identically to a normal `bun run build`; the finished
+//    output is then relocated into the staging dir. The dev `.next/` is never
+//    touched, so desktop builds cannot disturb `bun run dev`.
+const scratch = join(root, ".next-desktop");
+const staged = join(server, ".next");
 if (!skipBuild) {
+  rmSync(scratch, { recursive: true, force: true });
   const build = spawnSync("bun", ["run", "build"], {
     cwd: root,
     stdio: "inherit",
-    env: { ...process.env, OMP_WEB_DIST_DIR: "src-tauri/server/.next" },
+    env: { ...process.env, OMP_WEB_DIST_DIR: ".next-desktop" },
   });
   if (build.status !== 0) {
     console.error("[stage-desktop] next build failed");
     process.exit(build.status ?? 1);
   }
+  if (!existsSync(join(scratch, "BUILD_ID"))) {
+    console.error("[stage-desktop] production build produced no output in .next-desktop");
+    process.exit(1);
+  }
+  rmSync(staged, { recursive: true, force: true });
+  renameSync(scratch, staged);
 }
-if (!existsSync(join(server, ".next", "BUILD_ID"))) {
+if (!existsSync(join(staged, "BUILD_ID"))) {
   console.error("[stage-desktop] production build produced no output in src-tauri/server/.next");
   process.exit(1);
 }
@@ -147,7 +162,13 @@ const nativeVariants =
 for (const [name, host] of nativeVariants) {
   const src = join(root, "node_modules", name);
   if (existsSync(src)) {
-    cpSync(src, join(server, "node_modules", name), { recursive: true });
+    // The production install may have linked this package into the payload
+    // (Bun symlinks/junctions workspace + hoisted deps), so cpSync would see
+    // src and dest resolving to the same real path (EINVAL). Drop the link
+    // first, then copy real files (dereference) so the bundle is self-contained.
+    const dst = join(server, "node_modules", name);
+    rmSync(dst, { recursive: true, force: true });
+    cpSync(src, dst, { recursive: true, dereference: true });
     continue;
   }
   let version;

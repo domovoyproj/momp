@@ -322,8 +322,10 @@ fn make_process_group(command: &mut Command) {
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
-        // CREATE_NEW_PROCESS_GROUP
-        command.creation_flags(0x0000_0200);
+        // CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW — the second flag keeps
+        // the console-subsystem Bun sidecar from flashing a cmd window when the
+        // GUI app launches it.
+        command.creation_flags(0x0000_0200 | 0x0800_0000);
     }
 }
 
@@ -337,8 +339,11 @@ fn kill_process_group(pid: u32) {
     }
     #[cfg(windows)]
     {
+        use std::os::windows::process::CommandExt;
         let _ = Command::new("taskkill")
             .args(["/pid", &pid.to_string(), "/T", "/F"])
+            // CREATE_NO_WINDOW — no cmd flash on teardown either.
+            .creation_flags(0x0800_0000)
             .spawn();
     }
 }

@@ -483,6 +483,10 @@ export function SessionSidebar({ selectedSessionId, optimisticSession, onSelectS
   const [customPathOpen, setCustomPathOpen] = useState(false);
   const [customPathError, setCustomPathError] = useState<string | null>(null);
   const [customPathValidating, setCustomPathValidating] = useState(false);
+  const [copiedProjectPath, setCopiedProjectPath] = useState<string | null>(null);
+  const [deleteDiskProject, setDeleteDiskProject] = useState<string | null>(null);
+  const [isDeletingDisk, setIsDeletingDisk] = useState(false);
+  const [deleteDiskError, setDeleteDiskError] = useState<string | null>(null);
   // Worktree switcher state
   const [worktreeState, setWorktreeState] = useState<WorktreeState | null>(null);
   const [wtDropdownOpen, setWtDropdownOpen] = useState(false);
@@ -960,6 +964,38 @@ export function SessionSidebar({ selectedSessionId, optimisticSession, onSelectS
       setSelectedCwd(null);
     }
   };
+
+  const handleCopyProjectPath = useCallback((project: string) => {
+    navigator.clipboard?.writeText(project);
+    setCopiedProjectPath(project);
+    setTimeout(() => setCopiedProjectPath((prev) => (prev === project ? null : prev)), 1800);
+  }, []);
+
+  const handleConfirmDeleteProjectFromDisk = useCallback(async () => {
+    if (!deleteDiskProject || isDeletingDisk) return;
+    setIsDeletingDisk(true);
+    setDeleteDiskError(null);
+    try {
+      const res = await fetch("/api/cwd/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: deleteDiskProject }),
+      });
+      const data = await res.json().catch(() => ({})) as { error?: string; ok?: boolean };
+      if (!res.ok || data.error) {
+        setDeleteDiskError(data.error || `HTTP ${res.status}`);
+        return;
+      }
+      const target = deleteDiskProject;
+      setDeleteDiskProject(null);
+      handleRemoveProject(target);
+      await loadSessions(false, true);
+    } catch (e) {
+      setDeleteDiskError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setIsDeletingDisk(false);
+    }
+  }, [deleteDiskProject, isDeletingDisk, handleRemoveProject, loadSessions]);
 
   const sessionsByProject = new Map<string, SessionInfo[]>();
   for (const session of sessionsForDisplay) {
@@ -1701,6 +1737,40 @@ export function SessionSidebar({ selectedSessionId, optimisticSession, onSelectS
                         )}
                         <button
                           type="button"
+                          onClick={() => handleCopyProjectPath(project)}
+                          title={copiedProjectPath === project ? t("sidebar.pathCopied") : `${t("sidebar.copyProjectPath")}\n${project}`}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                            width: "100%",
+                            minHeight: 34,
+                            padding: "0 10px",
+                            border: "none",
+                            borderTop: "1px solid var(--border)",
+                            background: "transparent",
+                            color: copiedProjectPath === project ? "var(--success)" : "var(--text)",
+                            cursor: "pointer",
+                            textAlign: "left",
+                            fontSize: 11,
+                          }}
+                          onMouseEnter={(e) => { e.currentTarget.style.background = "var(--bg-hover)"; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+                        >
+                          {copiedProjectPath === project ? (
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                          ) : (
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                              <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                            </svg>
+                          )}
+                          {copiedProjectPath === project ? t("sidebar.pathCopied") : t("sidebar.copyProjectPath")}
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => handleRenameProject(project)}
                           title={t("sidebar.rename")}
                           style={{
@@ -1741,6 +1811,46 @@ export function SessionSidebar({ selectedSessionId, optimisticSession, onSelectS
                             border: "none",
                             borderTop: "1px solid var(--border)",
                             background: "transparent",
+                            color: "var(--text-muted)",
+                            cursor: "pointer",
+                            textAlign: "left",
+                            fontSize: 11,
+                          }}
+                          onMouseEnter={(event) => {
+                            event.currentTarget.style.background = "var(--bg-hover)";
+                            event.currentTarget.style.color = "var(--text)";
+                          }}
+                          onMouseLeave={(event) => {
+                            event.currentTarget.style.background = "transparent";
+                            event.currentTarget.style.color = "var(--text-muted)";
+                          }}
+                        >
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <polyline points="3 6 5 6 21 6" />
+                            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                            <path d="M10 11v6M14 11v6" />
+                            <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+                          </svg>
+                          {t("sidebar.removeProject")}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setProjectMenuOpen(null);
+                            setDeleteDiskProject(project);
+                            setDeleteDiskError(null);
+                          }}
+                          title={t("sidebar.deleteProjectFromDiskTitle")}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                            width: "100%",
+                            minHeight: 34,
+                            padding: "0 10px",
+                            border: "none",
+                            borderTop: "1px solid var(--border)",
+                            background: "transparent",
                             color: "var(--danger)",
                             cursor: "pointer",
                             textAlign: "left",
@@ -1754,12 +1864,9 @@ export function SessionSidebar({ selectedSessionId, optimisticSession, onSelectS
                           }}
                         >
                           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                            <polyline points="3 6 5 6 21 6" />
-                            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                            <path d="M10 11v6M14 11v6" />
-                            <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+                            <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6" />
                           </svg>
-                          {t("sidebar.removeProject")}
+                          {t("sidebar.deleteProjectFromDisk")}
                         </button>
                       </AnimatedDropdown>
                   </div>
@@ -1937,6 +2044,126 @@ export function SessionSidebar({ selectedSessionId, optimisticSession, onSelectS
               />
             </div>
           )}
+        </div>
+      )}
+
+      {deleteDiskProject && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 9999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "rgba(0,0,0,0.6)",
+            backdropFilter: "blur(3px)",
+            padding: 16,
+          }}
+          onClick={() => {
+            if (!isDeletingDisk) {
+              setDeleteDiskProject(null);
+              setDeleteDiskError(null);
+            }
+          }}
+        >
+          <div
+            style={{
+              width: "100%",
+              maxWidth: 440,
+              background: "var(--bg-panel)",
+              border: "1px solid var(--border)",
+              borderRadius: 10,
+              padding: 20,
+              boxShadow: "0 16px 40px rgba(0,0,0,0.45)",
+              display: "flex",
+              flexDirection: "column",
+              gap: 14,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 10, color: "var(--danger)" }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                <line x1="12" y1="9" x2="12" y2="13" />
+                <line x1="12" y1="17" x2="12.01" y2="17" />
+              </svg>
+              <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>
+                {t("sidebar.deleteProjectFromDisk")}
+              </span>
+            </div>
+
+            <div style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.5 }}>
+              {t("sidebar.deleteProjectConfirm", { path: "" })}
+            </div>
+
+            <div
+              style={{
+                fontSize: 12,
+                fontFamily: "var(--font-mono, monospace)",
+                padding: "8px 12px",
+                background: "var(--bg)",
+                border: "1px solid var(--border)",
+                borderRadius: 6,
+                wordBreak: "break-all",
+                color: "var(--text-muted)",
+              }}
+            >
+              {deleteDiskProject}
+            </div>
+
+            {deleteDiskError && (
+              <div style={{ fontSize: 12, color: "var(--danger)", background: "color-mix(in srgb, var(--danger) 10%, transparent)", padding: "6px 10px", borderRadius: 6 }}>
+                {deleteDiskError}
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 6 }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setDeleteDiskProject(null);
+                  setDeleteDiskError(null);
+                }}
+                disabled={isDeletingDisk}
+                style={{
+                  height: 32,
+                  padding: "0 14px",
+                  background: "var(--bg-hover)",
+                  border: "1px solid var(--border)",
+                  borderRadius: 6,
+                  color: "var(--text)",
+                  cursor: isDeletingDisk ? "not-allowed" : "pointer",
+                  fontSize: 12,
+                  fontWeight: 500,
+                }}
+              >
+                {t("sidebar.cancel")}
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteProjectFromDisk}
+                disabled={isDeletingDisk}
+                style={{
+                  height: 32,
+                  padding: "0 14px",
+                  background: "var(--danger)",
+                  border: "none",
+                  borderRadius: 6,
+                  color: "#fff",
+                  cursor: isDeletingDisk ? "not-allowed" : "pointer",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  opacity: isDeletingDisk ? 0.7 : 1,
+                }}
+              >
+                {isDeletingDisk ? t("sidebar.deleting") : t("sidebar.deleteProjectConfirmBtn")}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -2152,6 +2379,7 @@ function SessionItem({
   const [renameValue, setRenameValue] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [copiedSession, setCopiedSession] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Select the whole name once the rename input is mounted (startRename's
@@ -2402,6 +2630,45 @@ function SessionItem({
           {/* Action buttons — shown on hover */}
           {hovered && !session.transient && (
             <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const toCopy = session.path || session.cwd;
+                  if (toCopy) {
+                    navigator.clipboard?.writeText(toCopy);
+                    setCopiedSession(true);
+                    setTimeout(() => setCopiedSession(false), 1500);
+                  }
+                }}
+                title={copiedSession ? t("sidebar.pathCopied") : `${t("sidebar.copySessionPath")}\n${session.path || session.cwd}`}
+                style={{
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  width: 26, height: 26, padding: 0,
+                  background: "transparent", border: "none",
+                  borderRadius: 5, color: copiedSession ? "var(--success)" : "var(--text-muted)",
+                  cursor: "pointer", flexShrink: 0,
+                  transition: "background 0.12s, color 0.12s, border-color 0.12s",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "var(--bg-selected)";
+                  e.currentTarget.style.color = copiedSession ? "var(--success)" : "var(--accent)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "transparent";
+                  e.currentTarget.style.color = copiedSession ? "var(--success)" : "var(--text-muted)";
+                }}
+              >
+                {copiedSession ? (
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                ) : (
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                  </svg>
+                )}
+              </button>
               <button
                 onClick={startRename}
                 title={t("sidebar.rename")}

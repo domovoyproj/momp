@@ -1,6 +1,6 @@
 [package]
 name = "omp-desktop"
-version = "1.0.6"
+version = "1.0.7"
 description = "Tauri v2 desktop shell for omp-web"
 authors = ["omp-web contributors"]
 edition = "2021"
