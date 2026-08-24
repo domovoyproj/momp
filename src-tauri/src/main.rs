@@ -139,6 +139,8 @@ fn main() {
 /// thread so a slow or unreachable endpoint never delays window startup.
 fn check_for_updates(handle: AppHandle) {
     tauri::async_runtime::spawn(async move {
+        // Wait a few seconds after startup before checking for updates
+        std::thread::sleep(Duration::from_secs(4));
         let updater = match handle.updater() {
             Ok(updater) => updater,
             Err(error) => {
@@ -152,6 +154,10 @@ fn check_for_updates(handle: AppHandle) {
                     "[momp-desktop] update {} available — downloading",
                     update.version
                 ));
+                // Terminate sidecar first so bun-windows-x64.exe is not locked when installer runs
+                if let Some(server) = handle.try_state::<ServerChild>() {
+                    server.kill();
+                }
                 match update.download_and_install(|_, _| {}, || {}).await {
                     Ok(()) => {
                         desktop_log("[momp-desktop] update installed — restarting");
@@ -193,6 +199,8 @@ fn start_server(app: &mut tauri::App) -> Result<(), String> {
         .arg(port.to_string())
         // Relative project paths in the browser resolve against this
         // directory (lib/directory-browser.ts reads OMP_WEB_LAUNCH_CWD).
+        .env("MOMP_WEB_DISABLE_SELF_UPDATE", "1")
+        .env("OMP_DESKTOP", "1")
         .env(
             "OMP_WEB_LAUNCH_CWD",
             app.path().home_dir().map_err(|error| error.to_string())?,
@@ -344,6 +352,6 @@ fn kill_process_group(pid: u32) {
             .args(["/pid", &pid.to_string(), "/T", "/F"])
             // CREATE_NO_WINDOW — no cmd flash on teardown either.
             .creation_flags(0x0800_0000)
-            .spawn();
+            .status();
     }
 }
