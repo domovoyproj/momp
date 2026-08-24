@@ -15,17 +15,28 @@
 
 ---
 
-## ⚡ Быстрая установка в 1 команду
+## 💻 Варианты установки
 
-Установите и настройте **momp max** одной командой. Скрипт проверит наличие Bun, загрузит готовую сборку приложения и сделает команду `momp` доступной глобально из любого терминала.
+### 1. 🖥️ Десктопное приложение для Windows (.exe)
 
-### Для Windows (PowerShell):
-Откройте PowerShell и выполните:
+Автономное настольное приложение с нативным окном, собственной иконкой в панели задач и встроенным автообновлением. **Не требует установки Bun, Node.js или Git.**
+
+- 📥 **Скачать установщик:** [**`momp_1.0.7_x64-setup.exe`**](https://github.com/domovoyproj/momp/releases/latest/download/momp_1.0.7_x64-setup.exe) *(или со [страницы последних релизов](https://github.com/domovoyproj/momp/releases/latest))*.
+- Запустите скачанный `.exe` файл — приложение установится и создаст ярлык на рабочем столе.
+- При выходе новых версий `momp` на GitHub приложение **автоматически обновляется само**.
+
+---
+
+### 2. ⚡ CLI-установка в 1 команду (Web-версия)
+
+Установите и настройте **momp max** одной командой для работы через браузер. Скрипт проверит наличие Bun, загрузит готовую сборку и сделает команду `momp` доступной глобально в терминале.
+
+#### Для Windows (PowerShell):
 ```powershell
 irm https://raw.githubusercontent.com/domovoyproj/momp/main/install.ps1 | iex
 ```
 
-### Для Linux / macOS (Bash):
+#### Для Linux / macOS (Bash):
 ```bash
 curl -fsSL https://raw.githubusercontent.com/domovoyproj/momp/main/install.sh | bash
 ```
