@@ -1,6 +1,6 @@
 {
   "name": "momp-web",
-  "version": "1.0.9",
+  "version": "1.1.0",
   "description": "Web view for the momp coding agent CLI",
   "homepage": "https://github.com/domovoyproj/momp#readme",
   "repository": {

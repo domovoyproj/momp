@@ -164,7 +164,30 @@ export async function DELETE(
     } catch { /* skip if dir unreadable */ }
 
     await getRpcSession(id)?.shutdown();
-    unlinkSync(filePath);
+
+    // Windows can briefly hold the .jsonl handle after the agent shuts down,
+    // so unlink may throw EPERM/EBUSY on the first try. Retry, then verify the
+    // file is actually gone before reporting success — otherwise the row would
+    // vanish in the UI yet reappear after the next restart.
+    let lastError: unknown = null;
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      try {
+        unlinkSync(filePath);
+      } catch (error) {
+        lastError = error;
+      }
+      if (!existsSync(filePath)) {
+        lastError = null;
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 120));
+    }
+    if (existsSync(filePath)) {
+      return NextResponse.json(
+        { error: `Failed to delete session file: ${lastError ? String(lastError) : "file still present"}` },
+        { status: 500 },
+      );
+    }
     invalidateSessionPathCache(id);
     invalidateSessionListCache();
     return NextResponse.json({ ok: true });

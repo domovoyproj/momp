@@ -6,6 +6,6 @@
   "permissions": [
     "core:default",
     "opener:default",
-    "updater:default"
+    "opener:allow-open-url"
   ]
 }

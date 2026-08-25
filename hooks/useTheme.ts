@@ -22,6 +22,51 @@ const THEME_CONFIG_KEY = "omp-theme-config";
 let themeConfig: WebThemeConfig | null = null;
 let themeRequestId = 0;
 
+// momp ships a fixed "dark version of apple.com" palette that must win over
+// whatever omp theme (`/api/theme`) resolves to — omp's titanium/light vars are
+// applied inline on <html>, so the stylesheet in globals.css alone can't beat
+// them. These values mirror globals.css (the SSR fallback); keep both in sync.
+const APPLE_PALETTE: Record<ResolvedTheme, Record<string, string>> = {
+  dark: {
+    "--bg": "#000000",
+    "--bg-panel": "#0a0a0c",
+    "--bg-hover": "#1d1d1f",
+    "--bg-selected": "#1c2a3a",
+    "--border": "rgba(255,255,255,0.11)",
+    "--text": "#f5f5f7",
+    "--text-muted": "#a1a1a6",
+    "--text-dim": "#6e6e73",
+    "--accent": "#2997ff",
+    "--accent-hover": "#5aabff",
+    "--user-bg": "#1d1d1f",
+    "--assistant-bg": "#000000",
+    "--tool-bg": "#0a0a0c",
+    "--bg-subtle": "rgba(255,255,255,0.045)",
+    "--success": "#30d158",
+    "--danger": "#ff453a",
+    "--warning": "#ffd60a",
+  },
+  light: {
+    "--bg": "#ffffff",
+    "--bg-panel": "#fbfbfd",
+    "--bg-hover": "#f5f5f7",
+    "--bg-selected": "#e8f0fe",
+    "--border": "#d2d2d7",
+    "--text": "#1d1d1f",
+    "--text-muted": "#6e6e73",
+    "--text-dim": "#86868b",
+    "--accent": "#0066cc",
+    "--accent-hover": "#0071e3",
+    "--user-bg": "#f5f5f7",
+    "--assistant-bg": "#ffffff",
+    "--tool-bg": "#f5f5f7",
+    "--bg-subtle": "rgba(0,0,0,0.035)",
+    "--success": "#1d8f3a",
+    "--danger": "#d70015",
+    "--warning": "#bf6a00",
+  },
+};
+
 const listeners = new Set<() => void>();
 let state: ThemeState | null = null;
 let systemListening = false;
@@ -70,6 +115,12 @@ function applyOmpPalette(theme: ResolvedTheme): void {
     }
     root.dataset.ompThemeName = palette.name;
     root.style.colorScheme = palette.colorScheme;
+  } else {
+    root.style.colorScheme = theme;
+  }
+  // Overlay momp's apple.com palette so it wins over omp's theme vars.
+  for (const [name, value] of Object.entries(APPLE_PALETTE[theme])) {
+    root.style.setProperty(name, value);
   }
   try {
     localStorage.setItem(THEME_MODE_KEY, theme);

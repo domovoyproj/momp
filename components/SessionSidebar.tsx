@@ -2430,7 +2430,13 @@ function SessionItem({
     setConfirmDelete(false);
     setDeleting(true);
     try {
-      await fetch(`/api/sessions/${encodeURIComponent(session.id)}`, { method: "DELETE" });
+      const res = await fetch(`/api/sessions/${encodeURIComponent(session.id)}`, { method: "DELETE" });
+      // Only drop the row when the file is really gone; a silent failure used
+      // to hide it optimistically, so it reappeared after the next restart.
+      if (!res.ok) {
+        setDeleting(false);
+        return;
+      }
       onDeleted?.(session.id);
     } catch {
       setDeleting(false);

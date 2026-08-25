@@ -240,9 +240,19 @@ fn start_server(app: &mut tauri::App) -> Result<(), String> {
     Ok(())
 }
 
-/// Reserves a free loopback port (the listener is dropped immediately, the
-/// server binds the same port moments later).
+/// Reserves a loopback port for the bundled server.
+///
+/// Prefers a fixed port so the webview origin stays constant across restarts —
+/// otherwise every launch is a new `http://127.0.0.1:<random>` origin and all
+/// browser `localStorage` (removed projects, drafts, theme, collapsed groups)
+/// is wiped, which made deleted project folders reappear after a restart. Falls
+/// back to an OS-assigned port only when the preferred one is already taken.
 fn free_port() -> std::io::Result<u16> {
+    const PREFERRED_PORT: u16 = 30140;
+    if let Ok(listener) = TcpListener::bind(SocketAddr::from((Ipv4Addr::LOCALHOST, PREFERRED_PORT))) {
+        drop(listener);
+        return Ok(PREFERRED_PORT);
+    }
     let listener = TcpListener::bind(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))?;
     Ok(listener.local_addr()?.port())
 }
