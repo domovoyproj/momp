@@ -1,6 +1,6 @@
 [package]
 name = "momp"
-version = "1.1.1"
+version = "1.1.2"
 description = "Single standalone executable for momp"
 authors = ["omp-web contributors"]
 edition = "2021"

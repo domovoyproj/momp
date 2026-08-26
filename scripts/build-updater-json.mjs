@@ -53,9 +53,8 @@ const assets = release.assets.filter((a) => !a.name.endsWith(".sig"));
 // served to both macOS architectures; standalone zip or NSIS setup serves Windows.
 const platformFor = (asset) => {
   if (asset.name.endsWith(".app.tar.gz")) return ["darwin-aarch64", "darwin-x86_64"];
-  if (asset.name.endsWith(".zip") && /windows/i.test(asset.name)) return ["windows-x86_64"];
+  if (asset.name === "momp.exe") return ["windows-x86_64"];
   if (asset.name.endsWith(".exe") && /setup/i.test(asset.name)) return ["windows-x86_64"];
-  if (asset.name === "momp.exe.zip" || asset.name === "momp-x86_64.zip") return ["windows-x86_64"];
   return [];
 };
 const candidates = assets.flatMap((a) => platformFor(a).map((p) => [p, a]));
