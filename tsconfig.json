@@ -36,7 +36,9 @@
     ".next/dev/types/**/*.ts",
     ".next/dev/dev/types/**/*.ts",
     ".next-desktop/types/**/*.ts",
-    ".next-desktop/dev/types/**/*.ts"
+    ".next-desktop/dev/types/**/*.ts",
+    "src-tauri/server/.next/types/**/*.ts",
+    "src-tauri/server/.next/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",
