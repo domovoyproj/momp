@@ -257,6 +257,7 @@ export function OmpUpdateIndicator() {
             <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 10 }}>
               <a
                 href={release.htmlUrl}
+                onClick={(event) => { event.preventDefault(); void openExternalUrl(release.htmlUrl); }}
                 target="_blank"
                 rel="noreferrer"
                 style={{ color: "var(--accent)", fontSize: 11, textDecoration: "underline", textUnderlineOffset: 3 }}
