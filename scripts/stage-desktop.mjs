@@ -91,7 +91,7 @@ rmSync(join(server, ".next", "dev"), { recursive: true, force: true });
 //    serves every SDK-backed API route).
 const install = spawnSync(
   "bun",
-  ["install", "--production", "--frozen-lockfile", "--omit=optional"],
+  ["install", "--production", "--frozen-lockfile", "--omit=optional", "--backend=copyfile"],
   { cwd: server, stdio: "inherit" },
 );
 if (install.status !== 0) {

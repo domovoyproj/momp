@@ -338,9 +338,18 @@ fn ensure_server_extracted(app: &tauri::App) -> Result<PathBuf, String> {
         return Ok(runtime_dir);
     }
 
-    // 2. Attempt SFX extraction from current binary
-    match extract_sfx_payload(&runtime_dir) {
+    // 2. Extract into a staging dir, then atomically promote it. A partially
+    //    extracted app dir (interrupted by a crash, AV, or disk-full) must never
+    //    be left under the final name.
+    let staging = runtime_base.join(format!("app-v{}.partial", version));
+    let _ = std::fs::remove_dir_all(&staging);
+    match extract_sfx_payload(&staging) {
         Ok(true) => {
+            let _ = std::fs::remove_dir_all(&runtime_dir);
+            if let Err(err) = std::fs::rename(&staging, &runtime_dir) {
+                let _ = std::fs::remove_dir_all(&staging);
+                return Err(format!("failed to promote extracted payload: {err}"));
+            }
             let cleanup_base = runtime_base.clone();
             let current_version = version.clone();
             thread::spawn(move || {
@@ -348,8 +357,11 @@ fn ensure_server_extracted(app: &tauri::App) -> Result<PathBuf, String> {
             });
             return Ok(runtime_dir);
         }
-        Ok(false) => {}
+        Ok(false) => {
+            let _ = std::fs::remove_dir_all(&staging);
+        }
         Err(err) => {
+            let _ = std::fs::remove_dir_all(&staging);
             desktop_log(&format!("[momp-desktop] SFX extraction error: {err}"));
         }
     }
