@@ -1,4 +1,4 @@
-<p align="center"><img src="https://github.com/user-attachments/assets/ff0cf8e7-beaa-4df3-9949-a64561f76103" /></p>
+<p align="center"><img src="https://github.com/domovoyproj/momp/blob/main/e1243283-ffa3-444c-a836-c817182b603c.gif" /></p>
 <p align="center">
   <a href="https://github.com/domovoyproj/momp/releases"><img src="https://img.shields.io/github/v/release/domovoyproj/momp?style=flat&colorA=222222&colorB=58A6FF&logo=git&logoColor=white" alt="version"></a>  
   <a href="https://github.com/domovoyproj/momp/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-58A6FF?style=flat&colorA=222222" alt="License"></a>
