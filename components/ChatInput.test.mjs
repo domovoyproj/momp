@@ -35,7 +35,7 @@ test("renders enabledModels scope warnings", () => {
     }),
   );
 
-  assert.match(html, /Model scope warning/);
+  assert.match(html, /Model scope warning|Предупреждение области моделей/);
   assert.match(html, /ghost-gateway/);
   assert.equal(renderToStaticMarkup(React.createElement(ModelScopeWarningBanner, { warnings: [] })), "");
 });
@@ -57,8 +57,8 @@ test("keeps the model selector visible when a model error leaves no options", ()
     ),
   );
 
-  assert.match(html, />No models</);
-  assert.match(html, /title="No available models"/);
+  assert.match(html, />(?:No models|Нет моделей)</);
+  assert.match(html, /title="(?:No available models|Нет доступных моделей|No models)"/);
 });
 
 test("shows and locks the optimistic model while a switch is pending", () => {
@@ -265,7 +265,7 @@ test("shows context occupancy and warning state", () => {
   assert.match(html, /data-context-level="warning"/);
   assert.match(html, /100k \/ 128k/);
   assert.match(html, /78%/);
-  assert.match(html, /Context window is getting full/);
+  assert.match(html, /Context window is getting full|Окно контекста почти заполнено/);
 });
 test("keeps the context indicator visible before usage is available", () => {
   const html = renderToStaticMarkup(

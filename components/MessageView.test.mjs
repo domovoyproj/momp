@@ -81,7 +81,7 @@ test("renders shell blocks as themed terminal content", () => {
   assert.match(html, /class="shell-output-preview"/);
   assert.match(html, /git<\/span>/);
   assert.match(html, /--short/);
-  assert.match(html, /Output/);
+  assert.match(html, /Output|Вывод/);
   assert.match(html, /components\/MessageView\.tsx/);
 });
 

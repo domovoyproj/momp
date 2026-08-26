@@ -1186,6 +1186,7 @@ function OAuthDetail({ provider, onRefresh }: { provider: OAuthProvider; onRefre
   const [inputValue, setInputValue] = useState("");
   const eventSourceRef = useRef<EventSource | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [authUrl, setAuthUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (loginState.phase === "auth" || loginState.phase === "prompt") {
@@ -1197,6 +1198,7 @@ function OAuthDetail({ provider, onRefresh }: { provider: OAuthProvider; onRefre
   useEffect(() => {
     setLoginState({ phase: "idle" });
     setInputValue("");
+    setAuthUrl(null);
     eventSourceRef.current?.close();
     eventSourceRef.current = null;
   }, [provider.id]);
@@ -1209,6 +1211,7 @@ function OAuthDetail({ provider, onRefresh }: { provider: OAuthProvider; onRefre
     eventSourceRef.current?.close();
     setLoginState({ phase: "connecting" });
     setInputValue("");
+    setAuthUrl(null);
 
     const es = new EventSource(`/api/auth/login/${encodeURIComponent(provider.id)}`);
     eventSourceRef.current = es;
@@ -1216,13 +1219,16 @@ function OAuthDetail({ provider, onRefresh }: { provider: OAuthProvider; onRefre
     es.onmessage = (e) => {
       const data = JSON.parse(e.data) as {
         type: string; url?: string; instructions?: string | null;
+        fullUrl?: string;
         token?: string; message?: string; placeholder?: string | null;
         userCode?: string; verificationUri?: string; intervalSeconds?: number | null; expiresInSeconds?: number | null;
         options?: { id: string; label: string }[];
       };
       if (data.type === "auth") {
-        setLoginState({ phase: "auth", url: data.url!, instructions: data.instructions ?? null, token: data.token! });
-        openExternal(data.url!);
+        const url = data.fullUrl ?? data.url!;
+        setLoginState({ phase: "auth", url, instructions: data.instructions ?? null, token: data.token! });
+        setAuthUrl(url);
+        openExternal(url);
       } else if (data.type === "device_code") {
         setLoginState({
           phase: "device_code",
@@ -1240,6 +1246,7 @@ function OAuthDetail({ provider, onRefresh }: { provider: OAuthProvider; onRefre
         setLoginState({ phase: "progress", message: data.message! });
       } else if (data.type === "success") {
         es.close();
+        setAuthUrl(null);
         setLoginState({ phase: "success" });
         onRefresh();
       } else if (data.type === "error") {
@@ -1247,6 +1254,7 @@ function OAuthDetail({ provider, onRefresh }: { provider: OAuthProvider; onRefre
         setLoginState({ phase: "error", message: data.message! });
       } else if (data.type === "cancelled") {
         es.close();
+        setAuthUrl(null);
         setLoginState({ phase: "idle" });
       }
     };
@@ -1259,6 +1267,7 @@ function OAuthDetail({ provider, onRefresh }: { provider: OAuthProvider; onRefre
   const handleLogout = useCallback(async () => {
     await fetch(`/api/auth/logout/${encodeURIComponent(provider.id)}`, { method: "POST" });
     setLoginState({ phase: "idle" });
+    setAuthUrl(null);
     onRefresh();
   }, [provider.id, onRefresh]);
 
@@ -1351,15 +1360,6 @@ function OAuthDetail({ provider, onRefresh }: { provider: OAuthProvider; onRefre
                 ? "Complete sign-in in the browser, then copy the redirect URL from the address bar and paste it below."
                 : loginState.message}
             </p>
-            {loginState.phase === "auth" && (
-              <p style={{ margin: 0, fontSize: 11, color: "var(--text-dim)", lineHeight: 1.5 }}>
-                If the browser window did not open,{" "}
-                <a href={loginState.url} target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent)", wordBreak: "break-all" }}>
-                  click here to open the login page
-                </a>
-                .
-              </p>
-            )}
             <div style={{ display: "flex", gap: 6 }}>
               <input
                 ref={inputRef}
@@ -1404,13 +1404,26 @@ function OAuthDetail({ provider, onRefresh }: { provider: OAuthProvider; onRefre
         {loginState.phase === "error" && (
           <p style={{ margin: 0, fontSize: 12, color: "#f87171" }}>{loginState.message}</p>
         )}
+        {authUrl && isWorking && (
+          <p style={{ margin: "8px 0 0", fontSize: 11, color: "var(--text-dim)", lineHeight: 1.5 }}>
+            If the browser did not open,{" "}
+            <a
+              href={authUrl}
+              onClick={(e) => { e.preventDefault(); openExternal(authUrl); }}
+              style={{ color: "var(--accent)", cursor: "pointer", wordBreak: "break-all" }}
+            >
+              open the login page manually
+            </a>
+            .
+          </p>
+        )}
       </div>
 
       {/* Actions */}
       <div style={{ display: "flex", gap: 8 }}>
         {isWorking ? (
           <button
-            onClick={() => { eventSourceRef.current?.close(); setLoginState({ phase: "idle" }); }}
+            onClick={() => { eventSourceRef.current?.close(); setLoginState({ phase: "idle" }); setAuthUrl(null); }}
             style={{ padding: "5px 12px", background: "none", border: "1px solid var(--border)", borderRadius: 5, color: "var(--text-muted)", cursor: "pointer", fontSize: 12 }}
           >
              {t("i18n.cancel")}

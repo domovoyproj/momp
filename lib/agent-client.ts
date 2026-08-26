@@ -28,11 +28,13 @@ export function isPromptRejectedError(error: unknown): error is AgentCommandErro
 export async function sendAgentCommand<T = unknown>(
   sessionId: string,
   command: Record<string, unknown>,
+  options?: { signal?: AbortSignal },
 ): Promise<T> {
   const res = await fetch(`/api/agent/${encodeURIComponent(sessionId)}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(command),
+    signal: options?.signal,
   });
   const body = (await res.json().catch(() => ({}))) as {
     success?: boolean;

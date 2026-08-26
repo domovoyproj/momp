@@ -88,8 +88,18 @@ export function ModelRolesPanel({ cwd, onRolesChanged }: Props) {
 
   useEffect(() => {
     const controller = new AbortController();
-    void load(controller.signal);
-    return () => controller.abort();
+    const timer = setTimeout(() => controller.abort(), 10_000);
+    void load(controller.signal).finally(() => clearTimeout(timer));
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [load]);
+
+  const handleReload = useCallback(() => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10_000);
+    void load(controller.signal).finally(() => clearTimeout(timer));
   }, [load]);
 
   const assign = useCallback(async (role: string, selector: string | null) => {
@@ -157,7 +167,24 @@ export function ModelRolesPanel({ cwd, onRolesChanged }: Props) {
       </div>
 
       {error && (
-        <div style={{ fontSize: 12, color: "var(--danger, #ff4757)" }}>{error}</div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, fontSize: 12, color: "var(--danger, #ff4757)" }}>
+          <span>{error}</span>
+          <button
+            type="button"
+            onClick={handleReload}
+            style={{
+              padding: "2px 8px",
+              fontSize: 11,
+              borderRadius: 4,
+              border: "1px solid var(--border)",
+              background: "var(--bg-card)",
+              color: "var(--text)",
+              cursor: "pointer",
+            }}
+          >
+            {t("common.retry") || "Повторить"}
+          </button>
+        </div>
       )}
 
       {loading ? (

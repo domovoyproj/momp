@@ -286,9 +286,13 @@ export class AgentSessionWrapper {
 
   constructor(
     public readonly inner: AgentSessionLike,
-    eventBus: ConstructorParameters<typeof RpcSubagentRegistry>[0],
+    eventBus?: ConstructorParameters<typeof RpcSubagentRegistry>[0],
   ) {
-    this.subagents = new RpcSubagentRegistry(eventBus, (frame) => {
+    const fallbackBus = inner && typeof inner === "object" && "eventBus" in inner && inner.eventBus
+      ? inner.eventBus
+      : { on: () => () => {} };
+    const bus = (eventBus ?? fallbackBus) as ConstructorParameters<typeof RpcSubagentRegistry>[0];
+    this.subagents = new RpcSubagentRegistry(bus, (frame) => {
       const event = frame as unknown as AgentEvent;
       this.rememberSubagentFrame(event);
       this.emit(event);
@@ -1025,7 +1029,11 @@ export class AgentSessionWrapper {
       }
 
       case "abort_compaction": {
-        this.inner.abortCompaction();
+        try {
+          this.inner.abortCompaction();
+        } catch (e) {
+          console.error("[momp] abortCompaction failed:", e);
+        }
         return null;
       }
 

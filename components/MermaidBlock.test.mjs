@@ -29,7 +29,7 @@ function renderMermaid(props) {
 test("MermaidBlock renders source by default", () => {
   const html = renderMermaid({ code: mermaidSrc });
 
-  assert.match(html, />Preview</);
+  assert.match(html, />(?:Preview|Предпросмотр)</);
   assert.match(html, /Alice/);
   assert.doesNotMatch(html, /mermaid-block-loading/);
 });
@@ -37,7 +37,7 @@ test("MermaidBlock renders source by default", () => {
 test("MermaidBlock can render preview by default", () => {
   const html = renderMermaid({ code: mermaidSrc, defaultPreview: true });
 
-  assert.match(html, />Source</);
+  assert.match(html, />(?:Source|Исходник)</);
   assert.match(html, /mermaid-block-loading/);
   assert.doesNotMatch(html, /Alice/);
 });
@@ -46,7 +46,7 @@ test("MermaidBlock with isStreaming falls back to source view", () => {
   const html = renderMermaid({ code: mermaidSrc, isStreaming: true, defaultPreview: true });
 
   assert.match(html, /disabled/);
-  assert.match(html, />Preview</);
+  assert.match(html, />(?:Preview|Предпросмотр)</);
   assert.match(html, /Alice/);
   assert.match(html, /-&gt;&gt;/);
 });

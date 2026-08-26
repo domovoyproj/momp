@@ -432,6 +432,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
   const contextUsageRequestIdRef = useRef(0);
   const optimisticUserMessageKeyRef = useRef<string | null>(null);
   const modelSwitchPendingRef = useRef(false);
+  const compactAbortControllerRef = useRef<AbortController | null>(null);
 
   const setToolPresetState = opts.setToolPreset ?? setToolPreset;
 
@@ -1695,20 +1696,33 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     }
   }, [isNew, modelRoles, setNewSessionModel]);
 
-  const handleCompact = useCallback(async () => {
+  const handleCompact = useCallback(async (customInstructions?: string) => {
     const sid = sessionIdRef.current;
     if (!sid || isCompacting) return;
     setIsCompacting(true);
     setCompactError(null);
     setCompactResult(null);
+    const controller = new AbortController();
+    compactAbortControllerRef.current = controller;
+    const timer = setTimeout(() => controller.abort(), 90_000);
     try {
-      const result = await sendAgentCommand<CompactCommandResult>(sid, { type: "compact" });
+      const result = await sendAgentCommand<CompactCommandResult>(
+        sid,
+        { type: "compact", ...(customInstructions ? { customInstructions } : {}) },
+        { signal: controller.signal },
+      );
       setCompactResult(readCompactResult(result, "manual"));
       await loadSession(sid, true);
     } catch (e) {
-      setCompactError(e instanceof Error ? e.message : String(e));
+      if ((e as Error).name === "AbortError") {
+        setCompactError("Сжатие отменено или превышено время ожидания");
+      } else {
+        setCompactError(e instanceof Error ? e.message : String(e));
+      }
       setCompactResult(null);
     } finally {
+      clearTimeout(timer);
+      compactAbortControllerRef.current = null;
       setIsCompacting(false);
     }
   }, [isCompacting, loadSession]);
@@ -1767,13 +1781,33 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
           setIsCompacting(true);
           setCompactError(null);
           setCompactResult(null);
-          const result = await sendAgentCommand<CompactCommandResult>(sid, {
-            type: "compact",
-            ...(args ? { customInstructions: args } : {}),
-          });
-          setCompactResult(readCompactResult(result, "manual"));
-          if (await loadSession(sid, true)) promoteNewSession();
-          return complete({ handled: true, message: "Compacted context" });
+          const controller = new AbortController();
+          compactAbortControllerRef.current = controller;
+          const timer = setTimeout(() => controller.abort(), 90_000);
+          try {
+            const result = await sendAgentCommand<CompactCommandResult>(
+              sid,
+              {
+                type: "compact",
+                ...(args ? { customInstructions: args } : {}),
+              },
+              { signal: controller.signal },
+            );
+            setCompactResult(readCompactResult(result, "manual"));
+            if (await loadSession(sid, true)) promoteNewSession();
+            return complete({ handled: true, message: "Compacted context" });
+          } catch (e) {
+            const msg = (e as Error).name === "AbortError"
+              ? "Сжатие отменено или превышено время ожидания"
+              : (e instanceof Error ? e.message : String(e));
+            setCompactError(msg);
+            setCompactResult(null);
+            return complete({ handled: true, error: msg });
+          } finally {
+            clearTimeout(timer);
+            compactAbortControllerRef.current = null;
+            setIsCompacting(false);
+          }
         }
 
         case "reload": {
@@ -1965,6 +1999,11 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
 
   const handleAbortCompaction = useCallback(async () => {
     const sid = sessionIdRef.current;
+    if (compactAbortControllerRef.current) {
+      compactAbortControllerRef.current.abort();
+      compactAbortControllerRef.current = null;
+    }
+    setIsCompacting(false);
     if (!sid) return;
     try {
       await sendAgentCommand(sid, { type: "abort_compaction" });
