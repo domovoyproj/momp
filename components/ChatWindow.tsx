@@ -389,7 +389,7 @@ export function ChatWindow({ session, newSessionCwd, onAgentEnd, onAttentionNeed
       modelRoles={modelRoles}
       onRoleModelChange={handleRoleModelChange}
       modelSwitching={modelSwitching}
-      onCompact={session || isNew ? handleCompact : undefined}
+      onCompact={session || isNew ? () => handleCompact() : undefined}
       onAbortCompaction={handleAbortCompaction}
       isCompacting={isCompacting}
       compactError={compactError}
