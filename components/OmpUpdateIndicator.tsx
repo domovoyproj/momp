@@ -82,7 +82,7 @@ export function OmpUpdateIndicator() {
     setLoadState("loading");
     try {
       const response = await fetch("/api/updates", { cache: "no-store", signal });
-      if (!response.ok) return;
+      if (!response.ok) { setLoadState("ready"); return; }
       const next = await response.json() as OmpWebUpdateResponse;
       setStatus(next);
       setLoadState("ready");
@@ -94,7 +94,24 @@ export function OmpUpdateIndicator() {
   useEffect(() => {
     const controller = new AbortController();
     void loadStatus(controller.signal);
-    return () => controller.abort();
+
+    // Re-check every 30 minutes so long-running sessions catch new releases.
+    const timer = setInterval(() => {
+      if (!controller.signal.aborted) void loadStatus(controller.signal);
+    }, 30 * 60 * 1000);
+
+    // Re-check when the user returns to the tab / app window.
+    const onVisible = () => {
+      if (document.visibilityState === "visible" && !controller.signal.aborted)
+        void loadStatus(controller.signal);
+    };
+    document.addEventListener("visibilitychange", onVisible);
+
+    return () => {
+      controller.abort();
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [loadStatus]);
 
   useEffect(() => () => {
