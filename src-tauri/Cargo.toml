@@ -1,6 +1,6 @@
 [package]
 name = "momp"
-version = "1.1.2"
+version = "1.1.3"
 description = "Single standalone executable for momp"
 authors = ["domovoyproj"]
 edition = "2021"
