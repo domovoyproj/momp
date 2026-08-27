@@ -1,22 +1,18 @@
 <!doctype html>
-<html lang="en">
+<html lang="ru">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#1a1a1a" />
-    <title>Pi Web is offline</title>
+    <title>momp — запуск...</title>
     <style>
       :root {
         color-scheme: dark;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        background: #1a1a1a;
-        color: #e8e8e8;
+        background: #0d0e11;
+        color: #e8e9ec;
       }
-
-      * {
-        box-sizing: border-box;
-      }
-
+      * { box-sizing: border-box; }
       body {
         min-height: 100dvh;
         margin: 0;
@@ -24,60 +20,54 @@
         place-items: center;
         padding: 32px;
       }
-
-      main {
-        width: min(100%, 420px);
-        text-align: center;
+      main { width: min(100%, 420px); text-align: center; }
+      .logo {
+        width: 72px; height: 72px; border-radius: 16px;
+        background: linear-gradient(135deg, #e14d92 0%, #7c4ddb 50%, #3aa7d8 100%);
+        display: inline-flex; align-items: center; justify-content: center;
+        font-weight: 700; font-size: 28px; color: #fff;
+        margin-bottom: 22px;
       }
-
-      img {
-        width: 88px;
-        height: 88px;
-        margin-bottom: 24px;
+      h1 { margin: 0 0 8px; font-size: 20px; font-weight: 650; }
+      p { margin: 0; color: #6b7280; font-size: 13px; line-height: 1.6; }
+      .spinner {
+        display: inline-block; width: 18px; height: 18px; vertical-align: middle;
+        border: 2px solid rgba(232,233,236,0.15); border-top-color: #6b7280;
+        border-radius: 50%; animation: spin 0.9s linear infinite; margin-right: 6px;
       }
-
-      h1 {
-        margin: 0 0 10px;
-        font-size: 22px;
-        font-weight: 650;
-        letter-spacing: 0;
-      }
-
-      p {
-        margin: 0;
-        color: #9ca3af;
-        font-size: 14px;
-        line-height: 1.6;
-      }
-
+      @keyframes spin { to { transform: rotate(360deg); } }
       button {
-        margin-top: 24px;
-        min-height: 40px;
-        padding: 0 18px;
-        border: 1px solid #3a3a3a;
-        border-radius: 6px;
-        background: #242424;
-        color: #e8e8e8;
-        font: inherit;
-        cursor: pointer;
+        margin-top: 22px; min-height: 38px; padding: 0 18px;
+        border: 1px solid #2a2a2e; border-radius: 7px;
+        background: #1c1d21; color: #e8e9ec; font: inherit; cursor: pointer;
+        transition: background 0.12s;
       }
-
-      button:hover {
-        background: #2e2e2e;
-      }
-
-      button:focus-visible {
-        outline: 2px solid #60a5fa;
-        outline-offset: 3px;
-      }
+      button:hover { background: #242428; }
     </style>
   </head>
   <body>
     <main>
-      <img src="/icons/icon-192.png" alt="" />
-      <h1>Pi Web is offline</h1>
-      <p>Reconnect to the local Pi Web server, then try again.</p>
-      <button type="button" onclick="location.reload()">Try again</button>
+      <div class="logo">M</div>
+      <h1><span class="spinner"></span>momp запускается...</h1>
+      <p>Локальный сервер ещё не готов.<br>Страница обновится автоматически.</p>
+      <button type="button" onclick="location.reload()">Обновить сейчас</button>
     </main>
+    <script>
+      // Auto-retry: poll until the server responds, then reload.
+      (function () {
+        var INTERVAL = 2500;
+        var MAX_ATTEMPTS = 120; // 5 minutes
+        var attempts = 0;
+        function check() {
+          attempts++;
+          if (attempts > MAX_ATTEMPTS) return;
+          fetch("/", { method: "HEAD", cache: "no-store" })
+            .then(function (r) { if (r.ok || r.status === 404) location.reload(); else retry(); })
+            .catch(function () { retry(); });
+        }
+        function retry() { setTimeout(check, INTERVAL); }
+        retry();
+      })();
+    </script>
   </body>
 </html>
