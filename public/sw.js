@@ -1,4 +1,4 @@
-const CACHE_PREFIX = "pi-web";
+const CACHE_PREFIX = "momp";
 const CACHE_VERSION = new URL(self.location.href).searchParams.get("v") || "dev";
 const STATIC_CACHE = `${CACHE_PREFIX}-static-${CACHE_VERSION}`;
 const OFFLINE_URL = "/offline.html";
@@ -26,7 +26,7 @@ self.addEventListener("activate", (event) => {
       .then((keys) =>
         Promise.all(
           keys
-            .filter((key) => key.startsWith(`${CACHE_PREFIX}-`) && key !== STATIC_CACHE)
+            .filter((key) => key !== STATIC_CACHE)
             .map((key) => caches.delete(key)),
         ),
       )

@@ -112,6 +112,7 @@ fn main() {
                 });
             }
             if !tauri::is_dev() {
+                purge_service_worker(app);
                 if let Err(error) = start_server(app) {
                     desktop_log(&format!("[momp-desktop] failed to start the bundled server: {error}"));
                     app.handle().exit(1);
@@ -132,6 +133,27 @@ fn main() {
                 }
             }
         });
+}
+
+/// Removes the WebView2 Service Worker registration and its CacheStorage so a
+/// stale SW from an older build can never trap the app on a cached
+/// offline.html. Local Storage is a sibling folder and is preserved, so the
+/// fixed-port localStorage state survives. Best-effort; ignores errors.
+fn purge_service_worker(app: &tauri::App) {
+    let Ok(mut dir) = app.path().app_local_data_dir() else {
+        return;
+    };
+    dir.push("EBWebView");
+    dir.push("Default");
+    dir.push("Service Worker");
+    if dir.exists() {
+        match std::fs::remove_dir_all(&dir) {
+            Ok(()) => desktop_log("[momp-desktop] purged stale service worker cache"),
+            Err(e) => desktop_log(&format!(
+                "[momp-desktop] could not purge service worker ({e}); continuing"
+            )),
+        }
+    }
 }
 
 fn start_server(app: &mut tauri::App) -> Result<(), String> {
