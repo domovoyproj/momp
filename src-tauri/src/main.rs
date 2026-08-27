@@ -111,7 +111,13 @@ fn main() {
                     }
                 });
             }
-            if !tauri::is_dev() {
+            // Start the bundled server whenever this binary carries an embedded
+            // SFX payload (a released single-exe), regardless of Tauri's dev
+            // detection: a raw `cargo build` launcher reports is_dev()==true even
+            // in --release, which would otherwise skip the server and leave the
+            // webview stranded on the dead devUrl. `tauri dev` binaries have no
+            // payload, so development still uses the dev server.
+            if has_embedded_payload() || !tauri::is_dev() {
                 purge_service_worker(app);
                 if let Err(error) = start_server(app) {
                     desktop_log(&format!("[momp-desktop] failed to start the bundled server: {error}"));
@@ -251,6 +257,33 @@ fn free_port() -> std::io::Result<u16> {
 }
 
 use std::io::{Seek, SeekFrom};
+
+/// Returns true when the currently executing binary carries an appended SFX
+/// payload (identified by the 16-byte trailer ending in `MOMP_SFX`). This is
+/// the reliable signal that we are a released single-exe rather than a bare
+/// `cargo build` / `tauri dev` binary.
+fn has_embedded_payload() -> bool {
+    let Ok(current_exe) = std::env::current_exe() else {
+        return false;
+    };
+    let Ok(mut file) = std::fs::File::open(&current_exe) else {
+        return false;
+    };
+    let Ok(meta) = file.metadata() else {
+        return false;
+    };
+    if meta.len() < 16 {
+        return false;
+    }
+    if file.seek(SeekFrom::End(-16)).is_err() {
+        return false;
+    }
+    let mut footer = [0u8; 16];
+    if file.read_exact(&mut footer).is_err() {
+        return false;
+    }
+    &footer[8..16] == MAGIC_SFX
+}
 
 /// Extracts appended SFX payload (tar or tar.gz) from the currently executing binary if present.
 fn extract_sfx_payload(runtime_dir: &PathBuf) -> Result<bool, String> {
