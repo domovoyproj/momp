@@ -18,7 +18,6 @@ use std::time::{Duration, Instant};
 use tar::Archive;
 
 use tauri::{AppHandle, Manager, Url};
-use tauri_plugin_updater::UpdaterExt;
 
 const MAGIC_SFX: &[u8; 8] = b"MOMP_SFX";
 
@@ -92,11 +91,7 @@ impl ServerChild {
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
-            // A previous self-update leaves the old binary alongside the new
-            // one; remove it now that we are running the replacement.
-            clean_update_backup();
             // Track the webview URL — ground truth for "stuck on the
             // placeholder" vs "server page loaded" vs "load failed".
             if let Some(window) = app.get_webview_window(WINDOW_LABEL) {
@@ -123,42 +118,6 @@ fn main() {
                 }
             }
 
-            // Background auto-updater check
-            let handle = app.handle().clone();
-            tauri::async_runtime::spawn(async move {
-                match handle.updater() {
-                    Ok(updater) => match updater.check().await {
-                        Ok(Some(update)) => {
-                            desktop_log(&format!(
-                                "[updater] new version {} available (current: {})",
-                                update.version, update.current_version
-                            ));
-                            let res = update
-                                .download(|_chunk, _total| {}, || {
-                                    desktop_log("[updater] download finished, applying update...");
-                                })
-                                .await;
-                            match res {
-                                Ok(bytes) => match apply_update(&bytes) {
-                                    Ok(()) => desktop_log(
-                                        "[updater] update applied; new version starts on next launch",
-                                    ),
-                                    Err(err) => desktop_log(&format!(
-                                        "[updater] failed to apply update: {err}"
-                                    )),
-                                },
-                                Err(err) => desktop_log(&format!(
-                                    "[updater] failed to download update: {err}"
-                                )),
-                            }
-                        }
-                        Ok(None) => desktop_log("[updater] application is up to date"),
-                        Err(err) => desktop_log(&format!("[updater] update check failed: {err}")),
-                    },
-                    Err(err) => desktop_log(&format!("[updater] failed to initialize updater: {err}")),
-                }
-            });
-
             Ok(())
         })
         .build(tauri::generate_context!())
@@ -173,56 +132,6 @@ fn main() {
                 }
             }
         });
-}
-
-/// Applies a downloaded, signature-verified update to the portable executable.
-///
-/// Windows refuses to overwrite a running .exe but allows renaming it, so move
-/// the current binary aside and write the new bytes in its place. The running
-/// process keeps executing the renamed image; the replacement is used on the
-/// next launch, and `clean_update_backup` removes the leftover then.
-// ponytail: whole-exe swap (the updater artifact is the bare ~740 MB exe);
-// switch to a delta/zip artifact only if update bandwidth becomes a real gripe.
-fn apply_update(bytes: &[u8]) -> Result<(), String> {
-    let exe = std::env::current_exe().map_err(|e| format!("current_exe: {e}"))?;
-    swap_executable(&exe, bytes)
-}
-
-fn swap_executable(exe: &std::path::Path, bytes: &[u8]) -> Result<(), String> {
-    let backup = exe.with_extension("old");
-    let _ = std::fs::remove_file(&backup);
-    std::fs::rename(exe, &backup).map_err(|e| format!("rename running exe: {e}"))?;
-    if let Err(e) = std::fs::write(exe, bytes) {
-        let _ = std::fs::rename(&backup, exe);
-        return Err(format!("write new exe: {e}"));
-    }
-    Ok(())
-}
-
-/// Removes the `.old` binary a previous [`apply_update`] left behind.
-fn clean_update_backup() {
-    if let Ok(exe) = std::env::current_exe() {
-        let _ = std::fs::remove_file(exe.with_extension("old"));
-    }
-}
-
-#[cfg(test)]
-mod update_tests {
-    use super::swap_executable;
-
-    #[test]
-    fn swap_replaces_and_backs_up() {
-        let dir = std::env::temp_dir().join(format!("momp-upd-test-{}", std::process::id()));
-        std::fs::create_dir_all(&dir).unwrap();
-        let exe = dir.join("momp.exe");
-        std::fs::write(&exe, b"OLD").unwrap();
-
-        swap_executable(&exe, b"NEW").unwrap();
-
-        assert_eq!(std::fs::read(&exe).unwrap(), b"NEW");
-        assert_eq!(std::fs::read(exe.with_extension("old")).unwrap(), b"OLD");
-        std::fs::remove_dir_all(&dir).ok();
-    }
 }
 
 fn start_server(app: &mut tauri::App) -> Result<(), String> {
