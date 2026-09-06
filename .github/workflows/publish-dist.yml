@@ -60,19 +60,28 @@ jobs:
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: "1.4.0"
-      # Bun's default cache lives under the runner's profile; Next's build
-      # tracer then globs C:/Users/<user>/** and dies on EPERM (Templates).
-      # Keeping the cache and real copies inside the workspace avoids it.
+      # Bun's default cache lives under the runner's profile, and the omp SDK
+      # globs the home directory during `next build`. On windows runners the
+      # profile contains junctions (Application Data, Templates) that raise
+      # EPERM, so both the cache and HOME are redirected into the workspace.
       - name: Install dependencies
         env:
           BUN_INSTALL_CACHE_DIR: ${{ github.workspace }}\.bun-cache
         run: bun install --frozen-lockfile --backend=copyfile
-      # windows-latest ships the MSVC toolchain and rustup stable-msvc that the
-      # tauri (Rust) shell needs; only the embedded Bun runtime is fetched here.
       - name: Fetch embedded Bun runtime
         run: bun run desktop:fetch-bun windows-x64
+      - name: Stage server payload
+        env:
+          BUN_INSTALL_CACHE_DIR: ${{ github.workspace }}\.bun-cache
+          HOME: ${{ runner.temp }}\home
+          USERPROFILE: ${{ runner.temp }}\home
+        run: |
+          New-Item -ItemType Directory -Force -Path "${{ runner.temp }}\home" | Out-Null
+          bun scripts/stage-desktop.mjs
+      # Rust/cargo keeps the real profile: rustup and the MSVC toolchain of the
+      # windows runner live there.
       - name: Build standalone executable
-        run: bun run desktop:build
+        run: bun scripts/build-desktop.mjs
       - name: Attach to release
         uses: softprops/action-gh-release@v2
         with:
