@@ -19,7 +19,6 @@ import { useIsMobile } from "@/hooks/useIsMobile";
 import { useViewportHeight } from "@/hooks/useViewportHeight";
 import { useResizablePanel } from "@/hooks/useResizablePanel";
 import { useAudio } from "@/hooks/useAudio";
-import { usePwaInstall } from "@/hooks/usePwaInstall";
 import { copyText } from "@/lib/clipboard";
 import { getFileName } from "@/lib/file-paths";
 import { buildAtMentionText, buildFileAtMentionsText, buildFileLineMentionText } from "@/lib/file-fuzzy";
@@ -86,8 +85,6 @@ export function AppShell() {
   const [explorerRefreshKey, setExplorerRefreshKey] = useState(0);
   const [modelsRefreshKey, setModelsRefreshKey] = useState(0);
   const [settingsConfigOpen, setSettingsConfigOpen] = useState(false);
-  const { canInstall, isIos, install: installPwa } = usePwaInstall();
-  const [showIosPrompt, setShowIosPrompt] = useState(false);
   const [limitsOpen, setLimitsOpen] = useState(false);
   const [projectTrust, setProjectTrust] = useState<ProjectTrustStatus | null>(null);
   const [projectTrustDialogOpen, setProjectTrustDialogOpen] = useState(false);
@@ -886,77 +883,6 @@ export function AppShell() {
       <div style={{ padding: "0 8px", flexShrink: 0 }}>
         <OmpUpdateIndicator />
       </div>
-      {canInstall && (
-        <div style={{ padding: "0 8px 6px", flexShrink: 0, position: "relative" }}>
-          <button
-            type="button"
-            onClick={async () => {
-              if (isIos) {
-                setShowIosPrompt((v) => !v);
-              } else {
-                await installPwa();
-              }
-            }}
-            title={translate("sidebar.installPwaTitle") || "Установить momp max как приложение"}
-            style={{
-              width: "100%",
-              height: 34,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 7,
-              background: "rgba(59, 130, 246, 0.08)",
-              border: "1px solid rgba(59, 130, 246, 0.35)",
-              borderRadius: 9,
-              color: "#60a5fa",
-              cursor: "pointer",
-              fontSize: 12,
-              fontWeight: 550,
-              fontFamily: "var(--font-mono)",
-              transition: "background 0.15s, border-color 0.15s, color 0.15s",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = "rgba(59, 130, 246, 0.16)";
-              e.currentTarget.style.borderColor = "#3b82f6";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "rgba(59, 130, 246, 0.08)";
-              e.currentTarget.style.borderColor = "rgba(59, 130, 246, 0.35)";
-            }}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect width="18" height="18" x="3" y="3" rx="2" />
-              <path d="M12 8v8" />
-              <path d="m8 12 4 4 4-4" />
-            </svg>
-            <span>{translate("sidebar.installPwa") || "Установить PWA"}</span>
-          </button>
-          {showIosPrompt && (
-            <div
-              style={{
-                position: "absolute",
-                bottom: "calc(100% + 6px)",
-                left: 8,
-                right: 8,
-                background: "var(--bg-popover, #1e222b)",
-                border: "1px solid var(--border)",
-                borderRadius: 8,
-                padding: "10px 12px",
-                fontSize: 12,
-                lineHeight: 1.4,
-                color: "var(--text)",
-                boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
-                zIndex: 100,
-              }}
-            >
-              <div style={{ fontWeight: 600, marginBottom: 4 }}>Установка на iPhone / iPad:</div>
-              <div style={{ color: "var(--text-muted)", fontSize: 11 }}>
-                Нажмите значок «Поделиться» внизу экрана Safari и выберите <strong>«На экран „Домой“»</strong>.
-              </div>
-            </div>
-          )}
-        </div>
-      )}
       <div style={{ padding: "8px", flexShrink: 0 }}>
         <button
           onClick={() => setSettingsConfigOpen(true)}
