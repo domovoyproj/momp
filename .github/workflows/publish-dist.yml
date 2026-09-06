@@ -60,8 +60,13 @@ jobs:
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: "1.4.0"
+      # Bun's default cache lives under the runner's profile; Next's build
+      # tracer then globs C:/Users/<user>/** and dies on EPERM (Templates).
+      # Keeping the cache and real copies inside the workspace avoids it.
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        env:
+          BUN_INSTALL_CACHE_DIR: ${{ github.workspace }}\.bun-cache
+        run: bun install --frozen-lockfile --backend=copyfile
       # windows-latest ships the MSVC toolchain and rustup stable-msvc that the
       # tauri (Rust) shell needs; only the embedded Bun runtime is fetched here.
       - name: Fetch embedded Bun runtime
