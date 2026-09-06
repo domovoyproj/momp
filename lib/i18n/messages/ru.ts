@@ -29,6 +29,8 @@ export const ruLocale: LocalePlugin = {
     "updates.copyFailed": "Не удалось скопировать команду",
     "sidebar.hide": "Скрыть боковую панель",
     "sidebar.show": "Показать боковую панель",
+    "sidebar.installPwa": "Установить PWA",
+    "sidebar.installPwaTitle": "Установить momp max как приложение на устройство",
     "theme.light": "Светлая тема (нажмите для темной)",
     "theme.dark": "Темная тема (нажмите для системной)",
     "theme.auto": "Системная тема (нажмите для светлой)",

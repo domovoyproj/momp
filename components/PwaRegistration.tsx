@@ -27,10 +27,6 @@ export function PwaRegistration() {
       return;
     }
 
-    if (process.env.NODE_ENV !== "production") {
-      return;
-    }
-
     const register = () => {
       const appVersion = process.env.NEXT_PUBLIC_APP_VERSION ?? "dev";
       const scriptUrl = `/sw.js?v=${encodeURIComponent(appVersion)}`;

@@ -30,6 +30,8 @@ export const enLocale: LocalePlugin = {
     "updates.copyFailed": "Unable to copy the command",
     "sidebar.hide": "Hide sidebar",
     "sidebar.show": "Show sidebar",
+    "sidebar.installPwa": "Install PWA",
+    "sidebar.installPwaTitle": "Install momp max as an app on this device",
     "theme.light": "Light mode (click for dark)",
     "theme.dark": "Dark mode (click for system)",
     "theme.auto": "System theme (click for light)",

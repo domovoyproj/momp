@@ -1,4 +1,4 @@
-<p align="center"><img src="https://raw.githubusercontent.com/domovoyproj/momp/main/momp120.gif" alt="momp" /></p>
+<p align="center"><img src="momp120.gif" alt="momp" width="720" /></p>
 <p align="center">
   <a href="https://github.com/domovoyproj/momp/releases"><img src="https://img.shields.io/github/v/release/domovoyproj/momp?style=flat&colorA=222222&colorB=58A6FF&logo=git&logoColor=white" alt="version"></a>  
   <a href="https://github.com/domovoyproj/momp/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-58A6FF?style=flat&colorA=222222" alt="License"></a>
@@ -39,6 +39,25 @@ irm https://raw.githubusercontent.com/domovoyproj/momp/main/install.ps1 | iex
 curl -fsSL https://raw.githubusercontent.com/domovoyproj/momp/main/install.sh | bash
 ```
 
+
+---
+
+### 3. 📱 Использование как PWA (Progressive Web App)
+
+Веб-интерфейс **momp max** полностью поддерживает стандарт PWA — его можно установить как отдельное приложение на **Windows, macOS, Linux, Android и iOS**:
+
+- **В браузере на ПК (Chrome, Edge, Brave, Яндекс.Браузер):**
+  1. Запустите `momp` (или откройте адрес удалённого сервера в браузере).
+  2. Нажмите кнопку **«Установить PWA»** внизу боковой панели слева (или значок установки 🖥️/⬇️ в правой части адресной строки браузера).
+  3. Приложение откроется в отдельном окне без адресной строки и вкладок браузера, появится в панели задач и меню «Пуск» / Launchpad.
+- **На мобильных устройствах (iOS / Android):**
+  - **iPhone / iPad (Safari):** нажмите кнопку «Поделиться» (квадрат со стрелкой) → выберите **«На экран „Домой“»** («Add to Home Screen»).
+  - **Android (Chrome):** нажмите меню (три точки) → **«Установить приложение»** (или «Добавить на главный экран»).
+- **Преимущества PWA-режима:**
+  - 🪟 Чистое рабочее пространство без элементов интерфейса браузера.
+  - 📌 Закрепление в панели задач / Dock / рабочем столе с нативной иконкой.
+  - 🌐 Удобная работа с удалённым сервером или VPS — быстрый доступ в 1 клик с любого устройства.
+  - 🔔 Поддержка нативных системных уведомлений и фонового экрана ожидания.
 ---
 
 ## 🚀 Запуск
