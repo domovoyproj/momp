@@ -17,7 +17,7 @@ import type {
 } from "@/lib/types";
 import { normalizeCustomPanelLines, parseAnsiLine } from "@/lib/ansi";
 import { asBracketedPaste, toTerminalKeyData } from "@/lib/terminal-input";
-import { countToolCallBlocks, getAssistantErrorMessage, getDisplayableAssistantBlocks, splitFinalAssistantBlocks } from "@/lib/message-display";
+import { countToolCallBlocks, getAssistantErrorMessage, getDisplayableAssistantBlocks, splitFinalAssistantBlocks, type DisplayOptions } from "@/lib/message-display";
 import { extractTurnWrittenFiles, type WrittenFile } from "@/lib/turn-written-files";
 import { MessageView } from "./MessageView";
 import { MarkdownBody } from "./MarkdownBody";
@@ -26,8 +26,10 @@ import { ExtensionStatusBar } from "./ExtensionStatusBar";
 import { OmpWordmark } from "./OmpWordmark";
 import { useI18n } from "@/hooks/useI18n";
 import { useAgentSession, type AgentPhase, type NoticeItem } from "@/hooks/useAgentSession";
+import { useSyncedDisplaySettings } from "@/hooks/useDisplaySettings";
+import { formatTokenCount } from "@/lib/format-tokens";
 import { useDragDrop } from "@/hooks/useDragDrop";
-import type { SessionStatsInfo } from "@/lib/omp-types";
+import type { GoalStatusInfo, SessionStatsInfo } from "@/lib/omp-types";
 import {
   captureScrollDistance,
   getNextVisibleCount,
@@ -75,16 +77,16 @@ function phaseLabel(phase: AgentPhase, t: (key: string, params?: Record<string, 
 
 const CHAT_COLUMN_PADDING = 16;
 
-function hasFinalAssistantAnswer(message: AgentMessage): boolean {
+function hasFinalAssistantAnswer(message: AgentMessage, options: DisplayOptions): boolean {
   if (message.role !== "assistant") return false;
-  return splitFinalAssistantBlocks(message as AssistantMessage).answerBlocks.some((block) => (
+  return splitFinalAssistantBlocks(message as AssistantMessage, options).answerBlocks.some((block) => (
     block.type === "image" || (block.type === "text" && block.text.trim().length > 0)
   ));
 }
 
-function findFinalAssistantIndex(messages: AgentMessage[], userIdx: number, endIdx: number): number {
+function findFinalAssistantIndex(messages: AgentMessage[], userIdx: number, endIdx: number, options: DisplayOptions): number {
   for (let candidateIdx = endIdx - 1; candidateIdx > userIdx; candidateIdx--) {
-    if (hasFinalAssistantAnswer(messages[candidateIdx])) return candidateIdx;
+    if (hasFinalAssistantAnswer(messages[candidateIdx], options)) return candidateIdx;
   }
   for (let candidateIdx = endIdx - 1; candidateIdx > userIdx; candidateIdx--) {
     if (messages[candidateIdx]?.role === "assistant") return candidateIdx;
@@ -106,19 +108,19 @@ function getUserInputText(message: AgentMessage): string | null {
   return text.length > 0 ? text : null;
 }
 
-function countToolCalls(messages: AgentMessage[], indices: number[]): number {
+function countToolCalls(messages: AgentMessage[], indices: number[], options: DisplayOptions): number {
   let count = 0;
   for (const idx of indices) {
     const msg = messages[idx];
     if (msg?.role !== "assistant") continue;
-    count += countToolCallBlocks(getDisplayableAssistantBlocks(msg as AssistantMessage));
+    count += countToolCallBlocks(getDisplayableAssistantBlocks(msg as AssistantMessage, options));
   }
   return count;
 }
 
-function hasDisplayableProcessMessage(message: AgentMessage): boolean {
+function hasDisplayableProcessMessage(message: AgentMessage, options: DisplayOptions): boolean {
   if (message.role === "assistant") {
-    return getDisplayableAssistantBlocks(message as AssistantMessage).length > 0;
+    return getDisplayableAssistantBlocks(message as AssistantMessage, options).length > 0;
   }
   return message.role === "custom";
 }
@@ -223,6 +225,8 @@ export function ChatWindow({ session, newSessionCwd, onAgentEnd, onAttentionNeed
     isAutoModelSelection,
     agentPhase,
     isNew,
+    autoFollowPaused, resumeAutoFollow,
+    goalStatus,
     sessionIdRef, messagesEndRef, scrollContainerRef,
     handleSend, handleAbort, handleFork, handleNavigate, handleModelChange, handleRoleModelChange,
     handleCompact, handleSteer, handleFollowUp, handlePromptWithStreamingBehavior, handleAbortCompaction,
@@ -234,6 +238,10 @@ export function ChatWindow({ session, newSessionCwd, onAgentEnd, onAttentionNeed
     modelsRefreshKey, chatInputRef, onBranchDataChange, onSystemPromptChange, onSessionStatsPanelOpen,
   });
   const sessionBusy = agentRunning || bashRunning;
+  // omp's render-affecting settings (hideThinkingBlock). Synced here once for
+  // the whole transcript; MessageView reads the shared store directly.
+  const { hideThinkingBlock } = useSyncedDisplaySettings(newSessionCwd ?? session?.cwd ?? null);
+  const displayOptions = useMemo<DisplayOptions>(() => ({ hideThinking: hideThinkingBlock }), [hideThinkingBlock]);
 
   useEffect(() => {
     if (!extensionDialog || soundedExtensionDialogIdRef.current === extensionDialog.id) return;
@@ -609,7 +617,7 @@ export function ChatWindow({ session, newSessionCwd, onAgentEnd, onAttentionNeed
                 let endIdx = userIdx + 1;
                 while (endIdx < messages.length && !isGroupAnchor(messages[endIdx])) endIdx += 1;
 
-                const finalAssistantIdx = findFinalAssistantIndex(messages, userIdx, endIdx);
+                const finalAssistantIdx = findFinalAssistantIndex(messages, userIdx, endIdx, displayOptions);
 
                 if (finalAssistantIdx === -1) {
                   for (let renderIdx = userIdx; renderIdx < endIdx; renderIdx++) {
@@ -634,9 +642,9 @@ export function ChatWindow({ session, newSessionCwd, onAgentEnd, onAttentionNeed
                 for (let processIdx = userIdx + 1; processIdx < finalAssistantIdx; processIdx++) {
                   processIndices.push(processIdx);
                 }
-                const visibleProcessIndices = processIndices.filter((processIdx) => hasDisplayableProcessMessage(messages[processIdx]));
+                const visibleProcessIndices = processIndices.filter((processIdx) => hasDisplayableProcessMessage(messages[processIdx], displayOptions));
                 const finalAssistant = messages[finalAssistantIdx] as AssistantMessage;
-                const finalSplit = splitFinalAssistantBlocks(finalAssistant);
+                const finalSplit = splitFinalAssistantBlocks(finalAssistant, displayOptions);
                 const finalProcessMessage = finalSplit.processBlocks.length > 0
                   ? withAssistantBlocks(finalAssistant, finalSplit.processBlocks, { omitUsage: true })
                   : null;
@@ -651,7 +659,7 @@ export function ChatWindow({ session, newSessionCwd, onAgentEnd, onAttentionNeed
                       messageCount={processCount}
                       defaultExpanded={!finalAnswerMessage}
                       t={t}
-                      toolCallCount={countToolCalls(messages, visibleProcessIndices) + countToolCallBlocks(finalSplit.processBlocks)}
+                      toolCallCount={countToolCalls(messages, visibleProcessIndices, displayOptions) + countToolCallBlocks(finalSplit.processBlocks)}
                     >
                       {visibleProcessIndices.map((processIdx) => renderMessage(processIdx, { keyPrefix: "process" }))}
                       {finalProcessMessage && renderMessage(finalAssistantIdx, { keyPrefix: "process-final", messageOverride: finalProcessMessage, showTimestamp: false })}
@@ -729,6 +737,39 @@ export function ChatWindow({ session, newSessionCwd, onAgentEnd, onAttentionNeed
             </div>
           </div>
         </div>
+        {sessionBusy && autoFollowPaused && (
+          <button
+            type="button"
+            onClick={resumeAutoFollow}
+            aria-label={t("chat.jumpToBottom")}
+            title={t("chat.jumpToBottom")}
+            style={{
+              position: "absolute",
+              bottom: 16,
+              left: "50%",
+              transform: "translateX(-50%)",
+              zIndex: 40,
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "6px 12px",
+              borderRadius: 999,
+              border: "1px solid var(--border)",
+              background: "var(--bg-panel)",
+              color: "var(--text-muted)",
+              fontSize: 11,
+              fontFamily: "var(--font-mono)",
+              cursor: "pointer",
+              boxShadow: "0 2px 10px rgba(0,0,0,0.28)",
+            }}
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M12 5v14" />
+              <path d="m19 12-7 7-7-7" />
+            </svg>
+            {t("chat.jumpToBottom")}
+          </button>
+        )}
       </div>
 
       <div className="relative">
@@ -738,6 +779,7 @@ export function ChatWindow({ session, newSessionCwd, onAgentEnd, onAttentionNeed
           }}
         >
           <div style={{ maxWidth: 820, margin: "0 auto" }}>
+            <GoalBar goal={goalStatus} t={t} />
             <ExtensionWidgets widgets={belowEditorWidgets} />
           </div>
         </div>
@@ -746,6 +788,47 @@ export function ChatWindow({ session, newSessionCwd, onAgentEnd, onAttentionNeed
       </div>
       </>
       )}
+    </div>
+  );
+}
+
+/**
+ * Goal mode runs a continuation loop between turns, so the operator needs to
+ * see that it is on and how much budget is left without asking for it.
+ */
+function GoalBar({ goal, t }: { goal: GoalStatusInfo | null; t: (key: string, params?: Record<string, string | number>) => string }) {
+  if (!goal) return null;
+  const paused = !goal.enabled;
+  const budget = goal.tokenBudget !== undefined
+    ? t("chat.goalBudgetLeft", { left: formatTokenCount(Math.max(0, goal.tokenBudget - goal.tokensUsed)) })
+    : t("chat.goalTokensUsed", { used: formatTokenCount(goal.tokensUsed) });
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        marginBottom: 8,
+        padding: "5px 10px",
+        border: "1px solid var(--border)",
+        borderRadius: 7,
+        background: "var(--bg-panel)",
+        color: "var(--text-muted)",
+        fontSize: 11,
+        fontFamily: "var(--font-mono)",
+        opacity: paused ? 0.7 : 1,
+      }}
+    >
+      <span style={{ color: paused ? "var(--text-dim)" : "var(--accent)", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", flexShrink: 0 }}>
+        {t("chat.goalLabel")}
+      </span>
+      <span style={{ minWidth: 0, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--text)" }}>
+        {goal.objective}
+      </span>
+      <span style={{ flexShrink: 0, color: "var(--text-dim)" }}>
+        {paused ? t("chat.goalPaused") : goal.status}
+      </span>
+      <span style={{ flexShrink: 0, color: "var(--text-dim)" }}>{budget}</span>
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
@@ -113,7 +114,7 @@ test("routes blocking extension requests through deduplicated browser attention 
 test("/fork is consumed locally and surfaces server resolution errors", () => {
   const forkCaseSource = source.slice(
     source.indexOf('case "fork":'),
-    source.indexOf("default: {", source.indexOf('case "fork":')),
+    source.indexOf('case "goal":', source.indexOf('case "fork":')),
   );
 
   assert.match(source, /case "fork": \{/);
@@ -126,7 +127,7 @@ test("/fork is consumed locally and surfaces server resolution errors", () => {
   // and yields to the next explicit case, not the default bridge.
   assert.doesNotMatch(forkCaseSource, /execute_slash_command/);
   assert.doesNotMatch(forkCaseSource, /type: "prompt"/);
-  assert.match(source, /case "fork":[\s\S]*?return complete\(\{ handled: true, message: "Forked a new session" \}\);\s*\}\s*case "handoff": \{/);
+  assert.match(source, /case "fork":[\s\S]*?return complete\(\{ handled: true, message: "Forked a new session" \}\);\s*\}\s*case "goal": \{/);
 });
 
 test("fork navigation selects the new session id from the RPC result", () => {
@@ -165,8 +166,7 @@ test("/handoff forwards the focus text verbatim and keeps the UI busy", () => {
   assert.match(handoffCaseSource, /setAgentRunning\(false\)/);
   // Cancellation resolves locally as an error; /handoff never falls through to
   // the SDK command bridge or an LLM prompt.
-  assert.match(handoffCaseSource, /const \{ cancelled, newSessionId \} = result \?\? \{\};/);
-  assert.match(handoffCaseSource, /if \(cancelled \|\| !newSessionId\)/);
+  assert.match(handoffCaseSource, /if \(!result \|\| result\.cancelled\)/);
   assert.match(handoffCaseSource, /complete\(\{ handled: true, error: "Handoff cancelled" \}\)/);
   assert.doesNotMatch(handoffCaseSource, /execute_slash_command/);
   assert.doesNotMatch(handoffCaseSource, /type: "prompt"/);
@@ -177,7 +177,7 @@ test("/handoff forwards the focus text verbatim and keeps the UI busy", () => {
   assert.match(handoffCaseSource, /scheduleEventStreamClose\(sid\)/);
 });
 
-test("/handoff navigates to the new session on success", () => {
+test("/handoff reloads the same session after an in-place compaction", () => {
   const handoffCaseSource = source.slice(
     source.indexOf('case "handoff":'),
     source.indexOf("default: {", source.indexOf('case "handoff":')),
@@ -185,14 +185,18 @@ test("/handoff navigates to the new session on success", () => {
 
   assert.match(
     handoffCaseSource,
-    /sendAgentCommand<\{ cancelled\?: boolean; newSessionId\?: string \}>[\s\S]*?type: "handoff"/,
+    /sendAgentCommand<\{ cancelled\?: boolean \}>[\s\S]*?type: "handoff"/,
   );
-  // Success selects the new session id; every branch returns handled so the
-  // command never reaches the SDK fallback — the busy state is torn down in a
-  // finally block and the case yields to the default bridge with a return.
-  assert.match(handoffCaseSource, /onSessionForked\?\.\(newSessionId\)/);
-  assert.match(handoffCaseSource, /complete\(\{ handled: true, message: "Started new session with handoff context" \}\)/);
-  assert.match(source, /case "handoff":[\s\S]*?return complete\(\{ handled: true, message: "Started new session with handoff context" \}\);\s*\}\s*finally \{[\s\S]*?\}\s*\}\s*default: \{/);
+  // omp 18 hands off in place: the session id never changes, so success
+  // reloads this transcript instead of navigating to a replacement session.
+  assert.doesNotMatch(handoffCaseSource, /newSessionId/);
+  assert.doesNotMatch(handoffCaseSource, /onSessionForked/);
+  assert.match(handoffCaseSource, /if \(await loadSession\(sid, true\)\) promoteNewSession\(\);/);
+  // Every branch returns handled so the command never reaches the SDK
+  // fallback — the busy state is torn down in a finally block and the case
+  // yields to the default bridge with a return.
+  assert.match(handoffCaseSource, /complete\(\{ handled: true, message: "Context handed off and compacted in place" \}\)/);
+  assert.match(source, /case "handoff":[\s\S]*?return complete\(\{ handled: true, message: "Context handed off and compacted in place" \}\);\s*\}\s*finally \{[\s\S]*?\}\s*\}\s*default: \{/);
 });
 
 test("rehydrates handoff as busy without misreporting compaction", () => {
@@ -205,4 +209,47 @@ test("rehydrates handoff as busy without misreporting compaction", () => {
     source,
     /agentState\.state\?\.isStreaming[\s\S]*?agentState\.state\?\.isPromptRunning[\s\S]*?agentState\.state\?\.isHandoffRunning/,
   );
+});
+
+test("lets a user scroll pause auto-follow mid-stream", () => {
+  const scrollHandlerSource = source.slice(
+    source.indexOf("const handleScrollPositionChange"),
+    source.indexOf("  // Load session on mount"),
+  );
+
+  // The auto-follow effect refreshes the programmatic-scroll window on every
+  // streaming chunk, so gating every scroll event on it made the follow flag
+  // impossible to clear while the model was producing output.
+  assert.match(scrollHandlerSource, /const userDriven = Date\.now\(\) <= userScrollIntentUntilRef\.current/);
+  assert.match(scrollHandlerSource, /if \(!userDriven && Date\.now\(\) < ignoreProgrammaticScrollUntilRef\.current\) return/);
+  assert.match(scrollHandlerSource, /distanceFromBottom <= AUTO_FOLLOW_BOTTOM_THRESHOLD_PX\)\s*\{\s*setAutoFollow\(true\)/);
+  assert.match(scrollHandlerSource, /if \(userDriven\) \{\s*setAutoFollow\(false\)/);
+});
+
+test("exposes a paused-follow flag and a jump-to-bottom action", () => {
+  // The ref drives the scroll effects and the state drives the button; one
+  // writer keeps them from drifting apart.
+  assert.match(source, /const setAutoFollow = useCallback\(\(following: boolean\) => \{\s*completionScrollAllowedRef\.current = following;\s*setAutoFollowPaused\(/);
+  assert.match(source, /const resumeAutoFollow = useCallback\(\(\) => \{[\s\S]*?userScrollIntentUntilRef\.current = 0;[\s\S]*?setAutoFollow\(true\);[\s\S]*?scrollToBottom\("smooth"\)/);
+  assert.match(source, /autoFollowPaused, resumeAutoFollow,/);
+  // A new prompt or shell command resumes following.
+  assert.doesNotMatch(source, /completionScrollAllowedRef\.current = true;/);
+
+  assert.match(chatWindowSource, /autoFollowPaused, resumeAutoFollow,/);
+  assert.match(chatWindowSource, /\{sessionBusy && autoFollowPaused && \(/);
+  assert.match(chatWindowSource, /onClick=\{resumeAutoFollow\}/);
+});
+
+test("renders the transcript with omp's hideThinkingBlock setting", () => {
+  const messageViewSource = readFileSync(new URL("../components/MessageView.tsx", import.meta.url), "utf8");
+  assert.match(messageViewSource, /const \{ hideThinkingBlock \} = useDisplaySettings\(\)/);
+  assert.match(messageViewSource, /isHiddenAssistantBlock\(block, \{ isStreaming, hideThinking: hideThinkingBlock \}\)/);
+
+  assert.match(chatWindowSource, /useSyncedDisplaySettings\(/);
+  assert.match(chatWindowSource, /displayOptions = useMemo<DisplayOptions>\(\(\) => \(\{ hideThinking: hideThinkingBlock \}\)/);
+  // Turn grouping has to agree with what MessageView renders, or a message
+  // made only of thinking blocks leaves an empty row behind.
+  assert.match(chatWindowSource, /hasDisplayableProcessMessage\(messages\[processIdx\], displayOptions\)/);
+  assert.match(chatWindowSource, /splitFinalAssistantBlocks\(finalAssistant, displayOptions\)/);
+  assert.match(chatWindowSource, /findFinalAssistantIndex\(messages, userIdx, endIdx, displayOptions\)/);
 });

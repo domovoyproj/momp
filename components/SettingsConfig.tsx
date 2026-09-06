@@ -8,6 +8,7 @@ import { PluginsConfig } from "./PluginsConfig";
 import { AccessConfig } from "./AccessConfig";
 import { SearchableSelect } from "./SearchableSelect";
 import { refreshOmpTheme, useTheme } from "@/hooks/useTheme";
+import { refreshDisplaySettings } from "@/hooks/useDisplaySettings";
 import { sendAgentCommand } from "@/lib/agent-client";
 import type {
   McpConfigResponse,
@@ -184,6 +185,9 @@ function ThemePreview({ palette }: { palette: WebThemePalette }) {
   );
 }
 
+/** Settings the web client applies itself, without reloading the agent. */
+const DISPLAY_SETTING_PATHS = new Set(["hideThinkingBlock"]);
+
 export function SettingsConfig({ cwd, sessionId, initialSection = "models", onClose, onModelsChanged, onReloaded }: SettingsConfigProps) {
   const [section, setSection] = useState<SettingsSection>(initialSection);
   const [settings, setSettings] = useState<SettingsResponse | null>(null);
@@ -225,6 +229,10 @@ export function SettingsConfig({ cwd, sessionId, initialSection = "models", onCl
       if (field.path === "theme.dark" || field.path === "theme.light") {
         await refreshOmpTheme(cwd);
         await loadSettings();
+      } else if (DISPLAY_SETTING_PATHS.has(field.path)) {
+        // Render-only settings take effect in the open transcript right away,
+        // so the toggle is not a dead control until the next reload.
+        await refreshDisplaySettings(cwd);
       } else {
         setNeedsReload(true);
       }

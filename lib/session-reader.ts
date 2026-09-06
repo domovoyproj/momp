@@ -3,8 +3,9 @@ import {
   buildSessionContext as ompBuildSessionContext,
   getAgentDir,
 } from "@oh-my-pi/pi-coding-agent";
+import { Tokenizer } from "@oh-my-pi/pi-agent-core";
 import type { AgentMessage as OmpAgentMessage } from "@oh-my-pi/pi-agent-core";
-import { calculatePromptTokens, estimateTokens, hasContextTokenUsage } from "@oh-my-pi/pi-agent-core/compaction";
+import { calculatePromptTokens, hasContextTokenUsage } from "@oh-my-pi/pi-agent-core/compaction";
 import { closeSync, existsSync, openSync, readSync } from "fs";
 import { normalize as normalizePath } from "path";
 import type { AgentMessage, SessionEntry, SessionHeader, SessionInfo, SessionContext } from "./types";
@@ -372,9 +373,16 @@ export async function getHistoricalContextUsage(
   if (!modelSelector) return undefined;
 
   let contextWindowValue: number | null | undefined;
+  let tokenizer: Tokenizer;
   try {
     const { modelRegistry } = await getOmpRuntime();
-    contextWindowValue = modelRegistry.find(modelSelector.provider, modelSelector.modelId)?.contextWindow;
+    const model = modelRegistry.find(modelSelector.provider, modelSelector.modelId);
+    contextWindowValue = model?.contextWindow;
+    // omp 18 replaced the global token estimator with model-scoped `Tokenizer`
+    // instances, so the tail below is counted with the catalog model's own
+    // encoding. An unresolved model still yields the byte-based estimate the
+    // global helper used to apply.
+    tokenizer = new Tokenizer(model);
   } catch {
     return undefined;
   }
@@ -438,7 +446,7 @@ export async function getHistoricalContextUsage(
   let tailTokens = 0;
   if (anchorIndex >= 0) {
     for (let index = anchorIndex + 1; index < activeMessages.length; index += 1) {
-      tailTokens += estimateTokens(activeMessages[index]);
+      tailTokens += tokenizer.countMessage(activeMessages[index]);
     }
   }
 

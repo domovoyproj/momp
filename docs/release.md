@@ -32,10 +32,19 @@ token is stored in GitHub Actions.
 
 `.github/workflows/update-omp.yml` checks the latest stable `oh-my-pi` release
 and opens a dependency PR when the runtime packages change. The PR also bumps
-the `omp-web` patch version. After that PR is merged, the workflow creates the
-matching `v<version>` GitHub tag and release, with the updated `oh-my-pi`
-version in the release notes, then dispatches the npm publish workflow for that
-tag.
+the `omp-web` version: a patch for a refresh within the same `oh-my-pi` major,
+a minor when the major changes (omp-web serves omp's own SDK in-process, so a
+new major moves that surface under its users too). After that PR is merged, the
+workflow creates the matching `v<version>` GitHub tag and release, with the
+updated `oh-my-pi` version in the release notes, then dispatches the npm publish
+workflow for that tag.
+
+The workflow verifies the bump with `bun run typecheck` and `bun test` before
+opening the PR, but a failure there does not fail the run: a breaking upstream
+release is exactly when the update most needs to be seen, so the PR is opened as
+a **draft** carrying the failure instead. Take the draft, make omp-web compatible
+on that branch, then mark it ready. A release tagged upstream but not yet on npm
+is likewise not a failure — the hourly schedule retries it.
 
 ## 1. Preflight
 
@@ -44,7 +53,7 @@ git status --short --branch
 git log --oneline --decorate -5
 gh auth status
 npm whoami
-bun --version   # the published .next is built with Bun; 1.2+ required
+bun --version   # the published .next is built with Bun; engines.bun requires 1.3.14+
 node -e "const p=require('./package.json'); console.log(p.version)"
 ```
 

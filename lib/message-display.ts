@@ -1,18 +1,26 @@
 import type { AssistantContentBlock, AssistantMessage, ThinkingContent, ToolCallContent } from "./types";
 
-interface DisplayOptions {
+export interface DisplayOptions {
   isStreaming?: boolean;
+  /** omp's `hideThinkingBlock` setting: drop thinking blocks entirely. */
+  hideThinking?: boolean;
 }
 
 export function isEmptyThinkingBlock(block: AssistantContentBlock, options: DisplayOptions = {}): block is ThinkingContent {
   return block.type === "thinking" && !block.deferred && !options.isStreaming && block.thinking.trim() === "";
 }
 
+/** True for blocks the transcript must not render at all. */
+export function isHiddenAssistantBlock(block: AssistantContentBlock, options: DisplayOptions = {}): boolean {
+  if (options.hideThinking && block.type === "thinking") return true;
+  return isEmptyThinkingBlock(block, options);
+}
+
 export function getDisplayableAssistantBlocks(
   message: AssistantMessage,
   options: DisplayOptions = {},
 ): AssistantContentBlock[] {
-  return (message.content ?? []).filter((block) => !isEmptyThinkingBlock(block, options));
+  return (message.content ?? []).filter((block) => !isHiddenAssistantBlock(block, options));
 }
 
 export function getAssistantErrorMessage(

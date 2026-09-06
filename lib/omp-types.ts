@@ -5,6 +5,7 @@ import type {
   SlashCommandInfo as OmpSlashCommandInfo,
   Theme,
 } from "@oh-my-pi/pi-coding-agent";
+import type { Goal, GoalModeState } from "@oh-my-pi/pi-coding-agent/goals/state";
 import type { ExtensionAskDialogQuestion, ExtensionAskDialogResult } from "./types";
 
 
@@ -179,10 +180,10 @@ export interface AgentSessionLike {
   navigateTree(targetId: string, options?: { summarize?: boolean }): Promise<NavigateTreeResult>;
   branch(entryId: string): Promise<{ cancelled: boolean }>;
   /**
-   * Generate a handoff document with a oneshot LLM call, then start a new
-   * session carrying it. The session is mutated in place: after a successful
-   * handoff, `sessionId`/`sessionFile` point at the replacement session.
-   * Resolves to `undefined` when the handoff is cancelled.
+   * Generate a handoff document with a oneshot LLM call and commit it as this
+   * session's compaction entry. omp 18 made this in-place: the session keeps
+   * its id and file, and the document becomes the summary that recent history
+   * is kept against. Resolves to `undefined` when the handoff is cancelled.
    */
   handoff(customInstructions?: string): Promise<{ document: string; savedPath?: string } | undefined>;
   setThinkingLevel(level: string | undefined, persist?: boolean): void;
@@ -225,4 +226,53 @@ export interface AgentSessionLike {
   setPlanReferencePath?(path: string): void;
   getContextUsage(): { tokens: number; contextWindow: number; percent: number } | undefined;
   dispose?(options?: { keepAlive?: boolean }): Promise<void>;
+
+  // Goal mode. omp drives these from the TUI only, so omp-web reproduces that
+  // half itself (see lib/goal-mode.ts) on top of the same GoalRuntime.
+  readonly goalRuntime: GoalRuntimeLike;
+  getGoalModeState?(): GoalModeState | undefined;
+  setGoalModeState?(state: GoalModeState | undefined): void;
+  sendGoalModeContext(options?: { deliverAs?: "steer" | "followUp" | "nextTurn" }): Promise<void>;
+  promptCustomMessage(
+    message: { customType: string; content: string; display?: boolean; attribution?: "user" | "agent" },
+    options?: { streamingBehavior?: "steer" | "followUp" },
+  ): Promise<void>;
+}
+
+/** The subset of omp's `GoalRuntime` omp-web drives. */
+export interface GoalRuntimeLike {
+  createGoal(input: { objective: string; tokenBudget?: number }): Promise<GoalModeState>;
+  replaceGoal(input: { objective: string; tokenBudget?: number }): Promise<GoalModeState>;
+  resumeGoal(): Promise<GoalModeState>;
+  pauseGoal(): Promise<GoalModeState | undefined>;
+  dropGoal(): Promise<Goal | undefined>;
+  onThreadResumed(options?: { preserveActiveGoal?: boolean }): Promise<GoalModeState | undefined>;
+  onBudgetMutated(newBudget: number | undefined): Promise<GoalModeState | undefined>;
+  buildContinuationPrompt(): string | undefined;
+  clearAccounting(): void;
+}
+
+/** What `GoalModeController` needs from a session; `AgentSessionLike` satisfies it. */
+export type GoalModeSession = Pick<
+  AgentSessionLike,
+  | "isStreaming"
+  | "sessionManager"
+  | "settings"
+  | "goalRuntime"
+  | "getGoalModeState"
+  | "setGoalModeState"
+  | "sendGoalModeContext"
+  | "getEnabledToolNames"
+  | "setActiveToolsByName"
+  | "getPlanModeState"
+>;
+
+/** Goal state as the browser sees it. */
+export interface GoalStatusInfo {
+  objective: string;
+  status: string;
+  enabled: boolean;
+  tokensUsed: number;
+  tokenBudget?: number;
+  timeUsedSeconds: number;
 }

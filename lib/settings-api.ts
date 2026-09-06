@@ -46,6 +46,11 @@ export interface WebThemeConfig {
   palettes: { dark: WebThemePalette; light: WebThemePalette };
 }
 
+/** Render-affecting settings the transcript view reads from omp's config. */
+export interface DisplaySettings {
+  hideThinkingBlock: boolean;
+}
+
 export interface SettingsResponse {
   tabs: SettingsTab[];
   fields: SettingsField[];

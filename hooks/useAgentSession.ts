@@ -17,7 +17,7 @@ import { normalizeToolCalls } from "@/lib/normalize";
 import { stripAnsi } from "@/lib/ansi";
 import { isPromptRejectedError, sendAgentCommand } from "@/lib/agent-client";
 import { getToolNamesForPreset, type ToolEntry } from "@/lib/tool-presets";
-import type { ContextUsage, SessionStatsInfo, SlashCommandInfo } from "@/lib/omp-types";
+import type { ContextUsage, GoalStatusInfo, SessionStatsInfo, SlashCommandInfo } from "@/lib/omp-types";
 import type { ModelRoleAssignment } from "@/lib/api-types";
 
 export interface SessionData {
@@ -87,7 +87,15 @@ type AgentStateResponse = {
   extensionWidgets?: ExtensionWidgetItem[];
   queuedMessages?: { steering?: string[]; followUp?: string[] } | null;
   subagents?: SubagentSnapshot[];
+  goal?: GoalStatusInfo | null;
 };
+
+interface GoalCommandResponse {
+  message?: string;
+  error?: string;
+  prompt?: string;
+  status?: GoalStatusInfo | null;
+}
 
 export interface QueuedMessages {
   steering: string[];
@@ -419,9 +427,13 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
   const handleAgentEventRef = useRef<((event: AgentEvent) => void) | null>(null);
   const initialScrollDoneRef = useRef(false);
   const completionScrollAllowedRef = useRef(true);
+  const [autoFollowPaused, setAutoFollowPaused] = useState(false);
+  const [goalStatus, setGoalStatus] = useState<GoalStatusInfo | null>(null);
   const executeBashRef = useRef<(command: string, excludeFromContext: boolean) => Promise<void> | undefined>(undefined);
   const userScrollIntentUntilRef = useRef(0);
   const ignoreProgrammaticScrollUntilRef = useRef(0);
+  // Forward reference: handleSend/executeBash are declared above setAutoFollow.
+  const setAutoFollowRef = useRef<(following: boolean) => void>(() => {});
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const ensuringNewSessionRef = useRef<Promise<string | null> | null>(null);
@@ -1162,12 +1174,16 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
               if (d.state?.extensionStatuses !== undefined) setExtensionStatuses(d.state.extensionStatuses ?? []);
               if (d.state?.extensionWidgets !== undefined) setExtensionWidgets(d.state.extensionWidgets ?? []);
               if (d.state?.subagents !== undefined) setSubagents((current) => mergeSubagentSnapshots(current, d.state?.subagents ?? []));
+              if (d.state?.goal !== undefined) setGoalStatus(d.state.goal ?? null);
               // Aborted turns can leave messages queued in pi (delivered with the
               // next turn); dead wrapper (no state) means the queue is gone.
               setQueuedMessages(normalizeQueuedMessages(d.state?.queuedMessages));
             })
             .catch(() => {});
         }
+        break;
+      case "goal_status":
+        setGoalStatus((event.status as GoalStatusInfo | null | undefined) ?? null);
         break;
       case "agent_settled": {
         const agentWasActive = sdkAgentActiveRef.current;
@@ -1438,7 +1454,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     setAgentRunning(true);
     setAgentPhase(isSlashCommandPrompt ? { kind: "running_command" } : { kind: "waiting_model" });
     dispatch({ type: "start" });
-    completionScrollAllowedRef.current = true;
+    setAutoFollowRef.current(true);
 
     const piImages = images?.map((img) => ({ type: "image" as const, data: img.data, mimeType: img.mimeType }));
     let sentSessionId: string | null = null;
@@ -1523,7 +1539,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     if (agentRunningRef.current || bashRunningRef.current) return;
     const inputText = `${excludeFromContext ? "!!" : "!"}${command}`;
     bashRunningRef.current = true;
-    completionScrollAllowedRef.current = true;
+    setAutoFollowRef.current(true);
     setPendingBash({ command, excludeFromContext });
     setBashRunning(true);
     try {
@@ -1888,6 +1904,25 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
           return complete({ handled: true, message: "Forked a new session" });
         }
 
+        case "goal": {
+          if (!sid) return complete({ handled: true, error: "No active session" });
+          const result = await sendAgentCommand<GoalCommandResponse>(sid, { type: "goal", args });
+          setGoalStatus(result?.status ?? null);
+          if (result?.error) return complete({ handled: true, error: result.error });
+          // `/goal show` output belongs in the transcript, not a toast that
+          // disappears before it can be read.
+          if (result?.message && result.message.includes("\n")) {
+            appendCommandOutput(result.message);
+            if (result.prompt) return { handled: true, prompt: result.prompt };
+            return { handled: true };
+          }
+          if (result?.prompt) {
+            if (result.message) addNotice({ type: "success", message: result.message });
+            return { handled: true, prompt: result.prompt };
+          }
+          return complete({ handled: true, message: result?.message ?? "Command completed" });
+        }
+
         case "handoff": {
           if (!sid) return complete({ handled: true, error: "No active session" });
           if (agentRunningRef.current || bashRunningRef.current) {
@@ -1895,22 +1930,24 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
           }
           // Handoff generation is a long oneshot LLM call; keep the composer
           // busy through it with the existing agent-running state so a prompt
-          // cannot race the session transition.
+          // cannot race the compaction entry it commits.
           agentRunningRef.current = true;
           setAgentRunning(true);
           setAgentPhase({ kind: "running_command" });
           try {
             await ensureEventsConnected(sid);
-            const result = await sendAgentCommand<{ cancelled?: boolean; newSessionId?: string }>(sid, {
+            const result = await sendAgentCommand<{ cancelled?: boolean }>(sid, {
               type: "handoff",
               ...(args ? { customInstructions: args } : {}),
             });
-            const { cancelled, newSessionId } = result ?? {};
-            if (cancelled || !newSessionId) {
+            if (!result || result.cancelled) {
               return complete({ handled: true, error: "Handoff cancelled" });
             }
-            onSessionForked?.(newSessionId);
-            return complete({ handled: true, message: "Started new session with handoff context" });
+            // omp 18 hands off in place, so the session keeps its id and gains
+            // a handoff compaction entry: reload this transcript rather than
+            // navigating to a replacement session.
+            if (await loadSession(sid, true)) promoteNewSession();
+            return complete({ handled: true, message: "Context handed off and compacted in place" });
           } finally {
             agentRunningRef.current = false;
             setAgentRunning(false);
@@ -1941,7 +1978,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     } finally {
       if (commandName === "compact") setIsCompacting(false);
     }
-  }, [addNotice, appendCommandOutput, ensureEventsConnected, ensureNewSession, handleFork, isCompacting, loadModels, loadSession, loadSlashCommands, loadTools, onSessionForked, promoteNewSession, onSessionStatsPanelOpen, scheduleEventStreamClose]);
+  }, [addNotice, appendCommandOutput, ensureEventsConnected, ensureNewSession, handleFork, isCompacting, loadModels, loadSession, loadSlashCommands, loadTools, promoteNewSession, onSessionStatsPanelOpen, scheduleEventStreamClose]);
 
   // Queued (undelivered) messages live in the queue panel only; the chat gets
   // the real user message when pi delivers it (user message_end event). An
@@ -2057,11 +2094,26 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     }
   }, [setToolPresetState]);
 
+  // Single writer for the follow flag so the ref (read by the scroll effects)
+  // and the state (read by the jump-to-bottom button) never drift apart.
+  const setAutoFollow = useCallback((following: boolean) => {
+    completionScrollAllowedRef.current = following;
+    setAutoFollowPaused((paused) => (paused === !following ? paused : !following));
+  }, []);
+  setAutoFollowRef.current = setAutoFollow;
+
   const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
     ignoreProgrammaticScrollUntilRef.current = Date.now() + PROGRAMMATIC_SCROLL_IGNORE_MS;
     messagesEndRef.current?.scrollIntoView({ behavior });
   }, []);
 
+  const resumeAutoFollow = useCallback(() => {
+    // Clear any lingering intent window so the smooth scroll we are about to
+    // start is not mistaken for the user scrolling away again.
+    userScrollIntentUntilRef.current = 0;
+    setAutoFollow(true);
+    scrollToBottom("smooth");
+  }, [scrollToBottom, setAutoFollow]);
 
   const markUserScrollIntent = useCallback((event: Event) => {
     if (event instanceof KeyboardEvent) {
@@ -2073,18 +2125,23 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
 
   const handleScrollPositionChange = useCallback(() => {
     if (!agentRunningRef.current && !bashRunningRef.current) return;
-    if (Date.now() < ignoreProgrammaticScrollUntilRef.current) return;
     const container = scrollContainerRef.current;
     if (!container) return;
+    // The auto-follow effect refreshes the programmatic-scroll window on every
+    // streaming chunk, so during a stream it is always open. Honour a scroll
+    // the user actually drove (wheel/touch/pointer/keys) regardless of it,
+    // otherwise following could never be paused mid-turn.
+    const userDriven = Date.now() <= userScrollIntentUntilRef.current;
+    if (!userDriven && Date.now() < ignoreProgrammaticScrollUntilRef.current) return;
     const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
     if (distanceFromBottom <= AUTO_FOLLOW_BOTTOM_THRESHOLD_PX) {
-      completionScrollAllowedRef.current = true;
+      setAutoFollow(true);
       return;
     }
-    if (Date.now() <= userScrollIntentUntilRef.current) {
-      completionScrollAllowedRef.current = false;
+    if (userDriven) {
+      setAutoFollow(false);
     }
-  }, []);
+  }, [setAutoFollow]);
 
   // Load session on mount
   useEffect(() => {
@@ -2128,6 +2185,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
           if (state.extensionWidgets !== undefined) setExtensionWidgets(state.extensionWidgets ?? []);
           if (state.queuedMessages !== undefined) setQueuedMessages(normalizeQueuedMessages(state.queuedMessages));
           if (state.subagents !== undefined) setSubagents((current) => mergeSubagentSnapshots(current, state.subagents ?? []));
+          if (state.goal !== undefined) setGoalStatus(state.goal ?? null);
         }
       });
     }
@@ -2240,6 +2298,8 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     isAutoModelSelection: isNew && newSessionModel === null,
     agentPhase,
     isNew,
+    autoFollowPaused, resumeAutoFollow,
+    goalStatus,
     // Refs
     sessionIdRef, eventSourceRef, messagesEndRef, scrollContainerRef,
     // Actions

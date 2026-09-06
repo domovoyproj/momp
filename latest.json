@@ -1,10 +1,10 @@
 {
-  "version": "1.1.6",
-  "notes": "momp v1.1.6",
-  "pub_date": "2026-08-27T02:36:34Z",
+  "version": "1.2.0",
+  "notes": "momp v1.2.0",
+  "pub_date": "2026-09-06T00:00:00Z",
   "platforms": {
     "windows-x86_64": {
-      "url": "https://github.com/domovoyproj/momp/releases/download/v1.1.6/momp.exe",
+      "url": "https://github.com/domovoyproj/momp/releases/download/v1.2.0/momp.exe",
       "signature": ""
     }
   }

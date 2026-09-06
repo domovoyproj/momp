@@ -10,6 +10,7 @@ import {
   useState,
 } from "react";
 import styles from "./SearchableSelect.module.css";
+import { usePopupPlacement } from "@/hooks/usePopupPlacement";
 
 export interface SearchableSelectOption {
   value: string;
@@ -32,6 +33,11 @@ interface SearchableSelectProps {
   style?: CSSProperties;
 }
 
+const POPOVER_GAP_PX = 5;
+const POPOVER_MAX_HEIGHT_PX = 296;
+/** Height of the search row above the option list. */
+const POPOVER_CHROME_PX = 46;
+
 function normalize(value: string): string {
   return value
     .normalize("NFD")
@@ -53,6 +59,7 @@ export function SearchableSelect({
 }: SearchableSelectProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
@@ -92,6 +99,23 @@ export function SearchableSelect({
       setActiveIndex(Math.max(0, filtered.findIndex((option) => !option.disabled)));
     }
   }, [activeIndex, filtered]);
+
+  // Arrow keys must be able to walk past the visible slice, otherwise the last
+  // options of a long list can only be reached by scrolling with the mouse.
+  useEffect(() => {
+    if (!open) return;
+    optionRefs.current[activeIndex]?.scrollIntoView({ block: "nearest" });
+  }, [activeIndex, open]);
+
+  // The trigger can sit near the bottom of a scrollable settings panel, where
+  // a list opening downwards runs past the dialog and the viewport.
+  const { side, maxHeight } = usePopupPlacement(rootRef, open, {
+    viewportFraction: 0.6,
+    cap: POPOVER_MAX_HEIGHT_PX,
+    gap: POPOVER_GAP_PX,
+    prefer: "below",
+    minHeight: 160,
+  });
 
   const choose = (option: SearchableSelectOption) => {
     if (option.disabled) return;
@@ -155,7 +179,12 @@ export function SearchableSelect({
       </button>
 
       {open && (
-        <div className={styles.popover}>
+        <div
+          className={styles.popover}
+          style={side === "above"
+            ? { bottom: `calc(100% + ${POPOVER_GAP_PX}px)`, maxHeight }
+            : { top: `calc(100% + ${POPOVER_GAP_PX}px)`, maxHeight }}
+        >
           <div className={styles.searchWrap}>
             <svg className={styles.searchIcon} viewBox="0 0 16 16" aria-hidden="true">
               <circle cx="7" cy="7" r="4.25" />
@@ -180,9 +209,16 @@ export function SearchableSelect({
               onKeyDown={handleListKeys}
             />
           </div>
-          <div id={listboxId} className={styles.options} role="listbox" aria-label={ariaLabel}>
+          <div
+            id={listboxId}
+            className={styles.options}
+            role="listbox"
+            aria-label={ariaLabel}
+            style={{ maxHeight: Math.max(0, maxHeight - POPOVER_CHROME_PX) }}
+          >
             {filtered.length ? filtered.map((option, index) => (
               <button
+                ref={(node) => { optionRefs.current[index] = node; }}
                 id={`${listboxId}-${index}`}
                 type="button"
                 role="option"

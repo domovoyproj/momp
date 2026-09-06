@@ -35,6 +35,7 @@ import { PRESET_FULL } from "./tool-presets";
 import { persistExplicitStartupPreferences } from "./startup-preferences";
 import type { SlashCommandInfo } from "./omp-types";
 import type { AgentSessionLike, ExtensionUiContextLike, ToolInfo } from "./omp-types";
+import { GoalModeController } from "./goal-mode";
 import type {
   ExtensionAskDialogResult,
   ExtensionUiRequest,
@@ -207,15 +208,21 @@ function appendSlashCommand(
   commands.push({ ...command, name });
 }
 
-/** Browser-native builtins with no shared SDK handler; advertised with their canonical registry metadata. */
-const BROWSER_NATIVE_SLASH_COMMANDS = ["fork", "handoff"] as const;
+/**
+ * Browser-native builtins with no shared SDK handler; advertised with their
+ * canonical registry metadata. `/goal` is a mode command omp implements as a
+ * TUI-only handler, so it never reaches ACP discovery; omp-web drives the same
+ * GoalRuntime itself (lib/goal-mode.ts) and advertises it here.
+ */
+export const BROWSER_NATIVE_SLASH_COMMANDS = ["fork", "goal"] as const;
 
 /**
  * Keep the browser palette aligned with omp's own command registry and
  * discovery pipeline. Shared text/ACP builtins and every discovered
  * extension/custom/MCP/file/skill command come from the SDK discovery;
- * browser-native /fork and /handoff are added explicitly from the canonical
- * builtin registry because they have no shared SDK handler yet.
+ * browser-native /fork is added explicitly from the canonical builtin registry
+ * because it has no shared SDK handler yet. /handoff gained one in omp 18, so
+ * it now arrives through discovery like every other shared builtin.
  */
 export async function getAvailableSlashCommands(session: AgentSessionLike): Promise<SlashCommandInfo[]> {
   const commands: SlashCommandInfo[] = [];
@@ -282,17 +289,14 @@ export class AgentSessionWrapper {
   // The SDK registry removes terminal entries after emitting their lifecycle frame.
   // Keep a bounded per-session copy so state requests can still expose history.
   private readonly subagentHistory = new Map<string, SubagentSnapshot>();
+  private goalModeController: GoalModeController | null = null;
   private _alive = true;
 
   constructor(
     public readonly inner: AgentSessionLike,
-    eventBus?: ConstructorParameters<typeof RpcSubagentRegistry>[0],
+    eventBus: ConstructorParameters<typeof RpcSubagentRegistry>[0],
   ) {
-    const fallbackBus = inner && typeof inner === "object" && "eventBus" in inner && inner.eventBus
-      ? inner.eventBus
-      : { on: () => () => {} };
-    const bus = (eventBus ?? fallbackBus) as ConstructorParameters<typeof RpcSubagentRegistry>[0];
-    this.subagents = new RpcSubagentRegistry(bus, (frame) => {
+    this.subagents = new RpcSubagentRegistry(eventBus, (frame) => {
       const event = frame as unknown as AgentEvent;
       this.rememberSubagentFrame(event);
       this.emit(event);
@@ -416,6 +420,12 @@ export class AgentSessionWrapper {
 
   start(): void {
     this.syncPlanModeFromSession();
+    void this.goalMode.restore().catch((error) => {
+      console.error(
+        "[omp-web] failed to restore goal mode:",
+        error instanceof Error ? error.message : error,
+      );
+    });
     this.unsubscribe = this.inner.subscribe((event: AgentEvent) => {
       if (event.type === "agent_end") {
         invalidateSessionListCache();
@@ -423,6 +433,12 @@ export class AgentSessionWrapper {
       if (IDLE_RESET_EVENT_TYPES.has(event.type)) this.resetIdleTimer();
       this.emit(event);
       if (RUNNING_STATE_EVENT_TYPES.has(event.type)) notifyRunningChange();
+      void this.goalMode.handleSessionEvent(event).catch((error) => {
+        console.error(
+          "[omp-web] goal mode failed to handle a session event:",
+          error instanceof Error ? error.message : error,
+        );
+      });
     });
     this.resetIdleTimer();
     notifyRunningChange();
@@ -509,7 +525,8 @@ export class AgentSessionWrapper {
       || type === "follow_up"
       || type === "handoff"
       || type === "get_commands"
-      || type === "execute_slash_command";
+      || type === "execute_slash_command"
+      || type === "goal";
   }
 
   private async withFinalRunningNotification<T>(operation: () => Promise<T>): Promise<T> {
@@ -521,14 +538,14 @@ export class AgentSessionWrapper {
     }
   }
 
-  private async shutdownAfterCommittedTransition(kind: "fork" | "handoff", newSessionId: string): Promise<void> {
+  private async shutdownAfterCommittedFork(newSessionId: string): Promise<void> {
     try {
       await this.shutdown();
     } catch (error) {
-      // The replacement session is already persisted. Cleanup failures must
-      // not hide its id from the browser and strand the committed transition.
+      // The forked session is already persisted. Cleanup failures must not
+      // hide its id from the browser and strand the committed transition.
       console.error(
-        `[momp] ${kind} created session ${newSessionId}, but wrapper shutdown failed:`,
+        `[momp] fork created session ${newSessionId}, but wrapper shutdown failed:`,
         error instanceof Error ? error.message : error,
       );
     }
@@ -539,6 +556,54 @@ export class AgentSessionWrapper {
       this.inner.agent.state.systemPrompt = [];
     }
   }
+  /**
+   * Goal mode lives server-side so an active goal keeps working through the
+   * continuation loop whether or not a browser tab is watching.
+   */
+  private get goalMode(): GoalModeController {
+    if (!this.goalModeController) {
+      this.goalModeController = new GoalModeController(this.inner, {
+        isBusy: () => this.promptRunning
+          || this.handoffRunning
+          || this.inner.isStreaming
+          || this.inner.isCompacting
+          || this.inner.isBashRunning,
+        runContinuation: (prompt) => this.runGoalContinuation(prompt),
+        onStatusChange: (status) => this.emit({ type: "goal_status", status }),
+      });
+    }
+    return this.goalModeController;
+  }
+
+  /**
+   * Send one goal continuation turn. It is a hidden custom message rather than
+   * a prompt so it does not appear as something the operator typed, but the
+   * browser must still see the session go busy, exactly as for a real prompt.
+   */
+  private async runGoalContinuation(prompt: string): Promise<void> {
+    this.promptRunning = true;
+    notifyRunningChange();
+    try {
+      await this.inner.promptCustomMessage({
+        customType: "goal-continuation",
+        content: prompt,
+        display: false,
+        attribution: "user",
+      });
+    } catch (error) {
+      this.emit({
+        type: "prompt_error",
+        errorMessage: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    } finally {
+      this.promptRunning = false;
+      this.resetIdleTimer();
+      this.emit({ type: "prompt_done" });
+      notifyRunningChange();
+    }
+  }
+
   private syncPlanModeFromSession(): void {
     let state = this.inner.getPlanModeState?.();
     if (!state) {
@@ -714,6 +779,9 @@ export class AgentSessionWrapper {
         if (this.inner.isBashRunning) {
           throw new Error("Cannot send a prompt while a shell command is running");
         }
+        // A turn the operator asked for means the next continuation is wanted,
+        // and supersedes one already scheduled.
+        this.goalMode.onUserPrompt();
         // Fire and forget — events come via subscribe
         const promptImages = command.images as Array<{ type: "image"; data: string; mimeType: string }> | undefined;
         const streamingBehavior = command.streamingBehavior as "steer" | "followUp" | undefined;
@@ -743,6 +811,7 @@ export class AgentSessionWrapper {
       }
 
       case "abort":
+        this.goalMode.onAbort();
         await this.withFinalRunningNotification(() => this.inner.abort());
         return null;
 
@@ -774,6 +843,7 @@ export class AgentSessionWrapper {
           extensionStatuses: this.getExtensionStatuses(),
           extensionWidgets: this.getExtensionWidgets(),
           subagents: this.getSubagentSnapshots(),
+          goal: this.goalMode.getStatus(),
         };
       }
       case "get_subagents":
@@ -856,13 +926,16 @@ export class AgentSessionWrapper {
         const newSessionId = (await SessionManager.open(newSessionFile, sessionDir)).getSessionId();
         cacheSessionPath(newSessionId, newSessionFile);
         invalidateSessionListCache();
-        await this.shutdownAfterCommittedTransition("fork", newSessionId);
+        await this.shutdownAfterCommittedFork(newSessionId);
         return { cancelled: false, newSessionId };
       }
 
       case "handoff": {
-        // Handoff resets the agent and mints a replacement session, so it must
-        // not run while a prompt is streaming or any other work owns the session.
+        // omp 18 made handoff in-place: it summarizes the conversation into a
+        // handoff document and commits that as this session's compaction entry
+        // instead of minting a replacement session. It still rewrites history
+        // behind a oneshot model call, so it must not run while a prompt is
+        // streaming or any other work owns the session.
         if (this.handoffRunning || this.promptRunning || this.inner.isStreaming || this.inner.isCompacting || this.inner.isBashRunning) {
           throw new Error("Cannot hand off while the session is busy");
         }
@@ -873,15 +946,10 @@ export class AgentSessionWrapper {
           // No result means the handoff was cancelled; the session is untouched.
           const result = await this.inner.handoff(customInstructions);
           if (!result) return { cancelled: true };
-          // The SDK mutates the session in place — capture the replacement ids
-          // before tearing the wrapper down so the old registry key cannot
-          // point at the transitioned session.
-          const newSessionId = this.inner.sessionId;
-          const newSessionFile = this.inner.sessionFile;
-          if (newSessionId && newSessionFile) cacheSessionPath(newSessionId, newSessionFile);
+          // The session id and file are unchanged, so only the cached listing
+          // (modified time, token counts) has gone stale.
           invalidateSessionListCache();
-          await this.shutdownAfterCommittedTransition("handoff", newSessionId);
-          return { cancelled: false, newSessionId };
+          return { cancelled: false };
         } finally {
           this.handoffRunning = false;
           notifyRunningChange();
@@ -979,6 +1047,11 @@ export class AgentSessionWrapper {
       case "get_commands": {
         return { commands: await getAvailableSlashCommands(this.inner) };
       }
+
+      case "goal": {
+        return await this.goalMode.handleCommand((command.args as string | undefined) ?? "");
+      }
+
       case "execute_slash_command": {
         const output: string[] = [];
         const result: AcpBuiltinSlashCommandResult = await executeAcpBuiltinSlashCommand(command.message as string, {
@@ -1012,7 +1085,9 @@ export class AgentSessionWrapper {
       case "set_tools": {
         const toolNames = command.toolNames as string[];
         this.setForceEmptySystemPrompt(toolNames.length === 0);
-        await this.inner.setActiveToolsByName(withExtensionTools(this.inner, toolNames));
+        await this.inner.setActiveToolsByName(
+          this.goalMode.reconcileToolNames(withExtensionTools(this.inner, toolNames)),
+        );
         this.applyForcedEmptySystemPrompt();
         return null;
       }
@@ -1089,6 +1164,7 @@ export class AgentSessionWrapper {
     if (this.idleTimer) clearTimeout(this.idleTimer);
     if (this.inner.isBashRunning) this.inner.abortBash();
     this.unsubscribe?.();
+    this.goalModeController?.dispose();
     this.subagents.dispose();
     this.subagentHistory.clear();
     for (const pending of this.pendingUiResponses.values()) pending.cancel();

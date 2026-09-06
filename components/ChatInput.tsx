@@ -25,7 +25,10 @@ import {
   type AtQueryMatch, type FileIndexEntry,
 } from "@/lib/file-fuzzy";
 import { FolderIcon, getFileIcon } from "./FileIcons";
+import { formatTokenCount } from "@/lib/format-tokens";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { usePopupPlacement } from "@/hooks/usePopupPlacement";
+import { computePopupPlacement, preferredPopupHeight, POPUP_GAP_PX, type PopupSide } from "@/lib/popup-placement";
 import { useI18n } from "@/hooks/useI18n";
 import { PRESET_DEFAULT, PRESET_FULL } from "@/lib/tool-presets";
 
@@ -103,7 +106,16 @@ const TOOL_PRESET_MAP: Record<"off" | "default" | "full", "none" | "default" | "
 const DEFAULT_TOOL_LABEL = PRESET_DEFAULT.join(" · ");
 const FULL_TOOL_ADDITIONS = PRESET_FULL.filter((name) => !PRESET_DEFAULT.includes(name)).join(" · ");
 const COMPOSITION_END_ENTER_GRACE_MS = 100;
+
+/** Offset a composer popup from the input on the side placement chose. */
+function popupOffset(side: PopupSide): React.CSSProperties {
+  return side === "above"
+    ? { bottom: `calc(100% + ${POPUP_GAP_PX}px)` }
+    : { top: `calc(100% + ${POPUP_GAP_PX}px)` };
+}
+
 const MODEL_FILTER_THRESHOLD = 8;
+const MODEL_DROPDOWN_MAX_HEIGHT_PX = 460;
 const MODEL_OPTION_COLLATOR = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
 
 function compareModelOptions(a: ModelOption, b: ModelOption): number {
@@ -128,13 +140,6 @@ const THINKING_LEVEL_DESC_KEYS: Record<typeof THINKING_LEVELS[number], string> =
   auto: "chat.thinkingUseDefault", off: "chat.thinkingOff", minimal: "chat.thinkingMinimal", low: "chat.thinkingLow",
   medium: "chat.thinkingMedium", high: "chat.thinkingHigh", xhigh: "chat.thinkingXhigh", max: "chat.thinkingMax",
 };
-
-function formatTokenCount(tokens: number): string {
-  if (tokens >= 1_000_000) return `${(tokens / 1_000_000).toFixed(1)}M`;
-  if (tokens >= 1_000) return `${Math.round(tokens / 1_000)}k`;
-  return tokens.toLocaleString();
-}
-
 
 type LocalBuiltinSlashCommand = {
   name: string;
@@ -526,7 +531,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     };
   }, []);
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
-  const [modelDropdownRect, setModelDropdownRect] = useState<{ top: number; left: number; width: number } | null>(null);
+  const [modelDropdownRect, setModelDropdownRect] = useState<{ top: number; bottom: number; left: number; width: number } | null>(null);
   const [modelFilter, setModelFilter] = useState("");
   const [toolDropdownOpen, setToolDropdownOpen] = useState(false);
   const [thinkingDropdownOpen, setThinkingDropdownOpen] = useState(false);
@@ -563,6 +568,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   const thinkingDropdownRef = useRef<HTMLDivElement>(null);
   const controlsMenuRef = useRef<HTMLDivElement>(null);
   const historyMenuRef = useRef<HTMLDivElement>(null);
+  const composerAnchorRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isComposingRef = useRef(false);
   const lastCompositionEndAtRef = useRef(0);
@@ -1000,6 +1006,13 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   // Fetch the file index when the menu opens. The server caches per cwd for
   // ~10s, so re-opening refreshes cheaply; while typing nothing refetches.
   const atTokenActive = atQuery !== null;
+
+  // The composer is not always near the bottom of the window — a fresh session
+  // centres it — so these popups pick their side and height from the space
+  // actually left around it instead of always opening upwards at a fixed vh.
+  const historyPlacement = usePopupPlacement(composerAnchorRef, historyMenuOpen, { viewportFraction: 0.44, cap: 360 });
+  const slashPlacement = usePopupPlacement(composerAnchorRef, slashMenuOpen, { viewportFraction: 0.56, cap: 460 });
+  const atPlacement = usePopupPlacement(composerAnchorRef, atMenuOpen, { viewportFraction: 0.48, cap: 400 });
   useEffect(() => {
     if (!atTokenActive || !cwd) return;
     const meta = fileIndexMetaRef.current;
@@ -1628,7 +1641,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
         )}
 
         {/* Main input */}
-        <div style={{ position: "relative", minWidth: 0 }}>
+        <div ref={composerAnchorRef} style={{ position: "relative", minWidth: 0 }}>
           {historyMenuOpen && inputHistory.length > 0 && (
             <div
               ref={historyMenuRef}
@@ -1636,14 +1649,14 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                 position: "absolute",
                 left: 0,
                 right: 0,
-                bottom: "calc(100% + 8px)",
+                ...popupOffset(historyPlacement.side),
                 zIndex: 120,
                 background: "var(--bg)",
                 border: "1px solid var(--border)",
                 borderRadius: 8,
                 boxShadow: "0 -6px 20px rgba(0,0,0,0.12)",
                 overflow: "hidden",
-                maxHeight: "min(44vh, 360px)",
+                maxHeight: historyPlacement.maxHeight,
               }}
             >
               <div
@@ -1673,7 +1686,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                   <path d="M12 7v5l3 2" />
                 </svg>
               </div>
-              <div style={{ maxHeight: "calc(min(44vh, 360px) - 31px)", overflowY: "auto", padding: 4 }}>
+              <div style={{ maxHeight: Math.max(0, historyPlacement.maxHeight - 31), overflowY: "auto", padding: 4 }}>
                 {inputHistory.map((item, index) => {
                   const active = index === historyActiveIndex;
                   return (
@@ -1722,14 +1735,14 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                 position: "absolute",
                 left: 0,
                 right: 0,
-                bottom: "calc(100% + 8px)",
+                ...popupOffset(slashPlacement.side),
                 zIndex: 120,
                 background: "var(--bg)",
                 border: "1px solid var(--border)",
                 borderRadius: 8,
                 boxShadow: "0 -6px 20px rgba(0,0,0,0.12)",
                 overflow: "hidden",
-                maxHeight: "min(56vh, 460px)",
+                maxHeight: slashPlacement.maxHeight,
               }}
             >
               <div
@@ -1747,7 +1760,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                  <span>{slashCommandsLoading ? t("chat.loadingCommands") : t("chat.slashCommands", { label: slashCommandCountLabel })}</span>
                  <span style={{ fontFamily: "var(--font-mono)" }}>{t("chat.tabEnter")}</span>
               </div>
-              <div style={{ maxHeight: "calc(min(56vh, 460px) - 34px)", overflowY: "auto", padding: 10 }}>
+              <div style={{ maxHeight: Math.max(0, slashPlacement.maxHeight - 34), overflowY: "auto", padding: 10 }}>
                 {!slashCommandsLoading && filteredSlashCommands.length === 0 ? (
                   <div style={{ padding: "2px 2px 4px", fontSize: 12, color: "var(--text-dim)" }}>
                      {t("chat.noCommands")}
@@ -1874,14 +1887,14 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                   position: "absolute",
                   left: 0,
                   right: 0,
-                  bottom: "calc(100% + 8px)",
+                  ...popupOffset(atPlacement.side),
                   zIndex: 120,
                   background: "var(--bg)",
                   border: "1px solid var(--border)",
                   borderRadius: 8,
                   boxShadow: "0 -6px 20px rgba(0,0,0,0.12)",
                   overflow: "hidden",
-                  maxHeight: "min(48vh, 400px)",
+                  maxHeight: atPlacement.maxHeight,
                 }}
               >
                 <div
@@ -1903,7 +1916,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                   </span>
                    <span style={{ fontFamily: "var(--font-mono)" }}>{t("chat.tabEnter")}</span>
                 </div>
-                <div style={{ maxHeight: "calc(min(48vh, 400px) - 34px)", overflowY: "auto", padding: 4 }}>
+                <div style={{ maxHeight: Math.max(0, atPlacement.maxHeight - 34), overflowY: "auto", padding: 4 }}>
                   {!indexLoading && atMatches.length === 0 ? (
                     <div style={{ padding: "6px 8px", fontSize: 12, color: "var(--text-dim)" }}>
                        {needsServerSearch && !serverResultInUse ? t("chat.searching") : t("chat.noMatchingFiles")}
@@ -2166,7 +2179,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                   <button
                     onClick={(e) => {
                       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                      setModelDropdownRect({ top: rect.top, left: rect.left, width: rect.width });
+                      setModelDropdownRect({ top: rect.top, bottom: rect.bottom, left: rect.left, width: rect.width });
                       setModelDropdownOpen((open) => {
                         if (open) setModelFilter("");
                         return !open;
@@ -2222,8 +2235,19 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                   </button>
                   {modelDropdownOpen && modelDropdownRect && (() => {
                     const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
-                    const bottom = viewportHeight - modelDropdownRect.top + 6;
-                    const maxH = Math.max(120, Math.min(modelDropdownRect.top - 8, viewportHeight * 0.6));
+                    // Opening upwards is the norm, but the composer is centred
+                    // in a fresh session: fall back to below when the space
+                    // above cannot hold the list.
+                    const { side, maxHeight: maxH } = computePopupPlacement(
+                      modelDropdownRect.top,
+                      modelDropdownRect.bottom,
+                      viewportHeight,
+                      preferredPopupHeight(viewportHeight, 0.6, MODEL_DROPDOWN_MAX_HEIGHT_PX),
+                      { gap: 6, prefer: "above" },
+                    );
+                    const sidePos: React.CSSProperties = side === "above"
+                      ? { bottom: viewportHeight - modelDropdownRect.top + 6 }
+                      : { top: modelDropdownRect.bottom + 6 };
                     // On mobile, pin to a small left margin and cap width to the
                     // viewport so long model names never push the panel off-screen.
                     const panelPos: React.CSSProperties = isMobile
@@ -2232,7 +2256,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                     return (
                       <div ref={modelDropdownPanelRef} style={{
                       position: "fixed",
-                      bottom,
+                      ...sidePos,
                       ...panelPos,
                       zIndex: 500, background: "var(--bg)", border: "1px solid var(--border)",
                       borderRadius: 8, boxShadow: "0 -4px 16px rgba(0,0,0,0.10)",

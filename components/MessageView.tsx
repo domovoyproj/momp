@@ -8,7 +8,8 @@ import { copyText } from "@/lib/clipboard";
 import { useI18n } from "@/hooks/useI18n";
 import { useTheme } from "@/hooks/useTheme";
 import { parseCompactionSummary } from "@/lib/compaction-summary";
-import { getAssistantErrorMessage, isEmptyThinkingBlock } from "@/lib/message-display";
+import { getAssistantErrorMessage, isHiddenAssistantBlock } from "@/lib/message-display";
+import { useDisplaySettings } from "@/hooks/useDisplaySettings";
 import { parseUnifiedPatch, type SplitDiffCell } from "@/lib/patch";
 import { normalizeCustomPanelLines, parseAnsiLine, stripAnsi } from "@/lib/ansi";
 import { TurnWrittenFiles } from "./TurnWrittenFiles";
@@ -496,10 +497,11 @@ function AssistantMessageView({
   writtenFiles?: WrittenFile[];
 }) {
   const { t } = useI18n();
+  const { hideThinkingBlock } = useDisplaySettings();
   const time = showTimestamp ? formatTime(message.timestamp) : null;
   const blockItems = useMemo(() => (message.content ?? [])
     .map((block, originalIndex) => ({ block, originalIndex }))
-    .filter(({ block }) => !isEmptyThinkingBlock(block, { isStreaming })), [message.content, isStreaming]);
+    .filter(({ block }) => !isHiddenAssistantBlock(block, { isStreaming, hideThinking: hideThinkingBlock })), [message.content, isStreaming, hideThinkingBlock]);
   const blocks = useMemo(() => blockItems.map(({ block }) => block), [blockItems]);
   const providerError = getAssistantErrorMessage(message, { isStreaming });
   const [hovered, setHovered] = useState(false);

@@ -553,6 +553,14 @@ export function SessionSidebar({ selectedSessionId, optimisticSession, onSelectS
     }
   }, []);
 
+  // Bumped whenever a session is archived/restored so the Archived section
+  // refetches; the main list simply reloads (archived rows are now hidden).
+  const [archiveRefreshKey, setArchiveRefreshKey] = useState(0);
+  const handleSessionArchived = useCallback(() => {
+    setArchiveRefreshKey((k) => k + 1);
+    loadSessions();
+  }, [loadSessions]);
+
   const initialLoadDone = useRef(false);
   useEffect(() => {
     const isFirst = !initialLoadDone.current;
@@ -1893,6 +1901,7 @@ export function SessionSidebar({ selectedSessionId, optimisticSession, onSelectS
                         onSessionDeleted?.(id);
                         loadSessions();
                       }}
+                      onSessionArchived={handleSessionArchived}
                       depth={0}
                     />
                   ))}
@@ -1928,6 +1937,13 @@ export function SessionSidebar({ selectedSessionId, optimisticSession, onSelectS
           );
         })}
       </div>
+
+      <ArchivedSessionsSection
+        refreshKey={archiveRefreshKey}
+        selectedSessionId={selectedSessionId}
+        onSelectSession={handleSelectSessionFromList}
+        onRestored={handleSessionArchived}
+      />
 
       {/* File Explorer section */}
       {(selectedCwdProp || selectedCwd) && (
@@ -2170,6 +2186,121 @@ export function SessionSidebar({ selectedSessionId, optimisticSession, onSelectS
   );
 }
 
+function ArchivedSessionsSection({
+  refreshKey,
+  selectedSessionId,
+  onSelectSession,
+  onRestored,
+}: {
+  refreshKey: number;
+  selectedSessionId: string | null;
+  onSelectSession: (s: SessionInfo) => void;
+  onRestored: (id: string) => void;
+}) {
+  const { t } = useI18n();
+  const [open, setOpen] = useState(false);
+  const [sessions, setSessions] = useState<SessionInfo[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/sessions?archived=1", { cache: "no-store" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json() as { sessions: SessionInfo[] };
+        if (!cancelled) setSessions(data.sessions);
+      } catch {
+        // Archived section is best-effort; a failed fetch just leaves it stale.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [refreshKey]);
+
+  const restore = useCallback(async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    try {
+      await fetch(`/api/sessions/${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ archived: false }),
+      });
+      onRestored(id);
+    } catch {
+      // ignore
+    }
+  }, [onRestored]);
+
+  if (sessions.length === 0 && !open) return null;
+
+  return (
+    <section style={{ borderTop: "1px solid var(--border)", marginTop: 4 }}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        style={{
+          display: "flex", alignItems: "center", gap: 6,
+          width: "100%", padding: "7px 12px",
+          background: "transparent", border: "none",
+          color: "var(--text-muted)", cursor: "pointer",
+          fontSize: 12, fontWeight: 600, textAlign: "left",
+        }}
+      >
+        <svg
+          width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor"
+          strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"
+          style={{ transform: open ? "rotate(0deg)" : "rotate(-90deg)", transition: "transform 0.1s" }}
+        >
+          <polyline points="2 3.5 5 6.5 8 3.5" />
+        </svg>
+        {t("sidebar.archived")} ({sessions.length})
+      </button>
+      {open && (
+        <div style={{ paddingLeft: 12 }}>
+          {sessions.length === 0 && (
+            <div style={{ padding: "4px 12px 8px 20px", color: "var(--text-dim)", fontSize: 11 }}>
+              {t("sidebar.noArchivedSessions")}
+            </div>
+          )}
+          {sessions.map((s) => {
+            const firstMessage = skillExpansionToCommand(s.firstMessage) ?? s.firstMessage;
+            const title = s.name || firstMessage.slice(0, 50) || s.id.slice(0, 12);
+            return (
+              <div
+                key={s.id}
+                onClick={() => onSelectSession(s)}
+                style={{
+                  height: 40, display: "flex", alignItems: "center",
+                  paddingLeft: 20, paddingRight: 4, gap: 4,
+                  cursor: "pointer", overflow: "hidden",
+                  borderLeft: s.id === selectedSessionId ? "2px solid var(--accent)" : "2px solid transparent",
+                  background: s.id === selectedSessionId ? "var(--bg-selected)" : "transparent",
+                }}
+              >
+                <div style={{ flex: 1, minWidth: 0, fontSize: 12, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {title}
+                </div>
+                <button
+                  onClick={(e) => restore(e, s.id)}
+                  title={t("sidebar.restore")}
+                  style={{
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    height: 24, padding: "0 8px", flexShrink: 0,
+                    background: "var(--bg)", border: "1px solid var(--border)",
+                    borderRadius: 5, color: "var(--text-muted)",
+                    cursor: "pointer", fontSize: 11, fontWeight: 500,
+                  }}
+                >
+                  {t("sidebar.restore")}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
+
 function SessionTreeItem({
   node,
   selectedSessionId,
@@ -2178,6 +2309,7 @@ function SessionTreeItem({
   onSelectSession,
   onRenamed,
   onSessionDeleted,
+  onSessionArchived,
   depth,
 }: {
   node: SessionTreeNode;
@@ -2187,6 +2319,7 @@ function SessionTreeItem({
   onSelectSession: (s: SessionInfo) => void;
   onRenamed?: () => void;
   onSessionDeleted?: (id: string) => void;
+  onSessionArchived?: (id: string) => void;
   depth: number;
 }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -2214,6 +2347,7 @@ function SessionTreeItem({
           onClick={() => onSelectSession(node.session)}
           onRenamed={onRenamed}
           onDeleted={(id) => onSessionDeleted?.(id)}
+          onArchived={(id) => onSessionArchived?.(id)}
           depth={depth}
           hasChildren={hasChildren}
           collapsed={collapsed}
@@ -2232,6 +2366,7 @@ function SessionTreeItem({
               onSelectSession={onSelectSession}
               onRenamed={onRenamed}
               onSessionDeleted={onSessionDeleted}
+              onSessionArchived={onSessionArchived}
               depth={depth + 1}
             />
           ))}
@@ -2356,6 +2491,7 @@ function SessionItem({
   onClick,
   onRenamed,
   onDeleted,
+  onArchived,
   depth = 0,
   hasChildren = false,
   collapsed = false,
@@ -2368,6 +2504,7 @@ function SessionItem({
   onClick: () => void;
   onRenamed?: () => void;
   onDeleted?: (id: string) => void;
+  onArchived?: (id: string) => void;
   depth?: number;
   hasChildren?: boolean;
   collapsed?: boolean;
@@ -2442,6 +2579,21 @@ function SessionItem({
       setDeleting(false);
     }
   }, [session.id, session.transient, onDeleted]);
+
+  const performArchive = useCallback(async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (session.transient) return;
+    try {
+      await fetch(`/api/sessions/${encodeURIComponent(session.id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ archived: true }),
+      });
+      onArchived?.(session.id);
+    } catch {
+      // ignore
+    }
+  }, [session.id, session.transient, onArchived]);
 
   const handleDeleteClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -2699,6 +2851,32 @@ function SessionItem({
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+                </svg>
+              </button>
+              <button
+                onClick={performArchive}
+                title={t("sidebar.archive")}
+                style={{
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  width: 26, height: 26, padding: 0,
+                  background: "transparent", border: "none",
+                  borderRadius: 5, color: "var(--text-muted)",
+                  cursor: "pointer", flexShrink: 0,
+                  transition: "background 0.12s, color 0.12s, border-color 0.12s",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "var(--bg-selected)";
+                  e.currentTarget.style.color = "var(--accent)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "transparent";
+                  e.currentTarget.style.color = "var(--text-muted)";
+                }}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="4" width="18" height="4" rx="1" />
+                  <path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8" />
+                  <path d="M10 12h4" />
                 </svg>
               </button>
               <button

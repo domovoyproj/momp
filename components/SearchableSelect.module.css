@@ -65,8 +65,10 @@
 .popover {
   position: absolute;
   z-index: 120;
-  top: calc(100% + 5px);
+  /* Side and height are set inline from the space around the trigger. */
   right: 0;
+  display: flex;
+  flex-direction: column;
   width: max(100%, 240px);
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--border) 82%, var(--accent));
@@ -77,6 +79,7 @@
 
 .searchWrap {
   position: relative;
+  flex: 0 0 auto;
   padding: 7px;
   border-bottom: 1px solid var(--border);
 }
@@ -116,6 +119,7 @@
 }
 
 .options {
+  /* max-height is set inline; this is the fallback before measurement. */
   max-height: 250px;
   overflow-y: auto;
   overscroll-behavior: contain;

@@ -12,6 +12,7 @@ import {
   readSessionHeader,
 } from "@/lib/session-reader";
 import { sessionPathKey } from "@/lib/session-path";
+import { setSessionArchived } from "@/lib/session-archive";
 import { getRpcSession } from "@/lib/rpc-manager";
 import { hasJsonContentType, isApiRequestAllowed } from "@/lib/request-security";
 import { projectTreeForResponse } from "@/lib/project-tree";
@@ -99,16 +100,25 @@ export async function PATCH(
 
   const { id } = await params;
   try {
-    const { name } = await req.json() as { name?: string };
-    if (typeof name !== "string") {
-      return NextResponse.json({ error: "name is required" }, { status: 400 });
+    const { name, archived } = await req.json() as { name?: string; archived?: boolean };
+    const hasName = typeof name === "string";
+    const hasArchived = typeof archived === "boolean";
+    if (!hasName && !hasArchived) {
+      return NextResponse.json({ error: "name or archived is required" }, { status: 400 });
     }
     const filePath = await resolveSessionPath(id);
     if (!filePath) {
       return NextResponse.json({ error: "Session not found" }, { status: 404 });
     }
-    const sm = await SessionManager.open(filePath);
-    await sm.setSessionName(name.trim(), "user");
+    if (hasName) {
+      const sm = await SessionManager.open(filePath);
+      await sm.setSessionName(name.trim(), "user");
+    }
+    if (hasArchived) {
+      // Key the registry by the header id (what /api/sessions lists), not by
+      // whatever alias the client addressed the session with.
+      setSessionArchived(readSessionHeader(filePath)?.id ?? id, archived);
+    }
     invalidateSessionListCache();
     return NextResponse.json({ ok: true });
   } catch (error) {
