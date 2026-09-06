@@ -6,8 +6,10 @@ import {
 import { Tokenizer } from "@oh-my-pi/pi-agent-core";
 import type { AgentMessage as OmpAgentMessage } from "@oh-my-pi/pi-agent-core";
 import { calculatePromptTokens, hasContextTokenUsage } from "@oh-my-pi/pi-agent-core/compaction";
-import { closeSync, existsSync, openSync, readSync } from "fs";
+import { closeSync, existsSync, openSync, readSync, statSync } from "fs";
 import { normalize as normalizePath } from "path";
+import { projectTreeForResponse } from "./project-tree";
+import { computeSessionTotalActiveMs } from "./session-timing";
 import type { AgentMessage, SessionEntry, SessionHeader, SessionInfo, SessionContext } from "./types";
 import type { ContextUsage } from "./omp-types";
 import type { SessionEntry as OmpSessionEntry, SessionInfo as OmpSessionInfo } from "@oh-my-pi/pi-coding-agent";
@@ -118,7 +120,124 @@ declare global {
   var __ompSessionListPromiseGeneration: number | undefined;
   var __ompSessionListGeneration: number | undefined;
   var __ompSessionListCache: { data: SessionInfo[]; ts: number } | undefined;
+  var __ompParsedSessionCache: Map<string, ParsedSessionCacheEntry> | undefined;
 }
+
+export interface CachedSessionDetails {
+  entries: SessionEntry[];
+  leafId: string | null;
+  tree: unknown;
+  context: SessionContext;
+  contextUsage: ContextUsage | undefined;
+  totalActiveMs: number;
+  header: SessionHeader | null;
+  sessionName: string | undefined;
+  modified: string;
+}
+
+interface ParsedSessionCacheEntry {
+  mtimeMs: number;
+  size: number;
+  entries: SessionEntry[];
+  leafId: string | null;
+  tree: unknown;
+  totalActiveMs: number;
+  header: SessionHeader | null;
+  sessionName: string | undefined;
+  contextCache: Map<string, SessionContext>;
+  contextUsageCache: Map<string, ContextUsage | undefined>;
+}
+
+const MAX_PARSED_SESSION_CACHE = 100;
+
+function getParsedSessionCache(): Map<string, ParsedSessionCacheEntry> {
+  if (!globalThis.__ompParsedSessionCache) globalThis.__ompParsedSessionCache = new Map();
+  return globalThis.__ompParsedSessionCache;
+}
+
+export function invalidateParsedSessionCache(filePath?: string): void {
+  if (filePath) {
+    getParsedSessionCache().delete(sessionPathKey(filePath));
+  } else {
+    getParsedSessionCache().clear();
+  }
+}
+
+export async function getCachedSessionDetails(
+  filePath: string,
+  options: {
+    leafId?: string | null;
+    deferThinking?: boolean;
+    deferToolResultImages?: boolean;
+  } = {},
+): Promise<CachedSessionDetails> {
+  const stat = statSync(filePath);
+  const cacheKey = sessionPathKey(filePath);
+  const cache = getParsedSessionCache();
+  let cached = cache.get(cacheKey);
+
+  if (!cached || cached.mtimeMs !== stat.mtimeMs || cached.size !== stat.size) {
+    const sm = await SessionManager.open(filePath);
+    const entries = sm.getEntries() as unknown as SessionEntry[];
+    const leafId = sm.getLeafId();
+    const tree = projectTreeForResponse(sm.getTree() as never);
+    const totalActiveMs = computeSessionTotalActiveMs(entries);
+    const header = sm.getHeader() as SessionHeader | null;
+    const sessionName = sm.getSessionName();
+
+    cached = {
+      mtimeMs: stat.mtimeMs,
+      size: stat.size,
+      entries,
+      leafId,
+      tree,
+      totalActiveMs,
+      header,
+      sessionName,
+      contextCache: new Map(),
+      contextUsageCache: new Map(),
+    };
+
+    if (cache.size >= MAX_PARSED_SESSION_CACHE) {
+      const oldest = cache.keys().next().value;
+      if (oldest !== undefined) cache.delete(oldest);
+    }
+    cache.set(cacheKey, cached);
+  }
+
+  const targetLeafId = options.leafId !== undefined ? options.leafId : cached.leafId;
+  const ctxKey = `${targetLeafId ?? ""}:${options.deferThinking ? 1 : 0}:${options.deferToolResultImages ? 1 : 0}`;
+
+  let context = cached.contextCache.get(ctxKey);
+  if (!context) {
+    context = buildSessionContext(cached.entries, targetLeafId, {
+      deferThinking: options.deferThinking,
+      deferToolResultImages: options.deferToolResultImages,
+    });
+    cached.contextCache.set(ctxKey, context);
+  }
+
+  const usageKey = `${targetLeafId ?? ""}`;
+  let contextUsage: ContextUsage | undefined;
+  if (cached.contextUsageCache.has(usageKey)) {
+    contextUsage = cached.contextUsageCache.get(usageKey);
+  } else {
+    contextUsage = await getHistoricalContextUsage(cached.entries, targetLeafId);
+    cached.contextUsageCache.set(usageKey, contextUsage);
+  }
+
+  return {
+    entries: cached.entries,
+    leafId: cached.leafId,
+    tree: cached.tree,
+    context,
+    contextUsage,
+    totalActiveMs: cached.totalActiveMs,
+    header: cached.header,
+    sessionName: cached.sessionName,
+    modified: stat.mtime.toISOString(),
+  };
+ }
 
 const SESSION_LIST_CACHE_TTL_MS = 2_000;
 
@@ -228,6 +347,14 @@ export function readSessionHeader(filePath: string): SessionHeader | null {
 }
 
 export async function getSessionEntries(filePath: string): Promise<SessionEntry[]> {
+  if (existsSync(filePath)) {
+    try {
+      const details = await getCachedSessionDetails(filePath);
+      return details.entries;
+    } catch {
+      // Fall through to direct open if cached lookup fails
+    }
+  }
   const manager = await SessionManager.open(filePath);
   return manager.getEntries() as unknown as SessionEntry[];
 }

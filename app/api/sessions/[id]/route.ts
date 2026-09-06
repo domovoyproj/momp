@@ -8,7 +8,9 @@ import {
   invalidateSessionPathCache,
   invalidateSessionListCache,
   buildSessionContext,
+  getCachedSessionDetails,
   getHistoricalContextUsage,
+  invalidateParsedSessionCache,
   readSessionHeader,
 } from "@/lib/session-reader";
 import { sessionPathKey } from "@/lib/session-path";
@@ -35,16 +37,60 @@ export async function GET(
       return NextResponse.json({ error: "Session not found" }, { status: 404 });
     }
 
+    const searchParams = new URL(req.url).searchParams;
+    const deferThinking = searchParams.has("deferThinking");
+    const deferToolResultImages = searchParams.has("deferMedia");
+
+    if (!liveRpc) {
+      const details = await getCachedSessionDetails(resolvedPath!, {
+        deferThinking,
+        deferToolResultImages,
+      });
+      const header = details.header;
+      const parentSessionId = header?.parentSession
+        ? await resolveSessionIdByPath(header.parentSession)
+        : undefined;
+      const info = header ? {
+        path: resolvedPath!,
+        id: header.id,
+        cwd: header.cwd ?? "",
+        name: details.sessionName,
+        created: header.timestamp,
+        modified: details.modified,
+        messageCount: details.context.messages.length,
+        firstMessage: details.context.messages.find((m) => m.role === "user")
+          ? (() => {
+              const msg = details.context.messages.find((m) => m.role === "user")!;
+              const c = (msg as { content: unknown }).content;
+              return typeof c === "string" ? c : (Array.isArray(c) ? (c.find((b: { type: string }) => b.type === "text") as { text: string } | undefined)?.text ?? "" : "") || "(no messages)";
+            })()
+          : "(no messages)",
+        parentSessionId,
+        transient: !existsSync(resolvedPath!),
+      } : null;
+
+      return NextResponse.json({
+        sessionId: id,
+        filePath: resolvedPath!,
+        info,
+        leafId: details.leafId,
+        tree: details.tree,
+        context: details.context,
+        totalActiveMs: details.totalActiveMs,
+        ...(details.contextUsage ? { contextUsage: details.contextUsage } : {}),
+      });
+    }
+
     const sm = liveRpc?.inner.sessionManager ?? await SessionManager.open(resolvedPath!);
     const filePath = liveRpc?.sessionFile || sm.getSessionFile() || resolvedPath || "";
     const entries = sm.getEntries() as never;
     const leafId = sm.getLeafId();
     const tree = projectTreeForResponse(sm.getTree());
-    const searchParams = new URL(req.url).searchParams;
-    const deferThinking = searchParams.has("deferThinking");
-    const deferToolResultImages = searchParams.has("deferMedia");
     const context = buildSessionContext(entries, leafId, { deferThinking, deferToolResultImages });
-    const contextUsage = await getHistoricalContextUsage(entries, leafId);
+    const liveUsage = typeof liveRpc?.inner?.getContextUsage === "function" ? liveRpc.inner.getContextUsage() : undefined;
+    const contextUsage = liveUsage
+      ? { percent: liveUsage.percent, contextWindow: liveUsage.contextWindow, tokens: liveUsage.tokens }
+      : await getHistoricalContextUsage(entries, leafId);
     const totalActiveMs = computeSessionTotalActiveMs(entries);
     const header = sm.getHeader();
     let modified = header?.timestamp ?? new Date().toISOString();
@@ -120,6 +166,7 @@ export async function PATCH(
       setSessionArchived(readSessionHeader(filePath)?.id ?? id, archived);
     }
     invalidateSessionListCache();
+    invalidateParsedSessionCache(filePath);
     return NextResponse.json({ ok: true });
   } catch (error) {
     return NextResponse.json({ error: String(error) }, { status: 500 });
@@ -198,8 +245,8 @@ export async function DELETE(
         { status: 500 },
       );
     }
-    invalidateSessionPathCache(id);
     invalidateSessionListCache();
+    invalidateParsedSessionCache(filePath);
     return NextResponse.json({ ok: true });
   } catch (error) {
     return NextResponse.json({ error: String(error) }, { status: 500 });

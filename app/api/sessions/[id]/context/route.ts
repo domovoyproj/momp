@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { SessionManager } from "@oh-my-pi/pi-coding-agent";
-import { resolveSessionPath, buildSessionContext, getHistoricalContextUsage } from "@/lib/session-reader";
+import { resolveSessionPath, buildSessionContext, getHistoricalContextUsage, getCachedSessionDetails } from "@/lib/session-reader";
 import { getRpcSession } from "@/lib/rpc-manager";
 
 export async function GET(
@@ -21,13 +21,30 @@ export async function GET(
       return NextResponse.json({ error: "Session not found" }, { status: 404 });
     }
 
+    if (!liveRpc) {
+      const details = await getCachedSessionDetails(filePath!, {
+        leafId,
+        deferThinking,
+        deferToolResultImages,
+      });
+      return NextResponse.json({
+        context: details.context,
+        ...(details.contextUsage ? { contextUsage: details.contextUsage } : {}),
+      });
+    }
+
     const sm = liveRpc?.inner.sessionManager ?? await SessionManager.open(filePath!);
     const entries = sm.getEntries() as never;
     const context = buildSessionContext(entries, leafId, {
       deferThinking,
       deferToolResultImages,
     });
-    const contextUsage = await getHistoricalContextUsage(entries, leafId);
+    const liveUsage = typeof liveRpc?.inner?.getContextUsage === "function" && leafId === sm.getLeafId()
+      ? liveRpc.inner.getContextUsage()
+      : undefined;
+    const contextUsage = liveUsage
+      ? { percent: liveUsage.percent, contextWindow: liveUsage.contextWindow, tokens: liveUsage.tokens }
+      : await getHistoricalContextUsage(entries, leafId);
 
     return NextResponse.json({
       context,

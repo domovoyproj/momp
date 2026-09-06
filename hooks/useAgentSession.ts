@@ -359,6 +359,17 @@ type ModelsResponse = {
 type SlashCommandsResponse = {
   commands?: SlashCommandInfo[];
 };
+const clientSessionCache = new Map<string, SessionData>();
+const inFlightSessionLoads = new Map<string, Promise<SessionData | null>>();
+const MAX_CLIENT_SESSION_CACHE = 20;
+
+function setCachedClientSession(sid: string, data: SessionData): void {
+  if (clientSessionCache.size >= MAX_CLIENT_SESSION_CACHE) {
+    const oldest = clientSessionCache.keys().next().value;
+    if (oldest !== undefined) clientSessionCache.delete(oldest);
+  }
+  clientSessionCache.set(sid, data);
+}
 
 export function useAgentSession(opts: UseAgentSessionOptions) {
   const {
@@ -367,13 +378,14 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
   } = opts;
 
   const isNew = session === null && newSessionCwd !== null;
+  const initialCached = session ? clientSessionCache.get(session.id) : undefined;
 
-  const [data, setData] = useState<SessionData | null>(null);
-  const [loading, setLoading] = useState(!isNew);
+  const [data, setData] = useState<SessionData | null>(initialCached ?? null);
+  const [loading, setLoading] = useState(!isNew && !initialCached);
   const [error, setError] = useState<string | null>(null);
-  const [activeLeafId, setActiveLeafId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<AgentMessage[]>([]);
-  const [entryIds, setEntryIds] = useState<string[]>([]);
+  const [activeLeafId, setActiveLeafId] = useState<string | null>(initialCached?.leafId ?? null);
+  const [messages, setMessages] = useState<AgentMessage[]>(initialCached?.context.messages ?? []);
+  const [entryIds, setEntryIds] = useState<string[]>(initialCached?.context.entryIds ?? []);
   const [streamState, dispatch] = useReducer(streamReducer, { isStreaming: false, streamingMessage: null });
   const [agentRunning, setAgentRunning] = useState(false);
   const [bashRunning, setBashRunning] = useState(false);
@@ -495,11 +507,28 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
 
   const loadSession = useCallback(async (sid: string, showLoading = false, includeState = false) => {
     let messagesLoaded = false;
+    const shouldShowLoading = showLoading && !clientSessionCache.has(sid);
     try {
-      if (showLoading) setLoading(true);
-      const params = new URLSearchParams({ deferThinking: "1", deferMedia: "1" });
-      const res = await fetch(`/api/sessions/${encodeURIComponent(sid)}?${params}`);
-      if (res.status === 404) {
+      if (shouldShowLoading) setLoading(true);
+      let fetchPromise = inFlightSessionLoads.get(sid);
+      if (!fetchPromise) {
+        fetchPromise = (async () => {
+          const params = new URLSearchParams({ deferThinking: "1", deferMedia: "1" });
+          const res = await fetch(`/api/sessions/${encodeURIComponent(sid)}?${params}`);
+          if (res.status === 404) return null;
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return await res.json() as SessionData;
+        })();
+        inFlightSessionLoads.set(sid, fetchPromise);
+        fetchPromise.finally(() => {
+          if (inFlightSessionLoads.get(sid) === fetchPromise) {
+            inFlightSessionLoads.delete(sid);
+          }
+        });
+      }
+      const d = await fetchPromise;
+      if (d === null) {
+        clientSessionCache.delete(sid);
         if (showLoading) {
           setData(null);
           setActiveLeafId(null);
@@ -508,9 +537,8 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
         }
         return null;
       }
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const d = await res.json() as SessionData;
       if (sessionIdRef.current !== sid) return null;
+      setCachedClientSession(sid, d);
       setData(d);
       setActiveLeafId(d.leafId);
       setMessages(d.context.messages);
@@ -523,7 +551,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       }
 
       messagesLoaded = true;
-      if (showLoading) setLoading(false);
+      if (shouldShowLoading) setLoading(false);
       if (!includeState) return null;
 
       try {
@@ -553,7 +581,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       setError(String(e));
       return null;
     } finally {
-      if (showLoading && !messagesLoaded) setLoading(false);
+      if (shouldShowLoading && !messagesLoaded) setLoading(false);
     }
   }, []);
 
@@ -1720,7 +1748,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     setCompactResult(null);
     const controller = new AbortController();
     compactAbortControllerRef.current = controller;
-    const timer = setTimeout(() => controller.abort(), 90_000);
+    const timer = setTimeout(() => controller.abort(), 300_000);
     try {
       const result = await sendAgentCommand<CompactCommandResult>(
         sid,
@@ -1728,7 +1756,8 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
         { signal: controller.signal },
       );
       setCompactResult(readCompactResult(result, "manual"));
-      await loadSession(sid, true);
+      setIsCompacting(false);
+      await loadSession(sid, false);
     } catch (e) {
       if ((e as Error).name === "AbortError") {
         setCompactError("Сжатие отменено или превышено время ожидания");
@@ -1799,7 +1828,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
           setCompactResult(null);
           const controller = new AbortController();
           compactAbortControllerRef.current = controller;
-          const timer = setTimeout(() => controller.abort(), 90_000);
+          const timer = setTimeout(() => controller.abort(), 300_000);
           try {
             const result = await sendAgentCommand<CompactCommandResult>(
               sid,
@@ -1810,7 +1839,8 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
               { signal: controller.signal },
             );
             setCompactResult(readCompactResult(result, "manual"));
-            if (await loadSession(sid, true)) promoteNewSession();
+            setIsCompacting(false);
+            if (await loadSession(sid, false)) promoteNewSession();
             return complete({ handled: true, message: "Compacted context" });
           } catch (e) {
             const msg = (e as Error).name === "AbortError"
