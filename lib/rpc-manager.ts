@@ -1755,7 +1755,16 @@ export async function startRpcSession(
 
     try {
       const runtime = await getOmpRuntime();
-      const settings = await getSettingsForCwd(sessionCwd);
+      let settings = await getSettingsForCwd(sessionCwd);
+
+      // The packaged Windows desktop runtime can resolve the browser tool but
+      // fail when its lazy eval prelude is loaded from the externalized SDK.
+      // Keep this workaround session-local so it does not rewrite the user's
+      // config or change the browser tool on other platforms.
+      if (process.platform === "win32" && settings.get("browser.enabled")) {
+        settings = await settings.cloneForCwd(sessionCwd);
+        settings.override("browser.enabled", false);
+      }
 
       // Determine which tools to pass based on requested toolNames.
       let toolsOption: string[] | undefined;

@@ -2,6 +2,7 @@
 
 <p align="center">
   <a href="https://github.com/domovoyproj/momp/releases"><img src="https://img.shields.io/github/v/release/domovoyproj/momp?style=flat&colorA=222222&colorB=58A6FF" alt="version"></a>
+  <a href="https://github.com/domovoyproj/momp/actions/workflows/publish-dist.yml"><img src="https://github.com/domovoyproj/momp/actions/workflows/publish-dist.yml/badge.svg" alt="build"></a>
   <a href="https://github.com/domovoyproj/momp/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-58A6FF?style=flat&colorA=222222" alt="License"></a>
 </p>
 
@@ -144,14 +145,26 @@ bun test            # тесты (bun test, не node --test — SDK импор�
 
 `bun run build` во время разработки не запускать — ломает `.next/`, на котором держится `bun run dev`. Для десктоп-сборки есть отдельный `bun run desktop:build`, он собирает в свою директорию и dev-сборку не трогает.
 
+### Сборка через GitHub Actions
+
+Workflow [`Publish dist release`](https://github.com/domovoyproj/momp/actions/workflows/publish-dist.yml) собирает CLI-дистрибутив и Windows `.exe`. Для ручного запуска откройте вкладку **Actions**, выберите workflow, нажмите **Run workflow** и укажите существующий тег релиза, например `v1.2.4`. Готовые `momp.exe` и `momp-web-dist.tar.gz` появятся среди assets этого релиза.
+
 ## Десктоп-версия (Tauri)
 
 `src-tauri/` — оболочка на Tauri v2 вокруг того же Next.js-сервера, с автообновлением через встроенный updater.
+
+Для локальной сборки нужны Bun, Rust toolchain (`cargo`) и Windows WebView2:
 
 ```bash
 bun run desktop:dev     # запуск десктопного приложения в режиме разработки
 bun run desktop:build   # сборка momp.exe
 ```
+
+### Типичные ошибки провайдера и desktop-рантайма
+
+- `429 RESOURCE_EXHAUSTED` / `Cloud Code Assist API error` означает, что провайдер исчерпал квоту или временный лимит. Проверьте лимиты, подождите сброса квоты или выберите другую модель/провайдера.
+- Повторяющиеся уведомления `Failed to connect to the agent event stream` обычно являются вторичным эффектом ошибки запуска сессии.
+- `Cannot find module './browser/prelude-definition'` указывает на старый или неполностью обновлённый desktop payload. Закройте momp и скачайте свежий `.exe` из [последнего релиза](https://github.com/domovoyproj/momp/releases/latest). В Windows desktop запуск сессии дополнительно отключает проблемный browser eval prelude на уровне текущей сессии; пользовательский конфиг при этом не меняется.
 
 ## Структура проекта
 
