@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { invalidateModelsCache } from "@/lib/models-cache";
 import { getOmpRuntime, invalidateOmpRuntime } from "@/lib/omp-runtime";
+import { apiKeyLoginError, supportsApiKeyLogin } from "@/lib/provider-auth-methods";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +25,9 @@ export async function GET(_req: Request, { params }: Params) {
 // POST /api/auth/api-key/[provider]  body: { apiKey: string }
 export async function POST(req: Request, { params }: Params) {
   const { provider } = await params;
+  if (!supportsApiKeyLogin(provider)) {
+    return NextResponse.json({ error: apiKeyLoginError(provider) }, { status: 400 });
+  }
   try {
     const { apiKey } = await req.json() as { apiKey?: string };
     if (!apiKey || typeof apiKey !== "string" || !apiKey.trim()) {
@@ -37,6 +41,7 @@ export async function POST(req: Request, { params }: Params) {
     // AuthStorage keeps the CLI and omp-web on the same store and lock.
     await authStorage.set(provider, { type: "api_key", key: apiKey.trim(), source: "login" });
     invalidateModelsCache();
+    invalidateOmpRuntime();
     return NextResponse.json({ success: true });
   } catch (error) {
     return NextResponse.json({ error: String(error) }, { status: 500 });

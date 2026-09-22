@@ -1,5 +1,6 @@
 import { EventEmitter } from "node:events";
 import type * as Undici from "undici";
+import { configureLoopbackProxyBypass } from "./loopback-proxy";
 
 export const DEFAULT_HTTP_IDLE_TIMEOUT_MS = 300_000;
 type UndiciModule = typeof Undici;
@@ -90,6 +91,7 @@ export function configureHttpDispatcher(
   }
 
   if (isBunRuntime()) {
+    configureLoopbackProxyBypass();
     dispatcherGlobal.__ompWebHttpDispatcherConfigured = true;
     return;
   }

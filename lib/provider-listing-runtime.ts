@@ -1,4 +1,4 @@
-import { getOAuthProviders } from "@oh-my-pi/pi-ai/oauth";
+import { getOAuthLoginProviders, supportsApiKeyLogin } from "@/lib/provider-auth-methods";
 import { PROVIDER_DESCRIPTORS } from "@oh-my-pi/pi-catalog/provider-models/descriptors";
 import type { ProviderCredentialType, ProviderListingInput } from "@/lib/provider-listing";
 import { getOmpRuntime } from "@/lib/omp-runtime";
@@ -25,9 +25,11 @@ export async function collectProviderListingInputs(): Promise<ProviderListingInp
   // (e.g. `openai-codex-device` ⇒ `openai-codex`); key by the id the model
   // catalog actually uses so a logged-in provider is not listed twice.
   const oauthByProvider = new Map<string, { id: string; name: string }>();
-  for (const provider of getOAuthProviders()) {
+  for (const provider of getOAuthLoginProviders()) {
     if (!provider.available) continue;
-    oauthByProvider.set(provider.storeCredentialsAs ?? provider.id, {
+    const id = provider.storeCredentialsAs ?? provider.id;
+    if (oauthByProvider.has(id) && provider.id !== id) continue;
+    oauthByProvider.set(id, {
       id: provider.id,
       name: provider.name,
     });
@@ -57,8 +59,7 @@ export async function collectProviderListingInputs(): Promise<ProviderListingInp
     return {
       id,
       name: oauth?.name ?? id,
-      // Every catalog provider accepts a bearer key; OAuth-only logins do not.
-      hasApiKeyLogin: descriptorsById.has(id) || modelCounts.has(id),
+      hasApiKeyLogin: supportsApiKeyLogin(id),
       hasOAuth: Boolean(oauth),
       ...(oauth?.name ? { oauthName: oauth.name } : {}),
       status: {
@@ -73,7 +74,10 @@ export async function collectProviderListingInputs(): Promise<ProviderListingInp
 
 /** OAuth login ids keyed by the provider whose credentials they store. */
 export function resolveOAuthLoginId(provider: string): string | undefined {
-  for (const candidate of getOAuthProviders()) {
+  const candidates = getOAuthLoginProviders();
+  const direct = candidates.find((candidate) => candidate.id === provider);
+  if (direct) return direct.id;
+  for (const candidate of candidates) {
     if (!candidate.available) continue;
     if ((candidate.storeCredentialsAs ?? candidate.id) === provider) return candidate.id;
   }

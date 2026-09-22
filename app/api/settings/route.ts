@@ -8,11 +8,13 @@ import {
   hasUi,
   isCredential,
   SETTINGS_SCHEMA,
+  type SettingPath,
+} from "@oh-my-pi/pi-coding-agent/config/settings-schema";
+import {
   SETTING_TABS,
   TAB_GROUPS,
   TAB_METADATA,
-  type SettingPath,
-} from "@oh-my-pi/pi-coding-agent/config/settings-schema";
+} from "@oh-my-pi/pi-tui/overlays/settings-defs";
 import { translateTabLabel, translateGroupTitle, translateField } from "@/lib/i18n/settings-translations";
 import { getOmpRuntime, getSettingsForCwd } from "@/lib/omp-runtime";
 import { getAllowedFileRoots, isExistingFilePathAllowed } from "@/lib/file-access";

@@ -1,4 +1,5 @@
-import type { Goal, GoalModeState } from "@oh-my-pi/pi-coding-agent/goals/state";
+import type { Goal } from "@oh-my-pi/pi-tui/tools/goal";
+import type { GoalModeState } from "@oh-my-pi/pi-coding-agent/goals/state";
 import type { GoalModeSession, GoalStatusInfo } from "./omp-types";
 
 export type { GoalStatusInfo } from "./omp-types";

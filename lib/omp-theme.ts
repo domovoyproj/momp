@@ -3,7 +3,7 @@ import {
   getResolvedThemeColors,
   getThemeExportColors,
   isLightTheme,
-} from "@oh-my-pi/pi-coding-agent/modes/theme/theme";
+} from "@oh-my-pi/pi-tui/theme";
 import type { Settings } from "@oh-my-pi/pi-coding-agent";
 import type { WebThemeConfig, WebThemePalette } from "@/lib/settings-api";
 

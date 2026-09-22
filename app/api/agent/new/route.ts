@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { ThinkingLevel } from "@oh-my-pi/pi-agent-core";
-import { parseThinkingLevel as parseOmpThinkingLevel } from "@oh-my-pi/pi-coding-agent/thinking";
+import { parseThinkingLevel as parseOmpThinkingLevel } from "@oh-my-pi/pi-tui/thinking";
 import { existsSync } from "fs";
 import { randomUUID } from "crypto";
 import { allowFileRoot, getAllowedFileRoots, isExistingFilePathAllowed } from "@/lib/file-access";
