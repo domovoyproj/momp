@@ -1,4 +1,4 @@
-<p align="center"><img src="momp123.gif" alt="momp" width="720" /></p>
+<p align="center"><img src="momp123.gif?v=2" alt="momp" width="720" /></p>
 
 <p align="center">
   <a href="https://github.com/domovoyproj/momp/releases"><img src="https://img.shields.io/github/v/release/domovoyproj/momp?style=flat&colorA=222222&colorB=58A6FF" alt="version"></a>
