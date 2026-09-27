@@ -1,84 +1,109 @@
-<p align="center"><img src="preview.gif" alt="momp" width="720" /></p>
+# ⚡ momp — Modern Web & Desktop GUI for Oh My Pi
 
 <p align="center">
-  <a href="https://github.com/domovoyproj/momp/releases"><img src="https://img.shields.io/github/v/release/domovoyproj/momp?style=flat&colorA=222222&colorB=58A6FF" alt="version"></a>
-  <a href="https://github.com/domovoyproj/momp/actions/workflows/publish-dist.yml"><img src="https://github.com/domovoyproj/momp/actions/workflows/publish-dist.yml/badge.svg" alt="build"></a>
-  <a href="https://github.com/domovoyproj/momp/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-58A6FF?style=flat&colorA=222222" alt="License"></a>
+  <img src="preview.gif" alt="momp" width="760" style="border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.3);" />
 </p>
 
 <p align="center">
-  Форк <a href="https://github.com/ddallabenetta/omp-web">omp-web</a>
+  <a href="https://github.com/domovoyproj/momp/releases"><img src="https://img.shields.io/github/v/release/domovoyproj/momp?style=for-the-badge&colorA=222222&colorB=58A6FF" alt="version"></a>
+  <a href="https://github.com/domovoyproj/momp/actions/workflows/publish-dist.yml"><img src="https://img.shields.io/github/actions/workflow/status/domovoyproj/momp/publish-dist.yml?style=for-the-badge&label=Build&colorA=222222&colorB=2ea44f" alt="build"></a>
+  <img src="https://img.shields.io/badge/Next.js-14-black?style=for-the-badge&logo=next.js&logoColor=white" alt="Next.js 14" />
+  <img src="https://img.shields.io/badge/Tauri-v2-24C8DB?style=for-the-badge&logo=tauri&logoColor=white" alt="Tauri v2" />
+  <img src="https://img.shields.io/badge/Runtime-Bun%201.1+-FBF0DF?style=for-the-badge&logo=bun&logoColor=black" alt="Bun" />
+  <img src="https://img.shields.io/badge/TypeScript-5-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" />
+  <a href="https://github.com/domovoyproj/momp/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-58A6FF?style=for-the-badge&colorA=222222" alt="License"></a>
 </p>
 
-Веб-интерфейс для **momp max** ([oh-my-pi](https://github.com/can1357/oh-my-pi)). Сам агент по-прежнему работает как обычно, momp просто даёт ему рабочее пространство в браузере: список сессий с возможностью продолжить или разветвить любую из них, чат в реальном времени, настройка моделей по ролям, мониторинг лимитов провайдеров, управление плагинами и навыками (skills), просмотр файлов проекта рядом с диалогом.
+<p align="center">
+  Форк <a href="https://github.com/ddallabenetta/omp-web">omp-web</a> • Совместимо с <b><a href="https://github.com/can1357/oh-my-pi">oh-my-pi</a></b>
+</p>
 
-## Установка
+Современный веб-интерфейс и десктопное приложение для **momp max** ([oh-my-pi](https://github.com/can1357/oh-my-pi)). Сам автономный агент работает как обычно, а momp предоставляет полноценное интерактивное рабочее пространство: древовидный список сессий с ветвлением (fork), чат в реальном времени с поддержкой Server-Sent Events, матричную настройку ролей моделей, мониторинг лимитов и квот провайдеров, управление плагинами, навыками (skills) и встроенный просмотрщик файлов проекта.
 
-**Windows, один `.exe`.** Скачать [`momp.exe`](https://github.com/domovoyproj/momp/releases/latest/download/momp.exe) со [страницы релизов](https://github.com/domovoyproj/momp/releases/latest) и запустить. При первом старте он распаковывает рантайм в `%LOCALAPPDATA%\momp`, дальше открывается обычным окном приложения. Новые версии подтягиваются в фоне сами. Bun, Node.js и Git для этого не нужны.
+---
 
-**CLI, любая ОС.** Скрипт проверяет наличие Bun (ставит, если его нет), тянет готовую сборку с релиза и делает команду `momp` доступной глобально в терминале.
+## 📦 Установка
 
-PowerShell:
+### Windows (Автономный `.exe`)
+Скачайте [`momp.exe`](https://github.com/domovoyproj/momp/releases/latest/download/momp.exe) со [страницы релизов](https://github.com/domovoyproj/momp/releases/latest) и запустите. При первом старте приложение распаковывает легковесный рантайм в `%LOCALAPPDATA%\momp`, после чего открывается нативное окно интерфейса на Tauri v2. Новые версии подтягиваются в фоне автоматически. Установка Bun, Node.js и Git не требуется.
 
+### CLI (Кроссплатформенный запуск через терминал)
+Скрипт проверяет наличие Bun (устанавливает при отсутствии), скачивает готовую сборку из релиза и делает команду `momp` доступной глобально:
+
+**PowerShell (Windows):**
 ```powershell
 irm https://raw.githubusercontent.com/domovoyproj/momp/main/install.ps1 | iex
 ```
 
-Bash:
-
+**Bash (Linux / macOS):**
 ```bash
 curl -fsSL https://raw.githubusercontent.com/domovoyproj/momp/main/install.sh | bash
 ```
 
-Если готовой сборки с релиза нет, скрипт откатывается на клонирование репозитория и сборку из исходников на месте — это дольше.
+> Если готовой сборки с релиза нет, скрипт автоматически переключится на сборку из исходников.
 
-## Запуск
+---
 
-Desktop-версия — ярлык `momp` на рабочем столе или в меню «Пуск». Для CLI:
+## 🚀 Запуск
 
+- **Desktop-версия:** ярлык `momp` на рабочем столе или в меню «Пуск».
+- **CLI:**
 ```bash
 momp
 ```
+Сервер запустится локально и откроет браузер по адресу `http://127.0.0.1:30141`.
 
-Приложение поднимется локально и само откроет браузер на `http://127.0.0.1:30141`.
-
+### Параметры запуска
 ```bash
-momp --port 8080              # другой порт
-momp --hostname 0.0.0.0       # доступ из локальной сети
-momp -p 8080 -H 0.0.0.0       # порт и хост вместе
+momp --port 8080              # указать другой порт
+momp --hostname 0.0.0.0       # разрешить доступ из локальной сети
+momp -p 8080 -H 0.0.0.0       # порт и хост одновременно
 momp --no-open                # не открывать браузер автоматически
-momp --authenticated          # включить обязательный пароль
-momp --reset-password         # сбросить и задать новый пароль
+momp --authenticated          # включить обязательную авторизацию по паролю
+momp --reset-password         # сбросить и задать новый пароль доступа
 ```
 
-## Доступ по паролю
+---
 
-Интерфейс и все API-запросы можно закрыть HTTP Basic Auth (логин всегда `omp`, пароль — единственный секрет). Включается тремя способами: из браузера (Settings → Access), флагом `momp --authenticated` при запуске (спросит пароль в терминале, если его ещё не было), либо переменной `OMP_WEB_PASSWORD`, которая временно перекрывает сохранённый пароль.
+## 🔐 Доступ по паролю
 
-Сам пароль нигде не хранится в открытом виде — только scrypt-хэш в `~/.omp/agent/omp-web-auth.json` с правами `0600`. Забыли пароль — `momp --reset-password` с той же машины, либо страница `/recover`: она печатает одноразовый код в консоль сервера (не в HTTP-ответ), код действует 10 минут и одноразовый.
+Интерфейс и все API-запросы можно закрыть авторизацией HTTP Basic Auth (логин всегда `omp`, пароль — единственный мастер-секрет).
 
-Это защита от порт-сканера, а не от прослушки трафика — Basic Auth не шифрует. За пределами loopback momp стоит держать за HTTPS-прокси или в VPN.
+Включается тремя способами:
+1. В браузере: **Settings → Access**.
+2. Флагом при запуске: `momp --authenticated` (предложит ввести пароль в терминале).
+3. Переменной окружения `OMP_WEB_PASSWORD` (временно перекрывает сохранённый пароль).
 
-## Роли моделей
+Пароль хранится в виде криптографического scrypt-хэша в файле `~/.omp/agent/omp-web-auth.json` с правами доступа `0600`.
+- Для сброса используйте `momp --reset-password` на той же машине.
+- При утере пароля перейдите на страницу `/recover` — одноразовый проверочный код напечатается прямо в консоль сервера (срок действия 10 минут).
 
-В momp нет одной модели на всё — для каждой задачи используется своя роль, как у селектора `/model` в терминале:
+> За пределами локального интерфейса (loopback) рекомендуется размещать momp за HTTPS-прокси (Nginx/Caddy) или внутри защищённого VPN.
+
+---
+
+## 🎛 Роли моделей
+
+В momp для каждой типовой задачи задаётся независимая роль, полностью синхронизированная с терминальным селектором `/model`:
 
 | Роль | Назначение |
-| --- | --- |
-| `default` | Основная модель для обычных запросов |
-| `smol` | Быстрая и недорогая модель для фоновых под-агентов |
-| `slow` | Модель для глубокого рассуждения и сложных задач |
-| `plan` | Модель для режима планирования |
-| `commit` | Генерация сообщений коммитов и changelog |
-| `task` | Модель для выполнения изолированных задач |
-| `advisor` | Модель-советник для анализа ответов |
-| `vision`, `designer`, `tiny` | Работа с изображениями, UI-дизайн и классификация |
+|---|---|
+| `default` | Основная модель для стандартных диалогов и задач |
+| `smol` | Быстрая и недорогая модель для фоновых под-агентов (subagents) |
+| `slow` | Модель глубокого рассуждения (reasoning) для сложной архитектуры |
+| `plan` | Модель для режима архитектурного планирования |
+| `commit` | Генерация информативных сообщений коммитов и changelog |
+| `task` | Модель для выполнения изолированных фоновых задач |
+| `advisor` | Модель-советник для вторичного аудита и рекомендаций |
+| `vision`, `designer`, `tiny` | Анализ изображений, верстка UI-компонентов и быстрая классификация |
 
-Настроить роли можно двумя способами: прямо в строке ввода чата (быстрое переключение для текущей сессии) или в «Модели → Роли моделей» (глобальное назначение, сохраняется в `~/.omp/agent/config.yml`).
+Назначить роли можно двумя путями: прямо в строке чата (быстрое переключение для текущей сессии) или в меню «Модели → Роли моделей» (глобально сохраняется в `~/.omp/agent/config.yml`).
 
-## HTTP-прокси
+---
 
-momp читает стандартные `HTTP_PROXY` и `HTTPS_PROXY` для обращения к внешним API моделей:
+## 🌐 HTTP-прокси
+
+momp уважает стандартные переменные `HTTP_PROXY` и `HTTPS_PROXY` для обращений к внешним API нейросетей:
 
 ```powershell
 $env:HTTP_PROXY = "http://127.0.0.1:7890"
@@ -90,45 +115,63 @@ momp
 HTTP_PROXY=http://127.0.0.1:7890 HTTPS_PROXY=http://127.0.0.1:7890 momp
 ```
 
-Запросы к `127.0.0.1`/`localhost` не проксируются, так что локальные модели (Ollama, LM Studio, vLLM) продолжают работать напрямую.
+Запросы к `127.0.0.1` и `localhost` не перенаправляются в прокси, благодаря чему локальные движки (Ollama, LM Studio, vLLM) продолжают функционировать напрямую.
 
-## Что внутри
+---
 
-- Боковая панель с сессиями, сгруппированными по проекту, и деревом файлов; сессию можно продолжить, разветвить (fork) или откатиться к любому предыдущему сообщению.
-- Git worktrees в сайдбаре: переключение между ними, создание нового под веткой, просмотр статуса и diff по конкретному файлу.
-- Чат по SSE с потоковым выводом вызовов инструментов и отдельной панелью для сабагентов — статус, длительность, использованные инструменты, транскрипт.
-- Просмотр файлов проекта во вкладках рядом с чатом: код с подсветкой, markdown с превью, изображения, PDF, DOCX.
-- Настройка провайдеров и моделей, ролей, мониторинг остатка лимитов и баланса по провайдерам.
-- Управление плагинами, навыками (skills) и MCP-серверами без терминала, полный редактор настроек omp.
-- Экран доверия проекту: расширения, хуки, кастомные инструменты и MCP из открытого репозитория запускаются только после явного подтверждения в браузере.
-- Работает как устанавливаемое PWA, интерфейс подстраивается под мобильный экран.
-- Интерфейс на русском, английском и китайском (zh-CN).
+## ✨ Возможности и функционал
 
-## Скриншоты
+- 🗂 **Проводник сессий и Git Worktrees:** группировка сессий по проектам, создание новых worktree, переключение веток, diff файлов, откат диалога к любому сообщению и ветвление (fork) сессии.
+- 💬 **Потоковый чат (SSE):** трансляция вызовов инструментов, параметров и ответов модели в реальном времени.
+- 🤖 **Панель субагентов:** отображение статуса, длительности работы, транскриптов и использованных инструментов фоновых агентов.
+- 📄 **Встроенный просмотрщик файлов:** табы рядом с чатом с подсветкой синтаксиса кода, рендерингом Markdown, просмотром картинок, PDF и DOCX.
+- 📊 **Мониторинг лимитов:** динамический учёт остатка квот и балансов провайдеров.
+- 🧩 **Плагины, Skills и MCP:** графический менеджер расширений omp, установка навыков и MCP-серверов без использования терминала.
+- 🛡️ **Экран доверия проекту:** защита от несанкционированного запуска хуков, кастомных инструментов и расширений из открываемых директорий.
+- 📱 **PWA и адаптивный дизайн:** поддержка мобильных устройств, горячие клавиши, светлая и тёмная темы.
+- 🌍 **Локализация:** русский (RU), английский (EN) и китайский (zh-CN) языки.
 
-**Навигация по сессиям и проводник файлов проекта**
-![Боковая панель с сессиями и деревом файлов](./docs/screenshots/01-sidebar-and-explorer.png)
+---
 
-**Чат в реальном времени с вызовами инструментов и ролями моделей**
-![Окно чата с агентом](./docs/screenshots/02-chat-session.png)
+## 📸 Скриншоты
 
-**Предпросмотр файлов рядом с диалогом**
-![Предпросмотр Markdown файла](./docs/screenshots/03-file-preview.png)
+<p align="center">
+  <b>Навигация по сессиям и проводник файлов проекта</b><br>
+  <img src="./docs/screenshots/01-sidebar-and-explorer.png" alt="Боковая панель с сессиями и деревом файлов" width="700" />
+</p>
 
-**Настройка моделей и ролей**
-![Панель настройки ролей моделей](./docs/screenshots/04-settings.png)
+<p align="center">
+  <b>Чат в реальном времени с вызовами инструментов и ролями моделей</b><br>
+  <img src="./docs/screenshots/02-chat-session.png" alt="Окно чата с агентом" width="700" />
+</p>
 
-**Светлая и тёмная темы оформления**
-![Настройка темы оформления](./docs/screenshots/05-themes.png)
+<p align="center">
+  <b>Предпросмотр файлов рядом с диалогом</b><br>
+  <img src="./docs/screenshots/03-file-preview.png" alt="Предпросмотр Markdown файла" width="700" />
+</p>
 
-## Хранение данных
+<p align="center">
+  <b>Настройка моделей и ролей</b><br>
+  <img src="./docs/screenshots/04-settings.png" alt="Панель настройки ролей моделей" width="700" />
+</p>
 
-- Сессии: `~/.omp/agent/sessions/<encoded-cwd>/<timestamp>_<uuid>.jsonl`.
-- Модели и провайдеры: `~/.omp/agent/models.yml`; ключи и OAuth-креды — в SQLite `~/.omp/agent/agent.db`.
-- Доверенные проекты: `~/.omp/agent/omp-web-trusted-projects.json` (подробнее — `docs/project-trust.md`).
-- Навыки ставятся через `npx skills add --agent claude-code` в `.claude/skills` / `~/.omp/agent/skills`.
+<p align="center">
+  <b>Светлая и тёмная темы оформления</b><br>
+  <img src="./docs/screenshots/05-themes.png" alt="Настройка темы оформления" width="700" />
+</p>
 
-## Разработка
+---
+
+## 💾 Хранение данных
+
+- **Сессии агентов:** `~/.omp/agent/sessions/<encoded-cwd>/<timestamp>_<uuid>.jsonl`
+- **Модели и провайдеры:** `~/.omp/agent/models.yml`; токены и OAuth-ключи хранятся в SQLite `~/.omp/agent/agent.db`.
+- **Доверенные репозитории:** `~/.omp/agent/omp-web-trusted-projects.json` (детали в `docs/project-trust.md`).
+- **Навыки (Skills):** устанавливаются через `npx skills add --agent claude-code` в `.claude/skills` либо `~/.omp/agent/skills`.
+
+---
+
+## 🛠 Разработка
 
 ```bash
 bun install
@@ -139,77 +182,68 @@ bun run dev
 
 ```bash
 bun run typecheck   # проверка типов TypeScript
-bun run lint        # ESLint
-bun test            # тесты (bun test, не node --test — SDK импортирует bun:sqlite)
+bun run lint        # линтинг ESLint
+bun test            # тестирование через встроенный bun test
 ```
 
-`bun run build` во время разработки не запускать — ломает `.next/`, на котором держится `bun run dev`. Для десктоп-сборки есть отдельный `bun run desktop:build`, он собирает в свою директорию и dev-сборку не трогает.
+> `bun run build` во время активной разработки запускать не следует — это затирает кэш `.next/`. Для сборки десктопного приложения используйте команду `bun run desktop:build`.
 
-### Сборка через GitHub Actions
+### Сборка релизов в GitHub Actions
+Workflow [`Publish dist release`](https://github.com/domovoyproj/momp/actions/workflows/publish-dist.yml) автоматически компилирует CLI-дистрибутив и `momp.exe`. При ручном запуске укажите тег релиза (например, `v1.2.4`) — готовые бинарные файлы автоматически добавятся в assets.
 
-Workflow [`Publish dist release`](https://github.com/domovoyproj/momp/actions/workflows/publish-dist.yml) собирает CLI-дистрибутив и Windows `.exe`. Для ручного запуска откройте вкладку **Actions**, выберите workflow, нажмите **Run workflow** и укажите существующий тег релиза, например `v1.2.4`. Готовые `momp.exe` и `momp-web-dist.tar.gz` появятся среди assets этого релиза.
+---
 
-## Десктоп-версия (Tauri)
+## 🖥 Десктоп-версия (Tauri v2)
 
-`src-tauri/` — оболочка на Tauri v2 вокруг того же Next.js-сервера, с автообновлением через встроенный updater.
+Директория `src-tauri/` содержит обёртку на **Tauri v2** вокруг Next.js-сервера со встроенным механизмом фонового автообновления.
 
-Для локальной сборки нужны Bun, Rust toolchain (`cargo`) и Windows WebView2:
+Для локальной компиляции требуются: Bun, Rust (`cargo`) и системный компонент Windows WebView2:
 
 ```bash
 bun run desktop:dev     # запуск десктопного приложения в режиме разработки
-bun run desktop:build   # сборка momp.exe
+bun run desktop:build   # сборка итогового momp.exe
 ```
 
-### Типичные ошибки провайдера и desktop-рантайма
+### Диагностика типовых неполадок
+- **`429 RESOURCE_EXHAUSTED` / `Cloud Code Assist API error`:** Провайдер исчерпал минутную квоту или суточный лимит токенов. Проверьте баланс в панели мониторинга или переключите роль на резервную модель.
+- **`Failed to connect to the agent event stream`:** Вторичный симптом сбоя старта сессии агента. Проверьте валидность API-ключей.
+- **`Cannot find module './browser/prelude-definition'`:** Устаревший desktop-payload. Загрузите свежую сборку `momp.exe` из [последнего релиза](https://github.com/domovoyproj/momp/releases/latest). В Windows Desktop рантайм автоматически изолирует проблемный browser eval prelude для текущей сессии.
 
-- `429 RESOURCE_EXHAUSTED` / `Cloud Code Assist API error` означает, что провайдер исчерпал квоту или временный лимит. Проверьте лимиты, подождите сброса квоты или выберите другую модель/провайдера.
-- Повторяющиеся уведомления `Failed to connect to the agent event stream` обычно являются вторичным эффектом ошибки запуска сессии.
-- `Cannot find module './browser/prelude-definition'` указывает на старый или неполностью обновлённый desktop payload. Закройте momp и скачайте свежий `.exe` из [последнего релиза](https://github.com/domovoyproj/momp/releases/latest). В Windows desktop запуск сессии дополнительно отключает проблемный browser eval prelude на уровне текущей сессии; пользовательский конфиг при этом не меняется.
+---
 
-## Структура проекта
+## 📂 Структура проекта
 
 ```text
-app/api/
-  agent/          создание сессий, отправка команд, SSE-поток событий
-  sessions/       список, чтение, переименование, удаление, экспорт сессий
-  auth/           OAuth и API-ключи через AuthStorage
-  models/, models-config/   список моделей/провайдеров, чтение-запись models.yml, лимиты
-  model-roles/    чтение и запись ролей моделей
-  plugins/        управление плагинами omp
-  skills/         поиск, установка, включение/выключение навыков
-  mcp/            управление MCP-серверами (user/project scope)
-  settings/       редактор конфигурации omp (полная схема настроек)
-  project-trust/  доверие проектам для запуска расширений из браузера
-  worktrees/      список, создание, удаление git worktree
-  git/            статус и diff файла в рабочей директории
-  files/          чтение файлов для просмотрщика
-  cwd/, default-cwd/, home/   выбор и валидация рабочей директории
-  web-access/     пароль (Settings → Access) и восстановление
-  updates/        проверка версий для автообновления desktop-версии
-components/
-  AppShell.tsx        общий layout, вкладки файлов, мобильная раскладка
-  SessionSidebar.tsx  сессии, проекты, worktrees, файловый проводник
-  ChatWindow.tsx / ChatInput.tsx / MessageView.tsx   чат, поле ввода, рендер сообщений
-  SubagentPanel.tsx   статус и транскрипт запущенных сабагентов
-  BranchNavigator.tsx переключение веток внутри одной сессии
-  FileExplorer.tsx / FileViewer.tsx   дерево файлов и просмотрщик содержимого
-  ModelsConfig.tsx / ModelRolesPanel.tsx   провайдеры, модели, роли
-  PluginsConfig.tsx / SkillsConfig.tsx     управление плагинами и навыками
-  SettingsConfig.tsx / AccessConfig.tsx    настройки omp и пароль доступа
-  ProjectTrustDialog.tsx   диалог подтверждения доверия проекту
-lib/
-  omp-runtime.ts      общий инстанс Settings + AuthStorage + ModelRegistry
-  rpc-manager.ts      жизненный цикл AgentSession
-  session-reader.ts   чтение и парсинг .jsonl файлов сессий
-  worktree.ts         операции с git worktree
-  project-trust.ts    проверка доверия проекту
-  file-access.ts      allow-list путей для /api/files
-  i18n/               переводы интерфейса (en, ru, zh-CN)
-hooks/
-  useAgentSession.ts  загрузка сессии, отправка команд, SSE
-  useTheme.ts, useI18n.tsx, useIsMobile.ts, useDragDrop.ts, useKeyboardShortcuts.ts
-bin/
-  omp-web.js          точка входа CLI, запуск сервера через Bun
-  web-auth-store.js   хранение и проверка пароля, общий для лаунчера и сервера
-src-tauri/            десктоп-обёртка (Tauri v2) с автообновлением
+momp/
+├── app/api/               # REST и SSE эндпоинты Next.js
+│   ├── agent/             # Создание сессий, отправка команд, SSE-стрим
+│   ├── sessions/          # Парсинг, чтение, форк и экспорт .jsonl сессий
+│   ├── models/            # Список провайдеров, моделей и лимитов
+│   ├── model-roles/       # Чтение и запись матрицы ролей моделей
+│   ├── plugins/, skills/  # Управление плагинами и навыками omp
+│   ├── mcp/               # Настройка MCP-серверов (user / project)
+│   ├── project-trust/     # Механизм доверия проектам
+│   ├── worktrees/, git/   # Интеграция с Git Worktree и просмотр diff
+│   ├── files/             # Allow-list доступ к файлам проекта
+│   └── updates/           # Эндпоинты автообновления Tauri
+├── components/            # UI-компоненты React
+│   ├── AppShell.tsx       # Корневой лейаут, мобильное меню
+│   ├── SessionSidebar.tsx # Дерево проектов, сессий и worktrees
+│   ├── ChatWindow.tsx     # Основное окно чата с SSE-рендером
+│   ├── SubagentPanel.tsx  # Мониторинг статуса и логов субагентов
+│   ├── FileExplorer.tsx   # Проводник файлов проекта
+│   └── ModelRolesPanel.tsx# Матрица распределения ролей
+├── lib/                   # Ядро и серверные утилиты
+│   ├── omp-runtime.ts     # Синглтон Settings + AuthStorage + ModelRegistry
+│   ├── rpc-manager.ts     # Жизненный цикл AgentSession
+│   ├── session-reader.ts  # Парсер jsonl файлов сессий
+│   └── i18n/              # Словари локализации (ru, en, zh-CN)
+├── bin/                   # Точки входа CLI (omp-web.js)
+└── src-tauri/             # Нативный десктопный клиент на Tauri v2
 ```
+
+---
+
+<div align="center">
+  Разработано сообществом для экосистемы <b><a href="https://github.com/can1357/oh-my-pi">oh-my-pi</a></b> • 2026
+</div>
