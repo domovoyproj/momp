@@ -53,8 +53,10 @@ mingit.zip
 # standalone repos
 github-ru-extension/
 
-# ai assistant traces
+# local development metadata
 .claude/
 CLAUDE.md
 .gitnexus/
+.codex/
+graphify-out/
 momp-*.zip

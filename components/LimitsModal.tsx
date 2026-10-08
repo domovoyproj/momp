@@ -106,7 +106,8 @@ export function LimitsModal({ onClose }: { onClose: () => void }) {
   const [reports, setReports] = useState<UsageReportView[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const now = Date.now();
+  const [now, setNow] = useState(() => Date.now());
+  const [lastUpdated, setLastUpdated] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -116,6 +117,7 @@ export function LimitsModal({ onClose }: { onClose: () => void }) {
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setReports(data.reports ?? []);
+      setLastUpdated(Date.now());
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -126,6 +128,21 @@ export function LimitsModal({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const orderedReports = reports
+    ? [...reports].sort((left, right) => {
+      const leftPriority = left.provider.toLowerCase() === "google-antigravity" ? 0 : 1;
+      const rightPriority = right.provider.toLowerCase() === "google-antigravity" ? 0 : 1;
+      return leftPriority - rightPriority || providerName(left.provider).localeCompare(providerName(right.provider));
+    })
+    : null;
+  const antigravityReport = orderedReports?.find((report) => report.provider.toLowerCase() === "google-antigravity");
+  const antigravityExhausted = antigravityReport?.limits.some((limit) => limit.usedFraction >= 0.9999) ?? false;
 
   return (
     <div
@@ -167,7 +184,12 @@ export function LimitsModal({ onClose }: { onClose: () => void }) {
             flexShrink: 0,
           }}
         >
-          <span style={{ fontSize: 15, fontWeight: 700, color: "var(--text)" }}>Лимиты использования</span>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text)" }}>Лимиты использования</div>
+            <div style={{ marginTop: 2, fontSize: 10, color: "var(--text-dim)" }}>
+              {lastUpdated ? `Обновлено ${new Date(lastUpdated).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "OAuth-подписки и квоты"}
+            </div>
+          </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <button
               type="button"
@@ -198,6 +220,22 @@ export function LimitsModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <div style={{ overflowY: "auto", padding: "16px 18px", flex: 1 }}>
+          {antigravityReport && (
+            <div style={{
+              marginBottom: 16, padding: "10px 12px", borderRadius: 8,
+              border: `1px solid ${antigravityExhausted ? "color-mix(in srgb, var(--danger) 40%, var(--border))" : "color-mix(in srgb, var(--success) 35%, var(--border))"}`,
+              background: antigravityExhausted ? "color-mix(in srgb, var(--danger) 8%, transparent)" : "color-mix(in srgb, var(--success) 8%, transparent)",
+              display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
+            }}>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text)" }}>Google Antigravity</div>
+                <div style={{ marginTop: 2, fontSize: 10.5, color: "var(--text-muted)" }}>
+                  {antigravityExhausted ? "Квота исчерпана — дождитесь ближайшего сброса" : "Подключение активно, квота доступна"}
+                </div>
+              </div>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: antigravityExhausted ? "var(--danger)" : "var(--success)", flexShrink: 0 }} />
+            </div>
+          )}
           {loading && !reports && (
             <div style={{ color: "var(--text-muted)", fontSize: 13, textAlign: "center", padding: "24px 0" }}>Загрузка лимитов…</div>
           )}
@@ -211,7 +249,7 @@ export function LimitsModal({ onClose }: { onClose: () => void }) {
               Лимиты доступны для аккаунтов с OAuth-подпиской (Claude, Google Antigravity и др.).
             </div>
           )}
-          {reports?.map((report, i) => (
+          {orderedReports?.map((report, i) => (
             <div key={`${report.provider}:${report.email ?? i}`} style={{ marginBottom: 22 }}>
               <div style={{ marginBottom: 10 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: "var(--accent)" }}>{providerName(report.provider)}</div>

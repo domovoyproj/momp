@@ -56,6 +56,8 @@ const PROVIDER_ICONS: Record<string, { Icon: IconComponent; hasColor: boolean }>
   "openai":                 { Icon: OpenAIIcon,           hasColor: false },
   "openai-codex":           { Icon: OpenAIIcon,           hasColor: false },
   "google":                 { Icon: GoogleColorIcon,      hasColor: true },
+  "google-antigravity":     { Icon: GoogleColorIcon,      hasColor: true },
+  "google-gemini-cli":      { Icon: GoogleColorIcon,      hasColor: true },
   "google-vertex":          { Icon: GoogleColorIcon,      hasColor: true },
   "ant-ling":               { Icon: AntGroupColorIcon,    hasColor: true },
   "deepseek":               { Icon: DeepSeekColorIcon,    hasColor: true },
@@ -179,6 +181,19 @@ type Selection =
   | { type: "model"; providerName: string; index: number }
   | { type: "oauth"; providerId: string }
   | { type: "apikey"; providerId: string };
+
+const ANTIGRAVITY_PROVIDER_ID = "google-antigravity";
+
+function isAntigravityProvider(id: string): boolean {
+  return id.toLowerCase() === ANTIGRAVITY_PROVIDER_ID;
+}
+
+function antigravityFirst<T extends { id: string }>(providers: T[]): T[] {
+  return [...providers].sort((left, right) => {
+    const priority = Number(isAntigravityProvider(right.id)) - Number(isAntigravityProvider(left.id));
+    return priority || left.id.localeCompare(right.id);
+  });
+}
 
 const API_OPTIONS = ["openai-completions", "openai-responses", "anthropic-messages", "google-generative-ai"] as const;
 
@@ -1180,7 +1195,15 @@ function ModelDetail({
 
 // ── OAuth detail ──────────────────────────────────────────────────────────────
 
-function OAuthDetail({ provider, onRefresh }: { provider: OAuthProvider; onRefresh: () => void }) {
+function OAuthDetail({
+  provider,
+  onRefresh,
+  onOpenLimits,
+}: {
+  provider: OAuthProvider;
+  onRefresh: () => void;
+  onOpenLimits: () => void;
+}) {
   const [loginState, setLoginState] = useState<OAuthLoginState>({ phase: "idle" });
   const { t } = useI18n();
   const [inputValue, setInputValue] = useState("");
@@ -1260,7 +1283,7 @@ function OAuthDetail({ provider, onRefresh }: { provider: OAuthProvider; onRefre
     };
     es.onerror = () => {
       es.close();
-      setLoginState((prev) => prev.phase === "success" ? prev : { phase: "error", message: "Connection lost" });
+      setLoginState((prev) => prev.phase === "success" ? prev : { phase: "error", message: "Соединение прервано. Повторите вход." });
     };
   }, [provider.id, onRefresh]);
 
@@ -1273,7 +1296,7 @@ function OAuthDetail({ provider, onRefresh }: { provider: OAuthProvider; onRefre
 
   const submitCode = useCallback(async (token: string, code: string) => {
     if (!code.trim()) return;
-    setLoginState({ phase: "progress", message: "Verifying…" });
+    setLoginState({ phase: "progress", message: "Проверяем код…" });
     try {
       const res = await fetch(`/api/auth/login/${encodeURIComponent(provider.id)}`, {
         method: "POST",
@@ -1282,18 +1305,18 @@ function OAuthDetail({ provider, onRefresh }: { provider: OAuthProvider; onRefre
       });
       if (!res.ok) {
         const d = await res.json().catch(() => ({})) as { error?: string };
-        setLoginState({ phase: "error", message: d.error ?? `Server error ${res.status}` });
+        setLoginState({ phase: "error", message: d.error ?? `Ошибка сервера ${res.status}` });
         return;
       }
       setInputValue("");
       // Success path: SSE stream will emit "success" and update state
     } catch (e) {
-      setLoginState({ phase: "error", message: e instanceof Error ? e.message : "Network error" });
+      setLoginState({ phase: "error", message: e instanceof Error ? e.message : "Ошибка сети" });
     }
   }, [provider.id]);
 
   const submitSelection = useCallback(async (token: string, value: string) => {
-    setLoginState({ phase: "progress", message: "Continuing…" });
+    setLoginState({ phase: "progress", message: "Продолжаем вход…" });
     try {
       const res = await fetch(`/api/auth/login/${encodeURIComponent(provider.id)}`, {
         method: "POST",
@@ -1302,21 +1325,30 @@ function OAuthDetail({ provider, onRefresh }: { provider: OAuthProvider; onRefre
       });
       if (!res.ok) {
         const d = await res.json().catch(() => ({})) as { error?: string };
-        setLoginState({ phase: "error", message: d.error ?? `Server error ${res.status}` });
+        setLoginState({ phase: "error", message: d.error ?? `Ошибка сервера ${res.status}` });
       }
     } catch (e) {
-      setLoginState({ phase: "error", message: e instanceof Error ? e.message : "Network error" });
+      setLoginState({ phase: "error", message: e instanceof Error ? e.message : "Ошибка сети" });
     }
   }, [provider.id]);
 
   const isWorking = loginState.phase === "connecting" || loginState.phase === "progress" ||
     loginState.phase === "auth" || loginState.phase === "device_code" ||
     loginState.phase === "prompt" || loginState.phase === "select";
+  const isAntigravity = isAntigravityProvider(provider.id);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-           <SectionTitle>{t("i18n.subscription")}</SectionTitle>
+        <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+          <ProviderIcon id={provider.id} size={24} />
+          <div>
+            <SectionTitle>{isAntigravity ? "Google Antigravity" : t("i18n.subscription")}</SectionTitle>
+            {isAntigravity && (
+              <div style={{ marginTop: 3, fontSize: 10, color: "var(--text-dim)" }}>Основной OAuth-провайдер momp</div>
+            )}
+          </div>
+        </div>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <span style={{ width: 7, height: 7, borderRadius: "50%", background: provider.loggedIn ? "#4ade80" : "var(--border)", display: "inline-block" }} />
           <span style={{ fontSize: 11, color: provider.loggedIn ? "#4ade80" : "var(--text-dim)" }}>
@@ -1329,7 +1361,13 @@ function OAuthDetail({ provider, onRefresh }: { provider: OAuthProvider; onRefre
       <div style={{ minHeight: 48 }}>
         {loginState.phase === "idle" && (
           <p style={{ margin: 0, fontSize: 12, color: "var(--text-muted)", lineHeight: 1.5 }}>
-             {provider.loggedIn ? "Already connected. You can re-login or disconnect." : `Connect your ${provider.name} account.`}
+            {provider.loggedIn
+              ? isAntigravity
+                ? "Аккаунт подключён. Можно проверить лимиты, повторить вход или отключить его."
+                : "Аккаунт подключён. Можно повторить вход или отключить его."
+              : isAntigravity
+                ? "Подключите Google-аккаунт по OAuth, чтобы использовать модели Antigravity и видеть остаток лимитов."
+                : `Подключите аккаунт ${provider.name}.`}
           </p>
         )}
         {loginState.phase === "connecting" && (
@@ -1357,7 +1395,7 @@ function OAuthDetail({ provider, onRefresh }: { provider: OAuthProvider; onRefre
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <p style={{ margin: 0, fontSize: 12, color: "var(--text-muted)", lineHeight: 1.5 }}>
               {loginState.phase === "auth"
-                ? "Complete sign-in in the browser, then copy the redirect URL from the address bar and paste it below."
+                ? "Завершите вход в браузере, скопируйте URL перенаправления из адресной строки и вставьте его ниже."
                 : loginState.message}
             </p>
             <div style={{ display: "flex", gap: 6 }}>
@@ -1366,7 +1404,7 @@ function OAuthDetail({ provider, onRefresh }: { provider: OAuthProvider; onRefre
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") submitCode(loginState.token, inputValue); }}
-                placeholder={loginState.phase === "auth" ? "http://localhost:1455/auth/callback?code=…" : (loginState.placeholder ?? "Enter value…")}
+                placeholder={loginState.phase === "auth" ? "http://localhost:1455/auth/callback?code=…" : (loginState.placeholder ?? "Введите значение…")}
                 style={{ flex: 1, padding: "6px 9px", background: "var(--bg)", border: "1px solid var(--border)", borderRadius: 5, color: "var(--text)", fontSize: 12, outline: "none", fontFamily: "var(--font-mono)", boxSizing: "border-box" }}
               />
               <button
@@ -1382,7 +1420,7 @@ function OAuthDetail({ provider, onRefresh }: { provider: OAuthProvider; onRefre
         {loginState.phase === "device_code" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <p style={{ margin: 0, fontSize: 12, color: "var(--text-muted)", lineHeight: 1.5 }}>
-              Open the verification page and enter this code:
+              Откройте страницу подтверждения и введите код:
             </p>
             <div style={{ padding: "8px 10px", background: "var(--bg)", border: "1px solid var(--border)", borderRadius: 5, color: "var(--text)", fontSize: 16, fontWeight: 700, fontFamily: "var(--font-mono)", letterSpacing: 0 }}>
               {loginState.userCode}
@@ -1391,7 +1429,7 @@ function OAuthDetail({ provider, onRefresh }: { provider: OAuthProvider; onRefre
               <a href={loginState.verificationUri} target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent)", wordBreak: "break-all" }}>
                 {loginState.verificationUri}
               </a>
-              {loginState.expiresInSeconds ? ` Expires in ${Math.ceil(loginState.expiresInSeconds / 60)} minutes.` : ""}
+              {loginState.expiresInSeconds ? ` Код действует ещё ${Math.ceil(loginState.expiresInSeconds / 60)} мин.` : ""}
             </p>
           </div>
         )}
@@ -1406,13 +1444,13 @@ function OAuthDetail({ provider, onRefresh }: { provider: OAuthProvider; onRefre
         )}
         {authUrl && isWorking && (
           <p style={{ margin: "8px 0 0", fontSize: 11, color: "var(--text-dim)", lineHeight: 1.5 }}>
-            If the browser did not open,{" "}
+            Если браузер не открылся,{" "}
             <a
               href={authUrl}
               onClick={(e) => { e.preventDefault(); openExternal(authUrl); }}
               style={{ color: "var(--accent)", cursor: "pointer", wordBreak: "break-all" }}
             >
-              open the login page manually
+              откройте страницу входа вручную
             </a>
             .
           </p>
@@ -1436,6 +1474,14 @@ function OAuthDetail({ provider, onRefresh }: { provider: OAuthProvider; onRefre
             >
                {provider.loggedIn ? t("i18n.relogin") : t("i18n.login")}
             </button>
+            {provider.loggedIn && (
+              <button
+                onClick={onOpenLimits}
+                style={{ padding: "5px 12px", background: "none", border: "1px solid var(--border)", borderRadius: 5, color: "var(--text-muted)", cursor: "pointer", fontSize: 12 }}
+              >
+                Лимиты
+              </button>
+            )}
             {provider.loggedIn && (
               <button
                 onClick={handleLogout}
@@ -1646,8 +1692,8 @@ function AddProviderPicker({
 
   const q = search.trim().toLowerCase();
 
-  const availableOAuth = oauthProviders.filter((p) => !p.loggedIn && (!q || p.name.toLowerCase().includes(q)));
-  const availableApiKey = apiKeyProviders.filter((p) => !p.configured && (!q || p.displayName.toLowerCase().includes(q) || p.id.toLowerCase().includes(q)));
+  const availableOAuth = antigravityFirst(oauthProviders.filter((p) => !p.loggedIn && (!q || p.name.toLowerCase().includes(q))));
+  const availableApiKey = antigravityFirst(apiKeyProviders.filter((p) => !p.configured && (!q || p.displayName.toLowerCase().includes(q) || p.id.toLowerCase().includes(q))));
   const showCustom = !q || "custom".includes(q) || "openai-compatible".includes(q) || "anthropic-compatible".includes(q);
 
   const totalCount = availableOAuth.length + availableApiKey.length + (showCustom ? 1 : 0);
@@ -1727,7 +1773,12 @@ function AddProviderPicker({
                   onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.background = "var(--bg-panel)"; }}
                 >
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</div>
+                      {isAntigravityProvider(p.id) && (
+                        <span style={{ fontSize: 9, padding: "1px 5px", borderRadius: 999, color: "var(--accent)", background: "color-mix(in srgb, var(--accent) 12%, transparent)", whiteSpace: "nowrap" }}>рекомендуется</span>
+                      )}
+                    </div>
                     <div style={{ fontSize: 10, color: "var(--text-dim)", marginTop: 2 }}>OAuth</div>
                   </div>
                   <ProviderIcon id={p.id} size={28} />
@@ -1980,8 +2031,10 @@ export function ModelsConfig({ cwd, onClose, embedded = false, onModelsChanged }
   }, [config, onModelsChanged]);
 
   const providers = Object.entries(config.providers ?? {});
-  const activeOAuth = oauthProviders.filter((p) => p.loggedIn);
-  const activeApiKey = apiKeyProviders.filter((p) => p.configured);
+  const activeOAuth = antigravityFirst(oauthProviders.filter((p) => p.loggedIn));
+  const activeApiKey = antigravityFirst(apiKeyProviders.filter((p) => p.configured));
+  const antigravityProvider = oauthProviders.find((provider) => isAntigravityProvider(provider.id));
+  const antigravityCatalog = apiKeyProviders.find((provider) => isAntigravityProvider(provider.id));
 
   // Resolve current detail
   const detailContent = (() => {
@@ -1992,7 +2045,7 @@ export function ModelsConfig({ cwd, onClose, embedded = false, onModelsChanged }
     if (selection.type === "oauth") {
       const p = oauthProviders.find((p) => p.id === selection.providerId);
       if (!p) return null;
-      return <OAuthDetail key={p.id} provider={p} onRefresh={refreshAuthProviders} />;
+      return <OAuthDetail key={p.id} provider={p} onRefresh={refreshAuthProviders} onOpenLimits={() => setLimitsOpen(true)} />;
     }
     if (selection.type === "apikey") {
       const p = apiKeyProviders.find((p) => p.id === selection.providerId);
@@ -2036,11 +2089,32 @@ export function ModelsConfig({ cwd, onClose, embedded = false, onModelsChanged }
       <div style={{ width: embedded ? "100%" : isMobile ? "calc(100vw - 16px)" : 860, maxWidth: embedded ? "none" : "calc(100vw - 16px)", height: embedded ? "100%" : isMobile ? "calc(100dvh - 16px)" : "78vh", maxHeight: embedded ? "none" : "calc(100dvh - 16px)", background: "var(--bg)", border: embedded ? "none" : "1px solid var(--border)", borderRadius: embedded ? 0 : 10, display: "flex", flexDirection: "column", boxShadow: embedded ? "none" : "0 8px 32px rgba(0,0,0,0.18)", overflow: "hidden" }}>
 
         {/* Header */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 18px", borderBottom: "1px solid var(--border)", flexShrink: 0 }}>
-          <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
-             <span style={{ fontSize: 15, fontWeight: 700, color: "var(--text)" }}>{t("common.models")}</span>
-            <code style={{ fontSize: 11, color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>~/.momp/agent/models.yml</code>
-            <button onClick={() => setLimitsOpen(true)} style={{ fontSize: 12, padding: "2px 8px", background: "none", border: "1px solid var(--border)", borderRadius: 4, cursor: "pointer", color: "var(--text-muted)" }}>Лимиты</button>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "10px 14px 10px 18px", borderBottom: "1px solid var(--border)", flexShrink: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 9, minWidth: 0, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 15, fontWeight: 700, color: "var(--text)" }}>{t("common.models")}</span>
+            {!isMobile && (
+              <code style={{ fontSize: 10, color: "var(--text-dim)", fontFamily: "var(--font-mono)" }}>~/.momp/agent/models.yml</code>
+            )}
+            {antigravityProvider && (
+              <button
+                onClick={() => setSelection({ type: "oauth", providerId: antigravityProvider.id })}
+                title={antigravityProvider.loggedIn ? "Открыть настройки Google Antigravity" : "Подключить Google Antigravity"}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 6,
+                  padding: "4px 8px", background: antigravityProvider.loggedIn ? "color-mix(in srgb, var(--success) 10%, transparent)" : "color-mix(in srgb, var(--accent) 10%, transparent)",
+                  border: `1px solid ${antigravityProvider.loggedIn ? "color-mix(in srgb, var(--success) 35%, var(--border))" : "color-mix(in srgb, var(--accent) 35%, var(--border))"}`,
+                  borderRadius: 999, cursor: "pointer", color: "var(--text)", fontSize: 11,
+                }}
+              >
+                <ProviderIcon id={antigravityProvider.id} size={15} />
+                <span>Antigravity</span>
+                <span style={{ width: 6, height: 6, borderRadius: "50%", background: antigravityProvider.loggedIn ? "var(--success)" : "var(--text-dim)" }} />
+                {antigravityProvider.loggedIn && (antigravityCatalog?.modelCount ?? 0) > 0 && (
+                  <span style={{ color: "var(--text-muted)" }}>{antigravityCatalog?.modelCount}</span>
+                )}
+              </button>
+            )}
+            <button onClick={() => setLimitsOpen(true)} style={{ fontSize: 11, padding: "4px 8px", background: "none", border: "1px solid var(--border)", borderRadius: 999, cursor: "pointer", color: "var(--text-muted)" }}>Лимиты</button>
           </div>
           <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", fontSize: 20, lineHeight: 1, padding: "2px 6px" }}>×</button>
         </div>

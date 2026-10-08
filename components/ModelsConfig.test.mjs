@@ -70,3 +70,12 @@ test("blank header drafts are omitted until they have a name", () => {
     { "X-Existing": "kept", "X-Draft": "draft value" },
   );
 });
+
+test("puts Google Antigravity first in provider onboarding", () => {
+  assert.match(source, /const ANTIGRAVITY_PROVIDER_ID = "google-antigravity"/);
+  assert.match(source, /function antigravityFirst/);
+  assert.match(source, /Основной OAuth-провайдер momp/);
+  assert.match(source, /рекомендуется/);
+  assert.match(source, /onOpenLimits=\{\(\) => setLimitsOpen\(true\)\}/);
+  assert.match(source, /"google-antigravity":\s+\{ Icon: GoogleColorIcon/);
+});

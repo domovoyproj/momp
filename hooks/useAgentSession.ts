@@ -19,6 +19,7 @@ import { isPromptRejectedError, sendAgentCommand } from "@/lib/agent-client";
 import { getToolNamesForPreset, type ToolEntry } from "@/lib/tool-presets";
 import type { ContextUsage, GoalStatusInfo, SessionStatsInfo, SlashCommandInfo } from "@/lib/omp-types";
 import type { ModelRoleAssignment } from "@/lib/api-types";
+import { formatProviderError } from "@/lib/provider-errors";
 
 export interface SessionData {
   sessionId: string;
@@ -253,6 +254,12 @@ function fillPendingNotices(visible: NoticeItem[], pending: NoticeItem[]): Notic
 function noticeReducer(state: NoticeState, action: NoticeAction): NoticeState {
   switch (action.type) {
     case "add": {
+      const duplicate = [...state.visible, ...state.pending].some((notice) => (
+        !notice.exiting
+        && notice.type === action.notice.type
+        && notice.message === action.notice.message
+      ));
+      if (duplicate) return state;
       if (state.visible.some((notice) => notice.exiting) || state.visible.length >= MAX_NOTICES) {
         return {
           visible: state.visible.some((notice) => notice.exiting)
@@ -836,8 +843,9 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
   }, []);
 
   const addNotice = useCallback((notice: { id?: string; message: string; type?: NoticeType }) => {
-    const message = notice.message.trim();
-    if (!message) return;
+    const rawMessage = notice.message.trim();
+    if (!rawMessage) return;
+    const message = formatProviderError(rawMessage);
     dispatchNotice({
       type: "add",
       notice: {

@@ -1,4 +1,5 @@
 import type { AssistantContentBlock, AssistantMessage, ThinkingContent, ToolCallContent } from "./types";
+import { formatProviderError } from "./provider-errors";
 
 export interface DisplayOptions {
   isStreaming?: boolean;
@@ -28,7 +29,7 @@ export function getAssistantErrorMessage(
   options: DisplayOptions = {},
 ): string | null {
   if (options.isStreaming || message.stopReason !== "error") return null;
-  return message.errorMessage?.trim() || "Unknown provider error";
+  return formatProviderError(message.errorMessage ?? "");
 }
 
 function isFinalAnswerBlock(block: AssistantContentBlock): boolean {

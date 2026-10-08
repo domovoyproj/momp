@@ -67,6 +67,22 @@ test("reuses an open event stream and hides an empty agent phase", () => {
   assert.match(chatWindowSource, /return null;/);
 });
 
+test("deduplicates repeated transport notices and formats provider errors", () => {
+  const reducerSource = source.slice(
+    source.indexOf("function noticeReducer"),
+    source.indexOf("function extractMessageText"),
+  );
+  const addNoticeSource = source.slice(
+    source.indexOf("const addNotice = useCallback"),
+    source.indexOf("const appendCommandOutput"),
+  );
+
+  assert.match(reducerSource, /state\.visible, \.\.\.state\.pending/);
+  assert.match(reducerSource, /notice\.message === action\.notice\.message/);
+  assert.match(reducerSource, /if \(duplicate\) return state/);
+  assert.match(addNoticeSource, /formatProviderError\(rawMessage\)/);
+});
+
 test("plays the enabled sound once for each extension dialog", () => {
   assert.match(chatWindowSource, /soundedExtensionDialogIdRef = useRef<string \| null>\(null\)/);
   assert.match(
