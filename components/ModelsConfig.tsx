@@ -2091,7 +2091,7 @@ export function ModelsConfig({ cwd, onClose, embedded = false, onModelsChanged }
           <div style={{ display: "flex", alignItems: "center", gap: 9, minWidth: 0, flexWrap: "wrap" }}>
             <span style={{ fontSize: 15, fontWeight: 700, color: "var(--text)" }}>{t("common.models")}</span>
             {!isMobile && (
-              <code style={{ fontSize: 10, color: "var(--text-dim)", fontFamily: "var(--font-mono)" }}>~/.momp/agent/models.yml</code>
+              <code style={{ fontSize: 10, color: "var(--text-dim)", fontFamily: "var(--font-mono)" }}>~/.omp/agent/models.yml</code>
             )}
             {antigravityProvider && (
               <button

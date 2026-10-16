@@ -85,12 +85,15 @@ export function redactNpxOutput(value: string, env: Record<string, string | unde
  */
 export async function runNpx(args: string[], opts: RunNpxOptions = {}): Promise<RunNpxResult> {
   const npxCli = findNpxCli();
-  const { command, commandArgs } = npxCli
+  const { command, commandArgs } = process.versions.bun
+    ? { command: execPath, commandArgs: ["x", "--bun", ...args] }
+    : npxCli
     ? { command: execPath, commandArgs: [npxCli, ...args] }
     : { command: "npx", commandArgs: args };
   return execFileAsync(command, commandArgs, {
     timeout: opts.timeout,
     cwd: opts.cwd,
     env: opts.env,
+    windowsHide: true,
   });
 }

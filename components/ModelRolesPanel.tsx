@@ -141,9 +141,9 @@ export function ModelRolesPanel({ cwd, onRolesChanged }: Props) {
         </div>
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
         <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{t("roles.scope")}</span>
-        <div style={{ display: "flex", border: "1px solid var(--border)", borderRadius: 6, overflow: "hidden" }}>
+        <div style={{ display: "flex", flexShrink: 0, border: "1px solid var(--border)", borderRadius: 6, overflow: "hidden" }}>
           {SCOPES.map((option) => (
             <button
               key={option}
@@ -226,7 +226,7 @@ export function ModelRolesPanel({ cwd, onRolesChanged }: Props) {
                   background: "var(--bg-panel)",
                 }}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
                   <span style={{
                     flexShrink: 0,
                     minWidth: 62,

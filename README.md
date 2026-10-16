@@ -7,7 +7,7 @@
 [Изменения 1.4](docs/release-notes.md) · [Совместимость и ограничения](docs/compatibility.md)
 
 <p align="center">
-  <img src="preview.gif" alt="momp" width="760" style="border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.3);" />
+  <img src="docs/screenshots/06-workspace-v1.4.jpg" alt="Рабочее пространство momp 1.4" width="1000" />
 </p>
 
 <p align="center">
@@ -31,7 +31,7 @@
 ## 📦 Установка
 
 ### Windows (Автономный `.exe`)
-Скачайте [`momp.exe`](https://github.com/domovoyproj/momp/releases/latest/download/momp.exe) со [страницы релизов](https://github.com/domovoyproj/momp/releases/latest) и запустите из доступной для записи папки. При первом старте приложение распаковывает рантайм в `%LOCALAPPDATA%\momp`. Новые версии проверяются автоматически; установка с проверкой SHA-256 и перезапуском начинается по кнопке. Предыдущий EXE сохраняется рядом для отката. Bun и Node.js встроены; нужен Windows WebView2. Git требуется для Git-операций, но не для запуска приложения.
+Скачайте [`momp.exe`](https://github.com/domovoyproj/momp/releases/latest/download/momp.exe) со [страницы релизов](https://github.com/domovoyproj/momp/releases/latest) и запустите из доступной для записи папки. При первом старте приложение распаковывает рантайм в `%LOCALAPPDATA%\momp`. Новые версии проверяются автоматически; установка с проверкой SHA-256 и перезапуском начинается по кнопке. Предыдущий EXE сохраняется рядом для отката. Bun встроен, установка Node.js не нужна; требуется Windows WebView2. Git требуется для Git-операций, но не для запуска приложения.
 
 ### CLI (Кроссплатформенный запуск через терминал)
 Скрипт проверяет наличие Bun (устанавливает при отсутствии), скачивает готовую сборку из релиза и делает команду `momp` доступной глобально:
@@ -153,6 +153,8 @@ HTTP_PROXY=http://127.0.0.1:7890 HTTPS_PROXY=http://127.0.0.1:7890 momp
 
 ## 📸 Скриншоты
 
+Рабочее пространство версии 1.4 показано в начале страницы. Ниже — функциональные примеры предыдущего оформления.
+
 <p align="center">
   <b>Навигация по сессиям и проводник файлов проекта</b><br>
   <img src="./docs/screenshots/01-sidebar-and-explorer.png" alt="Боковая панель с сессиями и деревом файлов" width="700" />
@@ -185,7 +187,7 @@ HTTP_PROXY=http://127.0.0.1:7890 HTTPS_PROXY=http://127.0.0.1:7890 momp
 - **Сессии агентов:** `~/.omp/agent/sessions/<encoded-cwd>/<timestamp>_<uuid>.jsonl`
 - **Модели и провайдеры:** `~/.omp/agent/models.yml`; токены и OAuth-ключи хранятся в SQLite `~/.omp/agent/agent.db`.
 - **Доверенные репозитории:** `~/.omp/agent/omp-web-trusted-projects.json` (детали в `docs/project-trust.md`).
-- **Навыки (Skills):** устанавливаются через `npx skills add --agent claude-code` в `.claude/skills` либо `~/.omp/agent/skills`.
+- **Навыки (Skills):** установка через интерфейс предназначена для Codex и Antigravity; общие каталоги `.agents/skills`, `.codex/skills` и `.agent/skills` подключаются к momp. Подробности — в [документации совместимости](docs/compatibility.md).
 
 ---
 
@@ -207,7 +209,7 @@ bun test            # тестирование через встроенный b
 > `bun run build` во время активной разработки запускать не следует — это затирает кэш `.next/`. Для сборки десктопного приложения используйте команду `bun run desktop:build`.
 
 ### Сборка релизов в GitHub Actions
-Workflow [`Publish dist release`](https://github.com/domovoyproj/momp/actions/workflows/publish-dist.yml) автоматически компилирует CLI-дистрибутив и Windows `.exe`. При ручном запуске укажите существующий тег релиза, например `v1.3.0`. Готовые `momp.exe` и `momp-web-dist.tar.gz` появятся среди assets этого релиза.
+Workflow [`Verified release`](https://github.com/domovoyproj/momp/actions/workflows/publish-dist.yml) проверяет типы и тесты, собирает веб-дистрибутив и Windows `.exe`, затем запускает именно готовый EXE в чистом профиле. Только после успешных проверок публикуются `momp.exe`, `momp-web-dist.tar.gz` и `SHA256SUMS`. Версия берётся из `package.json`; существующий релиз не перезаписывается. Доступен ручной запуск workflow без параметров.
 
 ---
 
@@ -215,7 +217,7 @@ Workflow [`Publish dist release`](https://github.com/domovoyproj/momp/actions/wo
 
 Директория `src-tauri/` содержит обёртку на **Tauri v2** вокруг Next.js-сервера со встроенным механизмом фонового автообновления.
 
-Для локальной компиляции требуются: Bun, Rust (`cargo`) и системный компонент Windows WebView2:
+Для локальной компиляции требуются: Bun, Rust (`cargo`), Visual Studio Build Tools с C++ и Windows SDK, а также Windows WebView2:
 
 ```bash
 bun run desktop:dev     # запуск десктопного приложения в режиме разработки

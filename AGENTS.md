@@ -253,12 +253,12 @@ Newer omp emits `compaction_start` / `compaction_end`; older versions emitted `a
 - `/api/plugins` drives omp's `PluginManager` (`~/.omp/plugins`): install, uninstall, enable/disable, plus `doctor()` output as diagnostics. omp has no in-place update, so "update" reinstalls the spec with `force`.
 - `/api/skills` uses omp's own `loadSkills()`, so `.omp/skills`, `~/.omp/agent/skills`, `.claude/skills`, plugin skills and `.agents/skills` are listed exactly as a session sees them.
 - Skill toggling edits only the `disable-model-invocation` frontmatter key on the target `SKILL.md`; keep that surgical so user formatting survives.
-- `/api/skills/install` shells through `npx skills add ... --agent claude-code`. The `skills` CLI has no `omp` agent, and its `pi` agent writes `~/.pi/agent/skills`, which omp does **not** read; the Claude layout is discovered by default.
+- `/api/skills/install` runs `skills add` for `codex` and `antigravity` through the bundled Bun package runner. The shared loader in `lib/compatible-skills.ts` is used by both the panel and live sessions, including skill refresh. It also honors `agents/openai.yaml` explicit-only invocation policy. Existing Claude skills remain discoverable.
 
 ### Auth and model config
-- Credentials live in omp's SQLite `agent.db` via `AuthStorage`, not in `auth.json`. Writes go through `authStorage.set()` / `remove()` / `logout()` so the CLI and omp-web share one store and one lock.
+- Credentials live in omp's SQLite `agent.db` via `AuthStorage`, not in `auth.json`. OMP 18.11 exposes `authStorage.credentials.set()` / `remove()`, `keys.source()` and `usage.reports()`. Keep the canonical shared store and lock.
 - Provider listing is capability-driven: `lib/provider-listing-runtime.ts` folds the catalog (`@oh-my-pi/pi-catalog`), the OAuth registry (`@oh-my-pi/pi-ai/oauth`) and stored credential types into the flat shape `lib/provider-listing.ts` expects, so a dual-auth provider appears exactly once. An OAuth login whose `storeCredentialsAs` differs from its id is keyed by the id the catalog uses.
-- OAuth flows are streamed by `GET /api/auth/login/[provider]` through `authStorage.login()`; `onAuth`/`onPrompt`/`onManualCodeInput` become browser input requests with short-lived tokens stored in `globalThis.__ompLoginCallbacks`.
+- OAuth flows are streamed by `GET /api/auth/login/[provider]` through `authStorage.oauth.login()`; `onAuth`/`onPrompt`/`onManualCodeInput` become browser input requests with short-lived tokens stored in `globalThis.__ompLoginCallbacks`.
 - API-key status endpoints must never return the raw key.
 - `models.yml` is YAML: `/api/models-config` parses whichever of `models.yml` / `models.yaml` / `models.json` exists and always writes back `models.yml`.
 - A header value in `models.yml` that names an environment variable is written as the **bare name** (`X-Token: MY_VAR`), not `$MY_VAR`.
@@ -327,8 +327,9 @@ is what the UI shows as the session's model.
 
 ## CSS Variables (`app/globals.css`)
 
-Both themes come from omp's own theme files — `titanium` (omp's default dark
-theme) and `light` — so the browser and the TUI read as one product.
+The built-in `titanium` and `light` selections use the desktop workspace palettes
+in `app/workspace.css`. Custom OMP themes retain their own colors through
+`useTheme`; do not override custom inline palettes with important CSS variables.
 
 ```
 --bg --bg-panel --bg-hover --bg-selected --border

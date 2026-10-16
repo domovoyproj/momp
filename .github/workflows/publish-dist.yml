@@ -57,6 +57,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
+          cache-on-failure: true
       - name: Install dependencies
         env:
           BUN_INSTALL_CACHE_DIR: ${{ github.workspace }}\.bun-cache
@@ -78,6 +79,7 @@ jobs:
       - name: Test the actual release executable
         run: ./scripts/smoke-desktop.ps1
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: desktop-release
           path: src-tauri/target/release/momp.exe
