@@ -1,3 +1,4 @@
+import { cfgThemeDark, cfgThemeLight } from "@oh-my-pi/pi-coding-agent/modes/settings";
 import {
   getAvailableThemes,
   getResolvedThemeColors,
@@ -111,8 +112,8 @@ export async function getWebThemePalette(name: string): Promise<WebThemePalette>
 }
 
 export async function getWebThemeConfig(settings: Settings): Promise<WebThemeConfig> {
-  const dark = settings.get("theme.dark") ?? "titanium";
-  const light = settings.get("theme.light") ?? "light";
+  const dark = cfgThemeDark.get(settings) ?? "titanium";
+  const light = cfgThemeLight.get(settings) ?? "light";
   const [darkPalette, lightPalette] = await Promise.all([
     getWebThemePalette(dark),
     getWebThemePalette(light),

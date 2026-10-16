@@ -1,5 +1,6 @@
 import { readFileSync } from "fs";
-import { getAgentDir, loadSkills } from "@oh-my-pi/pi-coding-agent";
+import { getAgentDir } from "@oh-my-pi/pi-coding-agent";
+import { loadCompatibleSkills } from "./compatible-skills";
 import { parseFrontmatter } from "@oh-my-pi/pi-utils";
 import type { SkillInfo, SkillsResponse } from "@/lib/api-types";
 import { annotateSkillsWithInstallInfo } from "@/lib/skill-lock";
@@ -16,14 +17,14 @@ import { getSettingsForCwd } from "@/lib/omp-runtime";
 export async function loadSkillsWithInstallInfo(cwd: string): Promise<SkillsResponse> {
   const agentDir = getAgentDir();
   const settings = await getSettingsForCwd(cwd);
-  const { skills, warnings } = await loadSkills({ cwd, ...settings.getGroup("skills") });
+  const { skills, warnings } = await loadCompatibleSkills(cwd, settings);
 
   const infos: SkillInfo[] = skills.map((skill) => ({
     name: skill.name,
     description: skill.description,
     filePath: skill.filePath,
     baseDir: skill.baseDir,
-    disableModelInvocation: readDisableModelInvocation(skill.filePath),
+    disableModelInvocation: Boolean(skill.hide) || readDisableModelInvocation(skill.filePath),
     sourceInfo: {
       ...(skill.source ? { source: skill.source } : {}),
       ...(skill._source?.level ? { scope: skill._source.level } : {}),

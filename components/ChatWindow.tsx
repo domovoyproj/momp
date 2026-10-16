@@ -23,7 +23,7 @@ import { MessageView } from "./MessageView";
 import { MarkdownBody } from "./MarkdownBody";
 import { ChatInput, type ChatInputHandle } from "./ChatInput";
 import { ExtensionStatusBar } from "./ExtensionStatusBar";
-import { OmpWordmark } from "./OmpWordmark";
+import { WelcomeScreen } from "./WelcomeScreen";
 import { useI18n } from "@/hooks/useI18n";
 import { useAgentSession, type AgentPhase, type NoticeItem } from "@/hooks/useAgentSession";
 import { useSyncedDisplaySettings } from "@/hooks/useDisplaySettings";
@@ -502,32 +502,10 @@ export function ChatWindow({ session, newSessionCwd, onAgentEnd, onAttentionNeed
       {isEmptyNew ? (
         <div className="flex flex-1 flex-col items-center justify-center overflow-y-auto px-4 py-8">
           <div className="w-full max-w-[820px]">
-            <div
-              className="mb-3"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: 12,
-                marginLeft: 16,
-                marginRight: 52,
-                fontFamily: "var(--font-mono)",
-              }}
-            >
-              <div style={{ minWidth: 0, flex: 1, overflow: "hidden" }}>
-                <OmpWordmark />
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2, flexShrink: 0 }}>
-                <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
-                  web <span style={{ color: "var(--text)" }}>v{process.env.NEXT_PUBLIC_APP_VERSION ?? "0.0.0"}</span>
-                </span>
-                <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
-                  omp <span style={{ color: "var(--text)" }}>v{process.env.NEXT_PUBLIC_OMP_VERSION ?? "0.0.0"}</span>
-                </span>
-              </div>
-            </div>
+            <WelcomeScreen onPrompt={(prompt) => chatInputRef?.current?.insertText(prompt)} />
             <NoticeShelf notices={notices} align="right" />
             {chatInputElement}
+            <div className="welcome-footnote">momp · {messageCwd ?? "GitHub + ChatGPT + Gemini"}</div>
           </div>
         </div>
       ) : (

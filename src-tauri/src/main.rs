@@ -18,6 +18,7 @@ use std::time::{Duration, Instant};
 use tar::Archive;
 
 use tauri::{AppHandle, Manager, Url};
+mod updater;
 
 const MAGIC_SFX: &[u8; 8] = b"MOMP_SFX";
 
@@ -29,11 +30,11 @@ const NEXT_ENTRY: &str = "node_modules/next/dist/bin/next";
 /// stderr. GUI-launched apps have no terminal, so stderr alone is
 /// unreachable; the file makes the sidecar observable.
 fn desktop_log(line: &str) {
-    if let Ok(mut file) = OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(std::env::temp_dir().join("momp-desktop.log"))
-    {
+    if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(
+        std::env::var_os("MOMP_DESKTOP_LOG")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| std::env::temp_dir().join("momp-desktop.log")),
+    ) {
         let _ = writeln!(file, "{line}");
     }
     eprintln!("{line}");
@@ -90,6 +91,7 @@ impl ServerChild {
 
 fn main() {
     tauri::Builder::default()
+        .invoke_handler(tauri::generate_handler![updater::install_desktop_update])
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             // Track the webview URL — ground truth for "stuck on the
@@ -120,7 +122,9 @@ fn main() {
             if has_embedded_payload() || !tauri::is_dev() {
                 purge_service_worker(app);
                 if let Err(error) = start_server(app) {
-                    desktop_log(&format!("[momp-desktop] failed to start the bundled server: {error}"));
+                    desktop_log(&format!(
+                        "[momp-desktop] failed to start the bundled server: {error}"
+                    ));
                     app.handle().exit(1);
                 }
             }
@@ -166,9 +170,7 @@ fn start_server(app: &mut tauri::App) -> Result<(), String> {
     let port = free_port().map_err(|error| error.to_string())?;
     let root = ensure_server_extracted(app)?;
 
-    let mut bun_candidates = vec![
-        root.join(bun_binary_name()),
-    ];
+    let mut bun_candidates = vec![root.join(bun_binary_name())];
     if let Ok(resources) = app.path().resource_dir() {
         bun_candidates.push(resources.join(bun_binary_name()));
         if let Some(parent) = resources.parent() {
@@ -226,16 +228,22 @@ fn start_server(app: &mut tauri::App) -> Result<(), String> {
     let handle = app.handle().clone();
     thread::spawn(move || match wait_until_ready(port) {
         Ok(()) => {
-            desktop_log(&format!("[momp-desktop] server ready on http://{HOST}:{port}/"));
+            desktop_log(&format!(
+                "[momp-desktop] server ready on http://{HOST}:{port}/"
+            ));
             navigate_main(&handle, port);
         }
         Err(error) => {
-            desktop_log(&format!("[momp-desktop] bundled server failed to become ready: {error}"));
+            desktop_log(&format!(
+                "[momp-desktop] bundled server failed to become ready: {error}"
+            ));
             handle.exit(1);
         }
     });
 
-    desktop_log(&format!("[momp-desktop] momp server starting on http://{HOST}:{port}/"));
+    desktop_log(&format!(
+        "[momp-desktop] momp server starting on http://{HOST}:{port}/"
+    ));
     Ok(())
 }
 
@@ -248,7 +256,8 @@ fn start_server(app: &mut tauri::App) -> Result<(), String> {
 /// back to an OS-assigned port only when the preferred one is already taken.
 fn free_port() -> std::io::Result<u16> {
     const PREFERRED_PORT: u16 = 30140;
-    if let Ok(listener) = TcpListener::bind(SocketAddr::from((Ipv4Addr::LOCALHOST, PREFERRED_PORT))) {
+    if let Ok(listener) = TcpListener::bind(SocketAddr::from((Ipv4Addr::LOCALHOST, PREFERRED_PORT)))
+    {
         drop(listener);
         return Ok(PREFERRED_PORT);
     }
@@ -309,7 +318,8 @@ fn extract_sfx_payload(runtime_dir: &PathBuf) -> Result<bool, String> {
     }
 
     let payload_offset = file_len - 16 - payload_len;
-    file.seek(SeekFrom::Start(payload_offset)).map_err(|e| e.to_string())?;
+    file.seek(SeekFrom::Start(payload_offset))
+        .map_err(|e| e.to_string())?;
 
     desktop_log(&format!(
         "[momp-desktop] extracting SFX payload ({:.1} MB) to {}",
@@ -322,7 +332,8 @@ fn extract_sfx_payload(runtime_dir: &PathBuf) -> Result<bool, String> {
     // Inspect magic bytes to detect gzip vs uncompressed tar
     let mut magic = [0u8; 2];
     file.read_exact(&mut magic).map_err(|e| e.to_string())?;
-    file.seek(SeekFrom::Start(payload_offset)).map_err(|e| e.to_string())?;
+    file.seek(SeekFrom::Start(payload_offset))
+        .map_err(|e| e.to_string())?;
 
     let stream = file.take(payload_len);
     let buf_reader = std::io::BufReader::with_capacity(1024 * 1024 * 4, stream);
@@ -427,7 +438,10 @@ fn clean_old_versions(base: &PathBuf, current_version: &str) {
             if path.is_dir() {
                 if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
                     if name.starts_with("app-v") && name != current_dir_name {
-                        desktop_log(&format!("[cleanup] removing old version folder: {}", path.display()));
+                        desktop_log(&format!(
+                            "[cleanup] removing old version folder: {}",
+                            path.display()
+                        ));
                         let _ = std::fs::remove_dir_all(&path);
                     }
                 }
@@ -475,7 +489,9 @@ fn navigate_main(handle: &AppHandle, port: u16) {
     match handle.get_webview_window(WINDOW_LABEL) {
         Some(window) => {
             if let Err(error) = window.navigate(url) {
-                desktop_log(&format!("[omp-desktop] failed to navigate to the omp-web server: {error}"));
+                desktop_log(&format!(
+                    "[omp-desktop] failed to navigate to the omp-web server: {error}"
+                ));
                 handle.exit(1);
             }
         }

@@ -9,6 +9,7 @@ import { useI18n } from "@/hooks/useI18n";
 import type { ModelCatalogPreset, ModelCatalogRecommendation } from "@/lib/model-catalog";
 import type { DiscoveredModel } from "@/lib/model-discovery";
 import { openExternal } from "@/lib/open-external";
+import { FEATURED_PROVIDERS, sortFeaturedProviders } from "@/lib/featured-providers";
 import {
   serializeHeaderRows,
   setCompatBool,
@@ -189,10 +190,7 @@ function isAntigravityProvider(id: string): boolean {
 }
 
 function antigravityFirst<T extends { id: string }>(providers: T[]): T[] {
-  return [...providers].sort((left, right) => {
-    const priority = Number(isAntigravityProvider(right.id)) - Number(isAntigravityProvider(left.id));
-    return priority || left.id.localeCompare(right.id);
-  });
+  return sortFeaturedProviders(providers);
 }
 
 const API_OPTIONS = ["openai-completions", "openai-responses", "anthropic-messages", "google-generative-ai"] as const;
@@ -2120,6 +2118,22 @@ export function ModelsConfig({ cwd, onClose, embedded = false, onModelsChanged }
         </div>
 
         {limitsOpen && <LimitsModal onClose={() => setLimitsOpen(false)} />}
+
+        <div className="featured-connections" aria-label={t("connections.title")}>
+          {FEATURED_PROVIDERS.map((featured) => {
+            const provider = oauthProviders.find((entry) => entry.id === featured.id);
+            return (
+              <button key={featured.id} className="connection-card" disabled={!provider}
+                aria-pressed={selection?.type === "oauth" && selection.providerId === featured.id}
+                onClick={() => setSelection({ type: "oauth", providerId: featured.id })}>
+                <ProviderIcon id={featured.id} size={23} />
+                <strong>{featured.name}</strong>
+                <small>{t(featured.descriptionKey)}</small>
+                <span className="connection-state">{t(provider ? provider.loggedIn ? "connections.connected" : "connections.connect" : "connections.unavailable")}</span>
+              </button>
+            );
+          })}
+        </div>
 
         {/* Body */}
         <div style={{ flex: 1, display: "flex", flexDirection: isMobile ? "column" : "row", overflow: "hidden" }}>

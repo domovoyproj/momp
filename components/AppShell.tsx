@@ -9,6 +9,9 @@ import { ChatWindow } from "./ChatWindow";
 import { FileViewer } from "./FileViewer";
 import { TabBar, type Tab } from "./TabBar";
 import { SettingsConfig } from "./SettingsConfig";
+import { DesktopTitlebar } from "./DesktopTitlebar";
+import { GitHubRepository } from "./GitHubRepository";
+import { WelcomeScreen } from "./WelcomeScreen";
 import { LimitsModal } from "./LimitsModal";
 import { ProjectTrustDialog } from "./ProjectTrustDialog";
 import { OmpUpdateIndicator } from "./OmpUpdateIndicator";
@@ -85,12 +88,14 @@ export function AppShell() {
   const [explorerRefreshKey, setExplorerRefreshKey] = useState(0);
   const [modelsRefreshKey, setModelsRefreshKey] = useState(0);
   const [settingsConfigOpen, setSettingsConfigOpen] = useState(false);
+  const [settingsSection, setSettingsSection] = useState<"models" | "skills" | "themes">("models");
   const [limitsOpen, setLimitsOpen] = useState(false);
   const [projectTrust, setProjectTrust] = useState<ProjectTrustStatus | null>(null);
   const [projectTrustDialogOpen, setProjectTrustDialogOpen] = useState(false);
   const [projectTrustBusy, setProjectTrustBusy] = useState(false);
   const [projectTrustError, setProjectTrustError] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [projectPickerRequest, setProjectPickerRequest] = useState(0);
   const [rightPanelOpen, setRightPanelOpen] = useState(false);
   const [mobileSidebarReady, setMobileSidebarReady] = useState(false);
   const sidebarWidthRef = useRef(SIDEBAR_DEFAULT_WIDTH);
@@ -866,6 +871,7 @@ export function AppShell() {
         optimisticSession={selectedSession}
         onSelectSession={handleSelectSession}
         onNewSession={handleNewSession}
+        projectPickerRequest={projectPickerRequest}
         initialSessionId={initialSessionId}
         skipInitialProjectSelection={initialNavigation.requestedCwd !== null}
         onInitialRestoreDone={handleInitialRestoreDone}
@@ -883,24 +889,17 @@ export function AppShell() {
       <div style={{ padding: "0 8px", flexShrink: 0 }}>
         <OmpUpdateIndicator />
       </div>
-      <div style={{ padding: "8px", flexShrink: 0 }}>
-        <button
-          onClick={() => setSettingsConfigOpen(true)}
-          title={translate("common.settings")}
-          style={{
-            width: "100%", height: 34, display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-            background: "none", border: "1px solid var(--border)", borderRadius: 9,
-            color: "var(--text-muted)", cursor: "pointer", fontSize: 12,
-            fontFamily: "var(--font-mono)", transition: "background 0.12s, color 0.12s, border-color 0.12s",
-          }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = "var(--bg-hover)"; e.currentTarget.style.color = "var(--text)"; e.currentTarget.style.borderColor = "var(--text-dim)"; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = "none"; e.currentTarget.style.color = "var(--text-muted)"; e.currentTarget.style.borderColor = "var(--border)"; }}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="3" />
-            <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21h-4v-.09A1.7 1.7 0 0 0 8.5 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3v-4h.09A1.7 1.7 0 0 0 4.6 8.5a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3h4v.09A1.7 1.7 0 0 0 15.5 4.6a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.4 9c.12.39.33.74.6 1 .3.28.69.42 1.1.4h.09v4h-.09A1.7 1.7 0 0 0 19.4 15Z" />
-          </svg>
-          {translate("common.settings")}
+      <div className="sidebar-footer">
+        <GitHubRepository cwd={projectTrustCwd} />
+        <button onClick={() => { setSettingsSection("models"); setSettingsConfigOpen(true); }}>
+          <span aria-hidden="true">↗</span>{translate("connections.title")}
+        </button>
+        <button onClick={() => { setSettingsSection("skills"); setSettingsConfigOpen(true); }}>
+          <span aria-hidden="true">◈</span>{translate("connections.skillsLibrary")}
+        </button>
+        <button className="profile-button" onClick={() => { setSettingsSection("themes"); setSettingsConfigOpen(true); }}>
+          <span className="profile-mark" aria-hidden="true">m</span>
+          <span>{translate("connections.localProfile")}<small>{translate("common.settings")}</small></span>
         </button>
       </div>
     </>
@@ -908,6 +907,7 @@ export function AppShell() {
 
   return (
     <>
+    <DesktopTitlebar />
     <style>{`
       @keyframes session-info-pop {
         0% {
@@ -979,7 +979,7 @@ export function AppShell() {
         }
       }
     `}</style>
-    <div style={{
+    <div className="workspace-shell" style={{
       display: "flex",
       width: "100%",
       height: "var(--app-viewport-height, 100dvh)",
@@ -1889,17 +1889,13 @@ export function AppShell() {
                  {translate("workspace.selectSession")}
               </div>
             ) : (
-              <div style={{ position: "absolute", top: 12, left: 12, display: "flex", alignItems: "flex-start", gap: 8, userSelect: "none", pointerEvents: "none" }}>
-                <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.7, flexShrink: 0 }}>
-                  <line x1="20" y1="12" x2="4" y2="12" /><polyline points="10 6 4 12 10 18" />
-                </svg>
-                <div>
-                   <div style={{ fontSize: 18, fontWeight: 600, color: "var(--text)", marginBottom: 8 }}>{translate("workspace.getStarted")}</div>
-                  <div style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.8 }}>
-                     <span style={{ color: "var(--text-dim)", marginRight: 6 }}>1.</span>{translate("workspace.selectProject")}<br />
-                     <span style={{ color: "var(--text-dim)", marginRight: 6 }}>2.</span>{translate("workspace.addModels")}
-                  </div>
+              <div className="workspace-onboarding">
+                <WelcomeScreen />
+                <div className="onboarding-actions">
+                  <button type="button" onClick={() => { setSidebarOpen(true); setProjectPickerRequest(value => value + 1); }}>{locale === "ru" ? "Открыть проект" : "Open project"}</button>
+                  <button type="button" onClick={() => { setSettingsSection("models"); setSettingsConfigOpen(true); }}>{translate("connections.title")}</button>
                 </div>
+                <p className="welcome-footnote">GitHub · ChatGPT · Gemini</p>
               </div>
             )
           ) : null}
@@ -2015,6 +2011,7 @@ export function AppShell() {
     {settingsConfigOpen && (
       <SettingsConfig
         cwd={projectTrustCwd}
+        initialSection={settingsSection}
         sessionId={selectedSession?.id ?? null}
         onClose={() => setSettingsConfigOpen(false)}
         onModelsChanged={() => setModelsRefreshKey((key) => key + 1)}

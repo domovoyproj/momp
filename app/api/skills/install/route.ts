@@ -47,7 +47,7 @@ export async function POST(req: Request) {
         );
       }
     }
-    const args = ["skills", "add", pkg, "-y", "--agent", "claude-code"];
+    const args = ["skills", "add", pkg, "-y", "--agent", "codex", "--agent", "antigravity"];
     if (isGlobal) args.push("-g");
 
     console.log(`[skills/install] running: npx ${args.join(" ")}`);

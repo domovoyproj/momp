@@ -7,6 +7,7 @@ import { parseFrontmatter } from "@oh-my-pi/pi-utils";
 import { loadSkillsWithInstallInfo } from "@/lib/skills-service";
 import { getAllowedFileRoots, isExistingFilePathAllowed } from "@/lib/file-access";
 import { hasJsonContentType, isApiRequestAllowed } from "@/lib/request-security";
+import { getCompatibleSkillRoots, readSkillInvocationPolicy } from "@/lib/skill-compatibility";
 
 export const dynamic = "force-dynamic";
 
@@ -70,6 +71,7 @@ export async function PATCH(req: Request) {
 
     const allowedRoots = new Set(await getAllowedFileRoots());
     allowedRoots.add(getAgentDir());
+    for (const root of getCompatibleSkillRoots()) allowedRoots.add(root);
     // Globally installed skills live in ~/.agents/skills and are symlinked into
     // the agent's skills dir; isExistingFilePathAllowed resolves the symlink, so
     // the real target sits outside getAgentDir(). Allow the global skills root
@@ -78,6 +80,10 @@ export async function PATCH(req: Request) {
     if (existsSync(globalSkillsDir)) allowedRoots.add(globalSkillsDir);
     if (!isExistingFilePathAllowed(resolvedFilePath, allowedRoots)) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
+    }
+
+    if (!disableModelInvocation && readSkillInvocationPolicy(path.dirname(resolvedFilePath)).hidden) {
+      return NextResponse.json({ error: "This skill disables implicit invocation in agents/openai.yaml. Use it explicitly or update that policy first." }, { status: 409 });
     }
 
     const content = readFileSync(resolvedFilePath, "utf8");

@@ -1,3 +1,5 @@
+import { cfgEnabledModels } from "@oh-my-pi/pi-coding-agent/config/model-settings";
+import { cfgBrowserEnabled } from "@oh-my-pi/pi-coding-agent/tools/browser/settings";
 import type { ThinkingLevel } from "@oh-my-pi/pi-agent-core";
 import {
   applyResolvedSystemPromptInputs,
@@ -31,6 +33,7 @@ import { untrustedProjectSessionOptions } from "./project-trust";
 import { resolveSessionSystemPrompts } from "./session-system-prompt";
 import { readDefaultModelRole } from "./model-roles";
 import { getOmpRuntime, getSettingsForCwd } from "./omp-runtime";
+import { bindCompatibleSkillRefresh, loadCompatibleSkills } from "./compatible-skills";
 import { PRESET_FULL } from "./tool-presets";
 import { persistExplicitStartupPreferences } from "./startup-preferences";
 import type { SlashCommandInfo } from "./omp-types";
@@ -230,6 +233,7 @@ export async function getAvailableSlashCommands(session: AgentSessionLike): Prom
 
   const discovered = await buildAvailableSlashCommands(session as unknown as AvailableCommandsSession);
   for (const command of discovered) {
+    if (command.name === "fork" || command.name === "goal") continue;
     appendSlashCommand(commands, seenNames, command);
   }
 
@@ -240,10 +244,10 @@ export async function getAvailableSlashCommands(session: AgentSessionLike): Prom
     appendSlashCommand(commands, seenNames, {
       name: builtin.name,
       aliases: builtin.aliases,
-      description: builtin.description,
+      description: name === "fork" ? "Create a new fork from a previous message" : builtin.description,
       source: "builtin",
       ...(hint ? { input: { hint } } : {}),
-      ...(builtin.subcommands ? { subcommands: builtin.subcommands } : {}),
+      ...(name !== "fork" && builtin.subcommands ? { subcommands: builtin.subcommands } : {}),
     });
   }
 
@@ -426,7 +430,8 @@ export class AgentSessionWrapper {
         error instanceof Error ? error.message : error,
       );
     });
-    this.unsubscribe = this.inner.subscribe((event: AgentEvent) => {
+    this.unsubscribe = this.inner.subscribe((sessionEvent) => {
+      const event: AgentEvent = { ...sessionEvent };
       if (event.type === "agent_end") {
         invalidateSessionListCache();
       }
@@ -1761,9 +1766,9 @@ export async function startRpcSession(
       // fail when its lazy eval prelude is loaded from the externalized SDK.
       // Keep this workaround session-local so it does not rewrite the user's
       // config or change the browser tool on other platforms.
-      if (process.platform === "win32" && settings.get("browser.enabled")) {
+      if (process.platform === "win32" && cfgBrowserEnabled.get(settings)) {
         settings = await settings.cloneForCwd(sessionCwd);
-        settings.override("browser.enabled", false);
+        cfgBrowserEnabled.override(settings, false);
       }
 
       // Determine which tools to pass based on requested toolNames.
@@ -1794,7 +1799,7 @@ export async function startRpcSession(
       const systemPrompts = await resolveSessionSystemPrompts(sessionCwd);
 
       const { modelRegistry } = runtime;
-      const scope = await resolveVisibleModels(modelRegistry, settings.get("enabledModels"), settings);
+      const scope = await resolveVisibleModels(modelRegistry, cfgEnabledModels.get(settings), settings);
       const defaultRole = readDefaultModelRole(settings);
       const hasExistingMessages = sessionManager.buildSessionContext().messages.length > 0;
       const initial = hasExistingMessages
@@ -1804,8 +1809,10 @@ export async function startRpcSession(
           ...(defaultRole ? { defaultModel: defaultRole } : {}),
           ...(thinkingLevel ? { thinkingLevel } : {}),
         });
+      const { skills } = await loadCompatibleSkills(sessionCwd, settings);
       const sessionOptions: CreateAgentSessionOptions = {
         cwd: sessionCwd,
+        skills,
         agentDir,
         settings,
         sessionManager,
@@ -1821,6 +1828,7 @@ export async function startRpcSession(
       // CLI renders it with instead of overwriting the whole system prompt.
       applyResolvedSystemPromptInputs(sessionOptions, systemPrompts.systemPrompt, systemPrompts.appendPrompt);
       const { session: inner, eventBus, setToolUIContext } = await createAgentSession(sessionOptions);
+      bindCompatibleSkillRefresh(inner, skills);
 
       const persistedPreferences = await persistExplicitStartupPreferences(
         runtime.settings,

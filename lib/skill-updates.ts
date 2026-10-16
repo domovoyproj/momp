@@ -61,6 +61,10 @@ export function buildSkillUpdateArgs(install: SkillInstallInfo): string[] {
     "-y",
     "--agent",
     "claude-code",
+    "--agent",
+    "codex",
+    "--agent",
+    "antigravity",
   ];
   if (install.scope === "global") args.push("-g");
   return args;

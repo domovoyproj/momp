@@ -44,7 +44,7 @@ export async function collectProviderListingInputs(): Promise<ProviderListingInp
 
   const credentialTypes = new Map<string, ProviderCredentialType>();
   for (const id of ids) {
-    const stored = authStorage.listStoredCredentials(id);
+    const stored = authStorage.credentials.list(id);
     const type: ProviderCredentialType | undefined = stored.some((entry) => entry.credential.type === "oauth")
       ? "oauth"
       : stored.length > 0
@@ -55,7 +55,7 @@ export async function collectProviderListingInputs(): Promise<ProviderListingInp
 
   return [...ids].sort().map((id) => {
     const oauth = oauthByProvider.get(id);
-    const origin = authStorage.getCredentialOrigin(id);
+    const origin = authStorage.keys.source(id);
     return {
       id,
       name: oauth?.name ?? id,
@@ -63,7 +63,7 @@ export async function collectProviderListingInputs(): Promise<ProviderListingInp
       hasOAuth: Boolean(oauth),
       ...(oauth?.name ? { oauthName: oauth.name } : {}),
       status: {
-        configured: authStorage.hasAuth(id),
+        configured: Boolean(authStorage.keys.source(id)),
         ...(origin?.kind ? { source: origin.kind } : {}),
       },
       ...(credentialTypes.has(id) ? { credentialType: credentialTypes.get(id) } : {}),

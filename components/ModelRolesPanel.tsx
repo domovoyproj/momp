@@ -10,6 +10,7 @@ import {
 } from "@/lib/model-role-selection";
 import { useI18n } from "@/hooks/useI18n";
 import { SearchableSelect } from "./SearchableSelect";
+import { ModelRolePresets } from "./ModelRolePresets";
 
 interface ModelEntry {
   id: string;
@@ -166,6 +167,22 @@ export function ModelRolesPanel({ cwd, onRolesChanged }: Props) {
         </span>
       </div>
 
+      <ModelRolePresets models={models} disabled={loading || pendingRole !== null} onApply={async (preset, gpt, gemini) => {
+        setPendingRole("preset");
+        setError(null);
+        try {
+          const response = await fetch("/api/model-roles", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ cwd, scope, preset, gpt, gemini }) });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error ?? `HTTP ${response.status}`);
+          setRoles(data.roles ?? []);
+          onRolesChanged?.();
+        } catch (error) {
+          setError(error instanceof Error ? error.message : String(error));
+        } finally {
+          setPendingRole(null);
+        }
+      }} />
+
       {error && (
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, fontSize: 12, color: "var(--danger, #ff4757)" }}>
           <span>{error}</span>
@@ -236,7 +253,7 @@ export function ModelRolesPanel({ cwd, onRolesChanged }: Props) {
 
                   <SearchableSelect
                     value={current}
-                    disabled={pendingRole === role.role}
+                    disabled={pendingRole !== null}
                     ariaLabel={role.name}
                     style={{ flex: 1, minWidth: 160 }}
                     onChange={(value) => {

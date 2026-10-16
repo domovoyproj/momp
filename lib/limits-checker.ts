@@ -63,7 +63,7 @@ function reportToView(report: UsageReport): UsageReportView {
  */
 export async function fetchUsageReportViews(): Promise<UsageReportView[]> {
   const { authStorage } = await getOmpRuntime();
-  const reports = await authStorage.fetchUsageReports();
+  const reports = await authStorage.usage.reports();
   if (!reports || reports.length === 0) return [];
   return reports.map(reportToView);
 }

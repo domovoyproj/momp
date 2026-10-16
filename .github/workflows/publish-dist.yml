@@ -1,75 +1,71 @@
-name: Publish dist release
+name: Verified release
 
 on:
   push:
-    tags:
-      - "v*"
+    branches: [main]
+    paths: [package.json, .github/workflows/publish-dist.yml]
+    tags: ["v*"]
   workflow_dispatch:
-    inputs:
-      tag:
-        description: Existing tag to attach the dist asset to
-        required: true
-        type: string
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
-  group: dist-${{ github.ref }}
+  group: release-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
-  build:
-    name: Build and attach prebuilt dist
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if [[ "$GITHUB_REF" == refs/tags/* && "$GITHUB_REF_NAME" != "v$VERSION" ]]; then exit 1; fi
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+
+  web:
+    needs: version
     runs-on: ubuntu-latest
     steps:
-      - name: Check out
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
         with:
-          ref: ${{ inputs.tag || github.ref }}
-      - name: Set up Bun
-        uses: oven-sh/setup-bun@v2
+          bun-version: "1.4.2"
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck
+      - run: bun test
+      - run: bun run build
+      - run: tar --exclude='.next/cache' --exclude='.next/dev' -czf momp-web-dist.tar.gz .next public bin next.config.js package.json bun.lock
+      - uses: actions/upload-artifact@v4
         with:
-          # engines.bun requires >=1.3.14 (bin/runtime.js MIN_BUN_VERSION): the
-          # omp SDK ships TypeScript importing `bun:` builtins.
-          bun-version: "1.4.0"
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-      - name: Build
-        run: bun run build
-      - name: Pack prebuilt dist
-        run: >-
-          tar --exclude='.next/cache' --exclude='.next/dev'
-          -czf momp-web-dist.tar.gz
-          .next public bin next.config.js package.json bun.lock
-      - name: Attach to release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ inputs.tag || github.ref_name }}
-          files: momp-web-dist.tar.gz
+          name: web-release
+          path: momp-web-dist.tar.gz
 
   desktop:
-    name: Build and attach momp.exe
+    needs: version
     runs-on: windows-latest
     steps:
-      - name: Check out
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
         with:
-          ref: ${{ inputs.tag || github.ref }}
-      - name: Set up Bun
-        uses: oven-sh/setup-bun@v2
+          bun-version: "1.4.2"
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
         with:
-          bun-version: "1.4.0"
-      # Bun's default cache lives under the runner's profile, and the omp SDK
-      # globs the home directory during `next build`. On windows runners the
-      # profile contains junctions (Application Data, Templates) that raise
-      # EPERM, so both the cache and HOME are redirected into the workspace.
+          workspaces: src-tauri
       - name: Install dependencies
         env:
           BUN_INSTALL_CACHE_DIR: ${{ github.workspace }}\.bun-cache
         run: bun install --frozen-lockfile --backend=copyfile
-      - name: Fetch embedded Bun runtime
-        run: bun run desktop:fetch-bun windows-x64
+      - run: bun run typecheck
+      - run: bun test
+      - run: cargo test --manifest-path src-tauri/Cargo.toml --locked
+      - run: ./scripts/test-update-helper.ps1
+      - run: bun run desktop:fetch-bun windows-x64
       - name: Stage server payload
         env:
           BUN_INSTALL_CACHE_DIR: ${{ github.workspace }}\.bun-cache
@@ -78,12 +74,35 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path "${{ runner.temp }}\home" | Out-Null
           bun scripts/stage-desktop.mjs
-      # Rust/cargo keeps the real profile: rustup and the MSVC toolchain of the
-      # windows runner live there.
-      - name: Build standalone executable
-        run: bun scripts/build-desktop.mjs
-      - name: Attach to release
-        uses: softprops/action-gh-release@v2
+      - run: bun scripts/build-desktop.mjs
+      - name: Test the actual release executable
+        run: ./scripts/smoke-desktop.ps1
+      - uses: actions/upload-artifact@v4
         with:
-          tag_name: ${{ inputs.tag || github.ref_name }}
-          files: src-tauri/target/release/momp.exe
+          name: desktop-release
+          path: src-tauri/target/release/momp.exe
+
+  publish:
+    if: github.event_name == 'workflow_dispatch'
+    needs: [version, web, desktop]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: '*-release'
+          path: release
+          merge-multiple: true
+      - run: cd release && sha256sum momp.exe momp-web-dist.tar.gz > SHA256SUMS
+      - name: Publish only verified artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.version.outputs.tag }}
+        run: |
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "Release already exists; refusing to overwrite published executables."
+            exit 1
+          fi
+          gh release create "$RELEASE_TAG" release/momp.exe release/momp-web-dist.tar.gz release/SHA256SUMS --target "$GITHUB_SHA" --title "momp $RELEASE_TAG" --notes-file docs/release-notes.md

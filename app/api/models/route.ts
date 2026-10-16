@@ -1,3 +1,4 @@
+import { cfgEnabledModels } from "@oh-my-pi/pi-coding-agent/config/model-settings";
 import { stat } from "fs/promises";
 import { resolve } from "path";
 import { getSupportedEfforts } from "@oh-my-pi/pi-catalog/model-thinking";
@@ -35,7 +36,7 @@ async function loadModels(cwd: string): Promise<ModelsData> {
   const modelError = modelRegistry.getError()?.message;
   // `enabledModels` supports globs and fuzzy patterns, so resolve it the same
   // way the CLI does instead of comparing pattern strings literally.
-  const scope = await resolveVisibleModels(modelRegistry, settings.get("enabledModels"), settings);
+  const scope = await resolveVisibleModels(modelRegistry, cfgEnabledModels.get(settings), settings);
   const { visible, thinkingLevelPins, warnings } = scope;
   const modelList = visible.map((m) => ({
     id: m.id,

@@ -1,3 +1,4 @@
+import { cfgEnabledModels } from "@oh-my-pi/pi-coding-agent/config/model-settings";
 import { NextResponse } from "next/server";
 import { resolve } from "path";
 import { invalidateModelsCache } from "@/lib/models-cache";
@@ -6,6 +7,7 @@ import { getOmpRuntime, getSettingsForCwd } from "@/lib/omp-runtime";
 import { listModelRoles, writeModelRole, type ModelRoleScope } from "@/lib/model-roles";
 import { resolveVisibleModels } from "@/lib/model-scope";
 import { hasJsonContentType, isApiRequestAllowed } from "@/lib/request-security";
+import { createModelRolePreset } from "@/lib/model-role-presets";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +29,7 @@ export async function GET(req: Request) {
   try {
     const { modelRegistry } = await getOmpRuntime();
     const settings = await getSettingsForCwd(result.cwd);
-    const { visible } = await resolveVisibleModels(modelRegistry, settings.get("enabledModels"), settings);
+    const { visible } = await resolveVisibleModels(modelRegistry, cfgEnabledModels.get(settings), settings);
     return NextResponse.json({ roles: listModelRoles(settings, [...visible]) });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
@@ -56,12 +58,15 @@ export async function PUT(req: Request) {
       role?: string;
       selector?: string | null;
       scope?: ModelRoleScope;
+      preset?: string;
+      gpt?: string;
+      gemini?: string;
     };
     const result = await requireAllowedCwd(body.cwd ?? null);
     if ("error" in result) return result.error;
 
     const role = body.role?.trim();
-    if (!role) return NextResponse.json({ error: "role required" }, { status: 400 });
+    if (!role && !body.preset) return NextResponse.json({ error: "role or preset required" }, { status: 400 });
     const scope: ModelRoleScope = body.scope === "project" ? "project" : "global";
     const selector = typeof body.selector === "string" ? body.selector.trim() : undefined;
 
@@ -69,7 +74,23 @@ export async function PUT(req: Request) {
     const settingsToWrite = scope === "global"
       ? runtime.settings
       : await getSettingsForCwd(result.cwd);
-    writeModelRole(settingsToWrite, role, selector || undefined, scope);
+    if (body.preset) {
+      let assignments: Record<string, string>;
+      try {
+        assignments = createModelRolePreset(body.preset, body.gpt ?? "", body.gemini ?? "");
+      } catch (error) {
+        return NextResponse.json({ error: String(error) }, { status: 400 });
+      }
+      const projectSettings = await getSettingsForCwd(result.cwd);
+      const { visible } = await resolveVisibleModels(runtime.modelRegistry, cfgEnabledModels.get(projectSettings), projectSettings);
+      const available = new Set(visible.map(model => `${model.provider}/${model.id}`));
+      if (Object.values(assignments).some(value => !available.has(value))) {
+        return NextResponse.json({ error: "Selected models are not available. Connect both providers and refresh." }, { status: 400 });
+      }
+      for (const [roleId, model] of Object.entries(assignments)) writeModelRole(settingsToWrite, roleId, model, scope);
+    } else {
+      writeModelRole(settingsToWrite, role!, selector || undefined, scope);
+    }
     await settingsToWrite.flush();
     invalidateModelsCache();
 
@@ -78,7 +99,7 @@ export async function PUT(req: Request) {
     // the response and in the next modal load.
     const settings = await getSettingsForCwd(result.cwd);
     const { modelRegistry } = runtime;
-    const { visible } = await resolveVisibleModels(modelRegistry, settings.get("enabledModels"), settings);
+    const { visible } = await resolveVisibleModels(modelRegistry, cfgEnabledModels.get(settings), settings);
     return NextResponse.json({ roles: listModelRoles(settings, [...visible]) });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });

@@ -1971,6 +1971,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
             );
           })()}
           <div
+            className="composer-surface"
             style={{
               minWidth: 0,
               display: "flex",

@@ -993,6 +993,7 @@ export function SkillsConfig({
           </div>
         )}
 
+        <div className="skills-compatibility">{t("connections.skillsHint")}</div>
         {/* Body */}
         <div style={{ flex: 1, display: "flex", flexDirection: isMobile ? "column" : "row", overflow: "hidden" }}>
           {/* Left: skill list */}

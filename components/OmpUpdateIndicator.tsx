@@ -154,11 +154,18 @@ export function OmpUpdateIndicator() {
   };
   const installUpdate = async () => {
     if (installing) return;
-    // Desktop (Tauri): the bundled server can't self-overwrite while running,
-    // so route the single banner's action to the OS opener and pull the fresh
-    // portable build from the release page.
     if (status.desktop) {
-      await openExternalUrl(status.releaseUrl);
+      setInstalling(true);
+      setMessage(null);
+      try {
+        const bridge = (window as unknown as { __TAURI__?: { core?: { invoke?: (command: string) => Promise<void> } } }).__TAURI__;
+        if (!bridge?.core?.invoke) throw new Error("Desktop update bridge unavailable. Download the release manually.");
+        await bridge.core.invoke("install_desktop_update");
+        setMessage({ kind: "success", text: locale === "ru" ? "Обновление проверено. Перезапуск…" : "Update verified. Restarting…" });
+      } catch (error) {
+        setMessage({ kind: "error", text: String(error) });
+        setInstalling(false);
+      }
       return;
     }
     if (!status.install.canInstall) return;
@@ -290,7 +297,7 @@ export function OmpUpdateIndicator() {
                 disabled={installing}
                 style={{ width: "100%", minHeight: 34, border: "1px solid var(--accent)", borderRadius: 7, background: installing ? "var(--bg-selected)" : "var(--accent)", color: installing ? "var(--accent)" : "var(--bg)", cursor: installing ? "wait" : "pointer", fontSize: 11, fontWeight: 700, fontFamily: "var(--font-mono)" }}
               >
-                {installing ? t("updates.installing") : status.desktop ? t("updates.download") : t("updates.install")}
+                {installing ? t("updates.installing") : status.desktop ? (locale === "ru" ? "Обновить и перезапустить" : "Update and restart") : t("updates.install")}
               </button>
             ) : (
               <div style={{ color: "var(--text-muted)", fontSize: 11, lineHeight: 1.45 }}>
@@ -320,6 +327,7 @@ export function OmpUpdateIndicator() {
                 ))}
               </div>
             )}
+            {status.desktop && <p style={{ fontSize: 11, color: "var(--text-muted)", lineHeight: 1.5 }}>{locale === "ru" ? "Проверка GitHub Releases — автоматически. Установка — после нажатия: завершите текущие задачи перед перезапуском. EXE проверяется по SHA-256; предыдущая версия сохраняется рядом." : "GitHub Releases are checked automatically. Finish running tasks before installing and restarting. The EXE is SHA-256 verified; the previous version is retained beside it."}</p>}
             {message && (
               <div role={message.kind === "error" ? "alert" : "status"} style={{ marginTop: 9, color: message.kind === "error" ? "var(--danger)" : "var(--success)", fontSize: 11, lineHeight: 1.45 }}>
                 {message.text}

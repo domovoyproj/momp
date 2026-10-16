@@ -1,5 +1,11 @@
 # ⚡ momp — Modern Web & Desktop GUI for Oh My Pi
 
+## Версия 1.4 — GPT + Gemini
+
+Новый интерфейс в стиле разговорного desktop-клиента: спокойные темы, переработанная боковая панель, библиотека skills и нативные кнопки окна. Подключайте **ChatGPT, GitHub Copilot и Antigravity**, назначайте доступные модели через пресеты ролей и используйте общие Codex/Gemini skills.
+
+[Изменения 1.4](docs/release-notes.md) · [Совместимость и ограничения](docs/compatibility.md)
+
 <p align="center">
   <img src="preview.gif" alt="momp" width="760" style="border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.3);" />
 </p>
@@ -7,9 +13,9 @@
 <p align="center">
   <a href="https://github.com/domovoyproj/momp/releases"><img src="https://img.shields.io/github/v/release/domovoyproj/momp?style=for-the-badge&colorA=222222&colorB=58A6FF" alt="version"></a>
   <a href="https://github.com/domovoyproj/momp/actions/workflows/publish-dist.yml"><img src="https://img.shields.io/github/actions/workflow/status/domovoyproj/momp/publish-dist.yml?style=for-the-badge&label=Build&colorA=222222&colorB=2ea44f" alt="build"></a>
-  <img src="https://img.shields.io/badge/Next.js-14-black?style=for-the-badge&logo=next.js&logoColor=white" alt="Next.js 14" />
+  <img src="https://img.shields.io/badge/Next.js-16-black?style=for-the-badge&logo=next.js&logoColor=white" alt="Next.js 16" />
   <img src="https://img.shields.io/badge/Tauri-v2-24C8DB?style=for-the-badge&logo=tauri&logoColor=white" alt="Tauri v2" />
-  <img src="https://img.shields.io/badge/Runtime-Bun%201.1+-FBF0DF?style=for-the-badge&logo=bun&logoColor=black" alt="Bun" />
+  <img src="https://img.shields.io/badge/Runtime-Bun%201.3.14+-FBF0DF?style=for-the-badge&logo=bun&logoColor=black" alt="Bun" />
   <img src="https://img.shields.io/badge/TypeScript-5-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" />
   <a href="https://github.com/domovoyproj/momp/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-58A6FF?style=for-the-badge&colorA=222222" alt="License"></a>
 </p>
@@ -25,7 +31,7 @@
 ## 📦 Установка
 
 ### Windows (Автономный `.exe`)
-Скачайте [`momp.exe`](https://github.com/domovoyproj/momp/releases/latest/download/momp.exe) со [страницы релизов](https://github.com/domovoyproj/momp/releases/latest) и запустите. При первом старте приложение распаковывает легковесный рантайм в `%LOCALAPPDATA%\momp`, после чего открывается нативное окно интерфейса на Tauri v2. Новые версии подтягиваются в фоне автоматически. Установка Bun, Node.js и Git не требуется.
+Скачайте [`momp.exe`](https://github.com/domovoyproj/momp/releases/latest/download/momp.exe) со [страницы релизов](https://github.com/domovoyproj/momp/releases/latest) и запустите из доступной для записи папки. При первом старте приложение распаковывает рантайм в `%LOCALAPPDATA%\momp`. Новые версии проверяются автоматически; установка с проверкой SHA-256 и перезапуском начинается по кнопке. Предыдущий EXE сохраняется рядом для отката. Bun и Node.js встроены; нужен Windows WebView2. Git требуется для Git-операций, но не для запуска приложения.
 
 ### CLI (Кроссплатформенный запуск через терминал)
 Скрипт проверяет наличие Bun (устанавливает при отсутствии), скачивает готовую сборку из релиза и делает команду `momp` доступной глобально:
@@ -44,14 +50,14 @@ curl -fsSL https://raw.githubusercontent.com/domovoyproj/momp/main/install.sh | 
 
 ## ⚡ Google Antigravity
 
-Antigravity — основной OAuth-провайдер momp. Для начала работы:
+Antigravity — один из трёх приоритетных провайдеров momp наряду с ChatGPT и GitHub Copilot. Для начала работы:
 
-1. Откройте **Настройки → Модели** и нажмите компактную кнопку **Antigravity** в заголовке.
+1. Откройте **Подключения** и выберите карточку **Antigravity**.
 2. Нажмите **Войти** и завершите авторизацию Google в браузере. Ключи вручную вводить не нужно.
 3. В разделе **Роли моделей** назначьте модели Antigravity для `default`, `smol`, `plan` и других задач.
 4. Нажмите **Лимиты**, чтобы увидеть доступную квоту и время до сброса.
 
-Antigravity всегда показывается первым в списке провайдеров и помечается как рекомендуемый. Ошибки квоты `429 RESOURCE_EXHAUSTED` отображаются понятным сообщением, одинаковые уведомления не дублируются, а при истёкшей OAuth-сессии интерфейс предлагает переподключить аккаунт.
+ChatGPT, GitHub Copilot и Antigravity вынесены в начало списка. Ошибки квоты `429 RESOURCE_EXHAUSTED` отображаются понятным сообщением, одинаковые уведомления не дублируются, а при истёкшей OAuth-сессии интерфейс предлагает переподключить аккаунт.
 
 ---
 

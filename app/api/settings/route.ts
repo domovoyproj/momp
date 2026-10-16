@@ -9,7 +9,9 @@ import {
   isCredential,
   SETTINGS_SCHEMA,
   type SettingPath,
-} from "@oh-my-pi/pi-coding-agent/config/settings-schema";
+} from "@/lib/omp-settings-schema";
+import { lookup } from "@oh-my-pi/pi-coding-agent/config/registry";
+import { hasJsonContentType, isApiRequestAllowed } from "@/lib/request-security";
 import {
   SETTING_TABS,
   TAB_GROUPS,
@@ -146,9 +148,9 @@ export async function GET(req: Request) {
           label: trans.label,
           description: trans.description || ui.description,
           type: fieldType,
-          value: secret ? null : serializableValue(settings.get(path)),
+          value: secret ? null : serializableValue(lookup(path)?.get(settings)),
           defaultValue: secret ? null : serializableValue(getDefault(path)),
-          configured: settings.isConfigured(path),
+          configured: settings.isConfigured(lookup(path)!),
           options: optionsFor(path, themeNames),
           ordered: ui.ordered === true,
           condition: ui.condition,
@@ -174,6 +176,8 @@ export async function GET(req: Request) {
 }
 
 export async function PATCH(req: Request) {
+  if (!isApiRequestAllowed(req)) return NextResponse.json({ error: "Untrusted API request" }, { status: 403 });
+  if (!hasJsonContentType(req)) return NextResponse.json({ error: "Content-Type must be application/json" }, { status: 415 });
   try {
     const body = await req.json() as { path?: string; value?: unknown };
     if (!body.path || !(body.path in SETTINGS_SCHEMA) || !hasUi(body.path as SettingPath)) {
@@ -188,9 +192,9 @@ export async function PATCH(req: Request) {
       throw new Error("Unknown omp theme");
     }
     const { settings } = await getOmpRuntime();
-    settings.set(path, value as never);
+    lookup(path)!.set(settings, value);
     await settings.flush();
-    return NextResponse.json({ success: true, value: serializableValue(settings.get(path)) });
+    return NextResponse.json({ success: true, value: isCredential(path) ? null : serializableValue(lookup(path)?.get(settings)) });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 400 });
   }

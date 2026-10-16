@@ -1,3 +1,4 @@
+import { cfgDefaultThinkingLevel } from "@oh-my-pi/pi-coding-agent/session/settings";
 import type { ThinkingLevel } from "@oh-my-pi/pi-agent-core";
 import type { Settings } from "@oh-my-pi/pi-coding-agent";
 import { formatRoleSelector } from "./model-roles";
@@ -47,9 +48,10 @@ export async function persistExplicitStartupPreferences(
 
   if (
     explicit.thinkingLevel
-    && (effective.supportsThinking || effective.thinkingLevel !== "off")
+    && effective.thinkingLevel !== "inherit"
+    && effective.thinkingLevel !== "off"
   ) {
-    settings.set("defaultThinkingLevel", effective.thinkingLevel as never);
+    cfgDefaultThinkingLevel.set(settings, effective.thinkingLevel);
   }
 
   await settings.flush();

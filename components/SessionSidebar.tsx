@@ -78,6 +78,7 @@ function ToolbarIconButton({
 }
 
 interface Props {
+  projectPickerRequest?: number;
   selectedSessionId: string | null;
   optimisticSession?: SessionInfo | null;
   onSelectSession: (session: SessionInfo, isRestore?: boolean) => void;
@@ -462,7 +463,7 @@ function PiWebTitle() {
   );
 }
 
-export function SessionSidebar({ selectedSessionId, optimisticSession, onSelectSession, onNewSession, initialSessionId, skipInitialProjectSelection, onInitialRestoreDone, refreshKey, onSessionDeleted, selectedCwd: selectedCwdProp, onCwdChange, onOpenFile, explorerRefreshKey, onExplorerRefresh, onAtMention, onAtMentions, onBackgroundTaskDone }: Props) {
+export function SessionSidebar({ selectedSessionId, optimisticSession, onSelectSession, onNewSession, initialSessionId, skipInitialProjectSelection, onInitialRestoreDone, refreshKey, onSessionDeleted, selectedCwd: selectedCwdProp, onCwdChange, onOpenFile, explorerRefreshKey, onExplorerRefresh, onAtMention, onAtMentions, onBackgroundTaskDone, projectPickerRequest = 0 }: Props) {
   const { t } = useI18n();
   const [allSessions, setAllSessions] = useState<SessionInfo[]>([]);
   const sessionsForDisplay = optimisticSession && !allSessions.some((session) => session.id === optimisticSession.id)
@@ -481,6 +482,7 @@ export function SessionSidebar({ selectedSessionId, optimisticSession, onSelectS
   const [projectAliases, setProjectAliases] = useState<Record<string, string>>(() => loadProjectAliases());
   const [wtFilter, setWtFilter] = useState("");
   const [customPathOpen, setCustomPathOpen] = useState(false);
+  useEffect(() => { if (projectPickerRequest > 0) setCustomPathOpen(true); }, [projectPickerRequest]);
   const [customPathError, setCustomPathError] = useState<string | null>(null);
   const [customPathValidating, setCustomPathValidating] = useState(false);
   const [copiedProjectPath, setCopiedProjectPath] = useState<string | null>(null);
@@ -1063,7 +1065,7 @@ export function SessionSidebar({ selectedSessionId, optimisticSession, onSelectS
 
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
+    <div className="workspace-sidebar" style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
       {customPathOpen && (
         <DirectoryPicker
           busy={customPathValidating}
@@ -1077,53 +1079,10 @@ export function SessionSidebar({ selectedSessionId, optimisticSession, onSelectS
       )}
 
 
-      <div
-        style={{
-          padding: "12px 10px 10px",
-          borderBottom: "1px solid var(--border)",
-          flexShrink: 0,
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+      <div className="sidebar-brand" style={{ flexShrink: 0 }}>
+        <div className="sidebar-brand-row">
           <PiWebTitle />
           <div style={{ display: "flex", gap: 6 }}>
-            <button
-              onClick={() => handleNewSession()}
-              disabled={!selectedCwd}
-              style={{
-                display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
-                background: "var(--bg-hover)",
-                border: "1px solid var(--border)",
-                color: selectedCwd ? "var(--text-muted)" : "var(--text-dim)",
-                cursor: selectedCwd ? "pointer" : "not-allowed",
-                height: 32,
-                padding: "0 12px 0 10px",
-                borderRadius: 7,
-                fontSize: 12,
-                fontWeight: 500,
-                letterSpacing: "-0.01em",
-                flexShrink: 0,
-                transition: "background 0.12s, color 0.12s, border-color 0.12s",
-              }}
-              title={selectedCwd ? t("sidebar.newSessionTitle", { path: selectedCwd }) : t("sidebar.selectProject")}
-              onMouseEnter={(event) => {
-                if (!selectedCwd) return;
-                event.currentTarget.style.background = "var(--bg-selected)";
-                event.currentTarget.style.color = "var(--accent)";
-                event.currentTarget.style.borderColor = "rgba(37,99,235,0.35)";
-              }}
-              onMouseLeave={(event) => {
-                event.currentTarget.style.background = "var(--bg-hover)";
-                event.currentTarget.style.color = selectedCwd ? "var(--text-muted)" : "var(--text-dim)";
-                event.currentTarget.style.borderColor = "var(--border)";
-              }}
-            >
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
-                <line x1="6" y1="1" x2="6" y2="11" />
-                <line x1="1" y1="6" x2="11" y2="6" />
-              </svg>
-              {t("sidebar.new")}
-            </button>
             <button
               onClick={() => loadSessions(false, true)}
               style={{
@@ -1165,7 +1124,10 @@ export function SessionSidebar({ selectedSessionId, optimisticSession, onSelectS
             </button>
           </div>
         </div>
-
+        <div className="sidebar-workspace-label">{t("connections.workspace")}</div>
+        <button className="sidebar-primary" onClick={() => selectedCwd ? handleNewSession() : handleCustomPathClick()}>
+          <span aria-hidden="true">＋</span>{t("tabs.newChat")}
+        </button>
       </div>
 
 
