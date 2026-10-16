@@ -209,7 +209,7 @@ bun test            # тестирование через встроенный b
 > `bun run build` во время активной разработки запускать не следует — это затирает кэш `.next/`. Для сборки десктопного приложения используйте команду `bun run desktop:build`.
 
 ### Сборка релизов в GitHub Actions
-Workflow [`Verified release`](https://github.com/domovoyproj/momp/actions/workflows/publish-dist.yml) проверяет типы и тесты, собирает веб-дистрибутив и Windows `.exe`, затем запускает именно готовый EXE в чистом профиле. Только после успешных проверок публикуются `momp.exe`, `momp-web-dist.tar.gz` и `SHA256SUMS`. Версия берётся из `package.json`; существующий релиз не перезаписывается. Доступен ручной запуск workflow без параметров.
+Workflow [`Verified release`](https://github.com/domovoyproj/momp/actions/workflows/publish-dist.yml) проверяет типы и тесты, собирает веб-дистрибутив и Windows `.exe`, затем запускает именно готовый EXE в чистом профиле. Ручной запуск без параметров создаёт черновик релиза с `momp.exe`, `momp-web-dist.tar.gz` и `SHA256SUMS` только после успешных проверок. После финальной проверки интерфейса черновик публикуется в GitHub Releases. Версия берётся из `package.json`; существующий релиз не перезаписывается.
 
 ---
 

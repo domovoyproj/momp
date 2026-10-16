@@ -107,4 +107,4 @@ jobs:
             echo "Release already exists; refusing to overwrite published executables."
             exit 1
           fi
-          gh release create "$RELEASE_TAG" release/momp.exe release/momp-web-dist.tar.gz release/SHA256SUMS --target "$GITHUB_SHA" --title "momp $RELEASE_TAG" --notes-file docs/release-notes.md
+          gh release create "$RELEASE_TAG" release/momp.exe release/momp-web-dist.tar.gz release/SHA256SUMS --draft --target "$GITHUB_SHA" --title "momp $RELEASE_TAG" --notes-file docs/release-notes.md
