@@ -8,7 +8,7 @@ Repository: https://github.com/domovoyproj/momp. Releases contain `momp.exe`, `m
 4. Build with `bun run desktop:fetch-bun windows-x64` and `bun run desktop:build`. Windows compilation requires Rust MSVC, Visual Studio C++ Build Tools and the Windows SDK.
 5. Run `scripts/smoke-desktop.ps1` against the exact packaged executable. It isolates the runtime and agent directories, starts the EXE, verifies the page and SDK-backed API endpoints, then terminates only its own process tree. Logs remain in the printed temporary directory.
 6. Review the native window controls, light/dark appearance, small viewport, connections, skills and role presets. Do not publish a build that only passes unit tests but fails to launch.
-7. Push the version change to main. The Verified release workflow builds on Linux and Windows, runs checks, uploads intermediate artifacts, and publishes only after both jobs succeed. Manual runs and matching version tags are also supported. Published assets are immutable: use a new version rather than overwriting an existing release.
+7. Push the version change to main. The Verified release workflow builds on Linux and Windows, runs checks and uploads intermediate artifacts. A manual workflow run additionally creates a draft release after both jobs succeed; publish that draft in GitHub only after the final UI review. Matching version tags also run verification. Published assets are immutable: use a new version rather than overwriting an existing release.
 8. Download the published EXE, verify its SHA-256 against both the release API digest and SHA256SUMS, and run the smoke test again.
 
 ## Portable updater

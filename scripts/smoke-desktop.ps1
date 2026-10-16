@@ -5,7 +5,7 @@ $root = Join-Path ([IO.Path]::GetTempPath()) ('momp-smoke-' + [guid]::NewGuid())
 New-Item -ItemType Directory -Path $root | Out-Null
 $log = Join-Path $root 'desktop.log'
 $saved = @{}
-foreach ($key in @('HOME', 'USERPROFILE', 'LOCALAPPDATA', 'APPDATA', 'PI_CODING_AGENT_DIR', 'MOMP_DESKTOP_LOG')) { $saved[$key] = [Environment]::GetEnvironmentVariable($key) }
+foreach ($key in @('HOME', 'USERPROFILE', 'LOCALAPPDATA', 'APPDATA', 'PI_CODING_AGENT_DIR', 'MOMP_DESKTOP_LOG', 'WEBVIEW2_USER_DATA_FOLDER')) { $saved[$key] = [Environment]::GetEnvironmentVariable($key) }
 $app = $null
 try {
     $env:HOME = $root
@@ -14,6 +14,7 @@ try {
     $env:APPDATA = $root
     $env:PI_CODING_AGENT_DIR = Join-Path $root 'agent'
     $env:MOMP_DESKTOP_LOG = $log
+    $env:WEBVIEW2_USER_DATA_FOLDER = Join-Path $root 'webview'
     $app = Start-Process -FilePath $executablePath -WorkingDirectory $root -WindowStyle Hidden -PassThru
     $deadline = (Get-Date).AddMinutes(8)
     $origin = $null
