@@ -26,6 +26,7 @@ import { FrontmatterCard } from "./FrontmatterCard";
 import { parseUnifiedPatch } from "@/lib/patch";
 import type { GitFileDiffResponse } from "@/lib/git-types";
 import { useI18n } from "@/hooks/useI18n";
+import { createFileEditorDraftStore, type FileEditorDraftStore } from "@/lib/file-editor-drafts";
 
 interface Props {
   filePath: string;
@@ -37,6 +38,7 @@ interface Props {
   onAtMention?: (relativePath: string, isDir: boolean) => void;
   gitRefreshKey?: number;
   initialDisplayMode?: DisplayMode;
+  draftStore?: FileEditorDraftStore;
 }
 
 interface FileData {
@@ -788,7 +790,9 @@ function DocumentViewer({ filePath, cwd, sourceSessionId }: Props) {
   );
 }
 
-export function FileViewer({ filePath, cwd, sourceSessionId, onOpenFile, onMentionLines, onAtMention, gitRefreshKey, initialDisplayMode }: Props) {
+export function FileViewer({ filePath, cwd, sourceSessionId, onOpenFile, onMentionLines, onAtMention, gitRefreshKey, initialDisplayMode, draftStore: providedDraftStore }: Props) {
+  const [localDraftStore] = useState(createFileEditorDraftStore);
+  const draftStore = providedDraftStore ?? localDraftStore;
   if (isImagePath(filePath)) {
     return <ImageViewer filePath={filePath} cwd={cwd} sourceSessionId={sourceSessionId} />;
   }
@@ -798,32 +802,35 @@ export function FileViewer({ filePath, cwd, sourceSessionId, onOpenFile, onMenti
   if (isDocumentPreviewPath(filePath)) {
     return <DocumentViewer filePath={filePath} cwd={cwd} sourceSessionId={sourceSessionId} />;
   }
-  return <TextFileViewer key={JSON.stringify([filePath, sourceSessionId, cwd])} filePath={filePath} cwd={cwd} sourceSessionId={sourceSessionId} onOpenFile={onOpenFile} onMentionLines={onMentionLines} onAtMention={onAtMention} gitRefreshKey={gitRefreshKey} initialDisplayMode={initialDisplayMode} />;
+  return <TextFileViewer key={JSON.stringify([filePath, sourceSessionId, cwd])} filePath={filePath} cwd={cwd} sourceSessionId={sourceSessionId} onOpenFile={onOpenFile} onMentionLines={onMentionLines} onAtMention={onAtMention} gitRefreshKey={gitRefreshKey} initialDisplayMode={initialDisplayMode} draftStore={draftStore} />;
 }
 
-function TextFileViewer({ filePath, cwd, sourceSessionId, onOpenFile, onMentionLines, onAtMention, gitRefreshKey, initialDisplayMode }: Props) {
+function TextFileViewer({ filePath, cwd, sourceSessionId, onOpenFile, onMentionLines, onAtMention, gitRefreshKey, initialDisplayMode, draftStore }: Props & { draftStore: FileEditorDraftStore }) {
   const { isDark } = useTheme();
   const { t } = useI18n();
+  const draftKey = JSON.stringify([filePath, sourceSessionId, cwd]);
+  const [restoredDraft] = useState(() => draftStore.get(draftKey));
   const [data, setData] = useState<FileData | null>(null);
   const [gitDiff, setGitDiff] = useState<GitFileDiffResponse | null>(null);
   const [gitDiffLoading, setGitDiffLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [displayMode, setDisplayMode] = useState<DisplayMode>("source");
+  const [displayMode, setDisplayMode] = useState<DisplayMode>(restoredDraft ? "edit" : "source");
   const [wrapLines, setWrapLines] = useState(false);
   const [watching, setWatching] = useState(false);
   const esRef = useRef<EventSource | null>(null);
   const gitDiffRequestRef = useRef(0);
   const contentRef = useRef<HTMLDivElement | null>(null);
   const [selectedLineRange, setSelectedLineRange] = useState<SelectedLineRange | null>(null);
-  const [editContent, setEditContent] = useState<string>("");
-  const [saving, setSaving] = useState(false);
+  const [editContent, setEditContent] = useState(restoredDraft?.content ?? "");
+  const editContentRef = useRef(editContent);
+  const [saving, setSaving] = useState(() => draftStore.pendingSave(draftKey) !== null);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saved" | "error">("idle");
   const activeRef = useRef(true);
   const savingRef = useRef(false);
   const contentRequestRef = useRef(0);
-  const loadedContentRef = useRef<string | null>(null);
-  const isDirty = data !== null && editContent !== data.content;
+  const loadedContentRef = useRef<string | null>(restoredDraft?.baseline ?? null);
+  const isDirty = data !== null && (editContent !== data.content || draftStore.hasProtectedEdit(draftKey));
 
   useEffect(() => {
     activeRef.current = true;
@@ -834,12 +841,21 @@ function TextFileViewer({ filePath, cwd, sourceSessionId, onOpenFile, onMentionL
     };
   }, []);
 
+  const updateEditContent = useCallback((content: string, userEdit = true, confirmedRead = false) => {
+    editContentRef.current = content;
+    draftStore.set(draftKey, { content, baseline: loadedContentRef.current }, userEdit, confirmedRead);
+    setEditContent(content);
+  }, [draftKey, draftStore]);
+
   const handleSave = useCallback(async () => {
     if (savingRef.current || !activeRef.current) return;
+    const finishSave = draftStore.beginSave(draftKey);
+    if (!finishSave) return;
     savingRef.current = true;
     contentRequestRef.current += 1;
     setSaving(true);
     setSaveStatus("idle");
+    let savedContent: string | null = null;
     try {
       const encoded = encodeFilePathForApi(filePath);
       const res = await fetch(`/api/files/${encoded}`, {
@@ -848,22 +864,25 @@ function TextFileViewer({ filePath, cwd, sourceSessionId, onOpenFile, onMentionL
         body: JSON.stringify({ content: editContent }),
       });
       const result = (await res.json()) as { ok?: boolean; size?: number; error?: string };
+      if (res.ok && !result.error) savedContent = editContent;
       if (!activeRef.current) return;
       if (!res.ok || result.error) {
         setSaveStatus("error");
       } else {
         setSaveStatus("saved");
         loadedContentRef.current = editContent;
+        draftStore.set(draftKey, { content: editContentRef.current, baseline: editContent });
         setData((prev) => (prev ? { ...prev, content: editContent, size: result.size ?? editContent.length } : null));
         setTimeout(() => { if (activeRef.current) setSaveStatus("idle"); }, 2500);
       }
     } catch {
       if (activeRef.current) setSaveStatus("error");
     } finally {
+      finishSave(savedContent);
       savingRef.current = false;
       if (activeRef.current) setSaving(false);
     }
-  }, [editContent, filePath]);
+  }, [draftKey, draftStore, editContent, filePath]);
 
   useEffect(() => {
     if (displayMode !== "edit") return;
@@ -895,7 +914,9 @@ function TextFileViewer({ filePath, cwd, sourceSessionId, onOpenFile, onMentionL
         setError(null);
         const previousContent = loadedContentRef.current;
         loadedContentRef.current = d.content;
-        setEditContent((current) => previousContent === null || current === previousContent ? d.content : current);
+        const current = editContentRef.current;
+        const followsDisk = !draftStore.hasProtectedEdit(draftKey) && (previousContent === null || current === previousContent);
+        updateEditContent(followsDisk ? d.content : current, false, true);
         setData(d);
         return d;
       })
@@ -903,7 +924,30 @@ function TextFileViewer({ filePath, cwd, sourceSessionId, onOpenFile, onMentionL
         if (activeRef.current && requestId === contentRequestRef.current) setError(String(e));
         return null;
       });
-  }, [sourceSessionId]);
+  }, [draftKey, draftStore, sourceSessionId, updateEditContent]);
+
+  useEffect(() => {
+    const pending = draftStore.pendingSave(draftKey);
+    if (!pending) {
+      const draft = draftStore.get(draftKey);
+      if (draft) {
+        loadedContentRef.current = draft.baseline;
+        updateEditContent(draft.content, false);
+      }
+      setSaving(false);
+      return;
+    }
+    setSaving(true);
+    void pending.then((savedContent) => {
+      if (!activeRef.current) return;
+      if (savedContent !== null) {
+        loadedContentRef.current = savedContent;
+        updateEditContent(draftStore.get(draftKey)?.content ?? savedContent, false);
+      }
+      setSaving(false);
+      void fetchContent(filePath);
+    });
+  }, [draftKey, draftStore, fetchContent, filePath, updateEditContent]);
 
   const fetchGitDiff = useCallback(async (targetPath: string) => {
     const requestId = ++gitDiffRequestRef.current;
@@ -933,7 +977,7 @@ function TextFileViewer({ filePath, cwd, sourceSessionId, onOpenFile, onMentionL
     setError(null);
     setData(null);
     setGitDiff(null);
-    setDisplayMode("source");
+    setDisplayMode(restoredDraft ? "edit" : "source");
     setWrapLines(false);
     setWatching(false);
 
@@ -969,7 +1013,7 @@ function TextFileViewer({ filePath, cwd, sourceSessionId, onOpenFile, onMentionL
       es.close();
       esRef.current = null;
     };
-  }, [filePath, fetchContent, fetchGitDiff, sourceSessionId]);
+  }, [filePath, fetchContent, fetchGitDiff, sourceSessionId, restoredDraft]);
 
   useEffect(() => {
     void fetchGitDiff(filePath);
@@ -979,10 +1023,10 @@ function TextFileViewer({ filePath, cwd, sourceSessionId, onOpenFile, onMentionL
     // HTML gets the same rendered-first treatment as markdown: a generated page
     // is usually more useful viewed than read as source. Both have a preview
     // mode already; the source tab stays one click away.
-    if ((data?.language === "markdown" || data?.language === "html") && initialDisplayMode !== "diff") {
+    if (!restoredDraft && (data?.language === "markdown" || data?.language === "html") && initialDisplayMode !== "diff") {
       setDisplayMode("preview");
     }
-  }, [data?.language, initialDisplayMode]);
+  }, [data?.language, initialDisplayMode, restoredDraft]);
 
   const hasGitDiff = gitDiff?.supported === true && typeof gitDiff.patch === "string";
   const isDeletedDiff = hasGitDiff && gitDiff.status === "deleted";
@@ -1006,11 +1050,11 @@ function TextFileViewer({ filePath, cwd, sourceSessionId, onOpenFile, onMentionL
     autoDiffAppliedRef.current = false;
   }, [filePath]);
   useEffect(() => {
-    if (initialDisplayMode === "diff" && hasGitDiff && !autoDiffAppliedRef.current) {
+    if (!restoredDraft && initialDisplayMode === "diff" && hasGitDiff && !autoDiffAppliedRef.current) {
       autoDiffAppliedRef.current = true;
       setDisplayMode("diff");
     }
-  }, [initialDisplayMode, hasGitDiff]);
+  }, [initialDisplayMode, hasGitDiff, restoredDraft]);
 
   const markdownPreview = useMemo(
     () => (data?.language === "markdown" ? normalizeDisplayMath(data.content) : ""),
@@ -1284,7 +1328,7 @@ function TextFileViewer({ filePath, cwd, sourceSessionId, onOpenFile, onMentionL
             </div>
             <textarea
               value={editContent}
-              onChange={(e) => setEditContent(e.target.value)}
+              onChange={(e) => updateEditContent(e.target.value)}
               onKeyDown={(e) => {
                 if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
                   e.preventDefault();
@@ -1298,7 +1342,7 @@ function TextFileViewer({ filePath, cwd, sourceSessionId, onOpenFile, onMentionL
                   const end = target.selectionEnd;
                   const val = target.value;
                   const nextVal = val.substring(0, start) + "  " + val.substring(end);
-                  setEditContent(nextVal);
+                  updateEditContent(nextVal);
                   setTimeout(() => {
                     target.selectionStart = target.selectionEnd = start + 2;
                   }, 0);

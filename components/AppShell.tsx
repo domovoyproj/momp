@@ -7,6 +7,7 @@ import { SessionSidebar } from "./SessionSidebar";
 import { SubagentPanel } from "./SubagentPanel";
 import { ChatWindow } from "./ChatWindow";
 import { FileViewer } from "./FileViewer";
+import { createFileEditorDraftStore } from "@/lib/file-editor-drafts";
 import { TabBar, type Tab } from "./TabBar";
 import { SettingsConfig } from "./SettingsConfig";
 import { DesktopTitlebar } from "./DesktopTitlebar";
@@ -269,6 +270,11 @@ export function AppShell() {
   // Right panel — file tabs only
   const [fileTabs, setFileTabs] = useState<Tab[]>([]);
   const [activeFileTabId, setActiveFileTabId] = useState<string | null>(null);
+  const [fileDraftStore] = useState(createFileEditorDraftStore);
+
+  useEffect(() => {
+    fileDraftStore.retainFiles(fileTabs.map((tab) => tab.filePath));
+  }, [fileDraftStore, fileTabs]);
 
   // Same @mention format as the chat input's @ autocomplete, so the agent's
   // read tool resolves it the same way (it strips the @ prefix).
@@ -1974,6 +1980,7 @@ export function AppShell() {
           {activeFileTab?.filePath ? (
             <FileViewer
               filePath={activeFileTab.filePath}
+              draftStore={fileDraftStore}
               cwd={activeCwd ?? undefined}
               sourceSessionId={activeFileTab.sourceSessionId}
               gitRefreshKey={explorerRefreshKey}
