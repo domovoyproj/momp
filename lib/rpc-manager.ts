@@ -1,4 +1,5 @@
 import { cfgEnabledModels } from "@oh-my-pi/pi-coding-agent/config/model-settings";
+import { resolveRoleModelFull } from "@oh-my-pi/pi-coding-agent/session/role-models";
 import { cfgBrowserEnabled } from "@oh-my-pi/pi-coding-agent/tools/browser/settings";
 import type { ThinkingLevel } from "@oh-my-pi/pi-agent-core";
 import {
@@ -15,6 +16,7 @@ import { buildAvailableSlashCommands } from "@oh-my-pi/pi-coding-agent/slash-com
 import { BUILTIN_SLASH_COMMAND_DEFS } from "@oh-my-pi/pi-coding-agent/slash-commands/builtin-registry";
 import { executeAcpBuiltinSlashCommand, type AcpBuiltinSlashCommandResult } from "@oh-my-pi/pi-coding-agent/slash-commands/acp-builtins";
 import { discoverCustomToolPaths } from "@oh-my-pi/pi-coding-agent/extensibility/custom-tools";
+import { cfgExtensions } from "@oh-my-pi/pi-coding-agent/extensibility/settings";
 import { initializeExtensions } from "@oh-my-pi/pi-coding-agent/modes/runtime-init";
 import { readPlanFile } from "@oh-my-pi/pi-coding-agent/plan-mode/plan-files";
 import {
@@ -143,6 +145,7 @@ export function resolveForkEntryId(
 export interface RpcSessionStartOptions {
   toolNames?: string[];
   initialModel?: { provider: string; modelId: string };
+  initialRole?: string;
   thinkingLevel?: ThinkingLevel;
 }
 
@@ -275,6 +278,7 @@ export class AgentSessionWrapper {
   private pendingUiResponses = new Map<string, PendingUiResponse>();
   private pendingUiRequests = new Map<string, AgentEvent>();
   private activeCustomUis = new Map<string, ActiveCustomUi>();
+  private pendingCustomUiFactories = new Map<string, () => void>();
   private extensionStatuses = new Map<string, string>();
   private extensionWidgets = new Map<string, ExtensionWidgetItem>();
   private promptRunning = false;
@@ -289,6 +293,7 @@ export class AgentSessionWrapper {
   private idleTimer: ReturnType<typeof setTimeout> | null = null;
   private onDestroyCallback: (() => void) | null = null;
   private shutdownPromise: Promise<void> | null = null;
+  private shuttingDown = false;
   private readonly subagents: RpcSubagentRegistry;
   // The SDK registry removes terminal entries after emitting their lifecycle frame.
   // Keep a bounded per-session copy so state requests can still expose history.
@@ -886,9 +891,10 @@ export class AgentSessionWrapper {
 
       case "set_role_model": {
         const role = command.role as string;
-        const model = this.inner.resolveRoleModel(role);
+        const resolved = this.inner.resolveRoleModelWithThinking(role);
+        const model = resolved.model;
         if (!model) throw new Error(`No model configured for role "${role}"`);
-        await this.inner.setModel(model, role);
+        await this.inner.applyRoleModel({ ...resolved, model, role });
         invalidateModelsCache();
         invalidateSessionListCache();
         return { id: model.id, provider: model.provider, role };
@@ -1172,10 +1178,7 @@ export class AgentSessionWrapper {
     this.goalModeController?.dispose();
     this.subagents.dispose();
     this.subagentHistory.clear();
-    for (const pending of this.pendingUiResponses.values()) pending.cancel();
-    for (const id of Array.from(this.activeCustomUis.keys())) this.closeCustomUi(id, undefined);
-    this.pendingUiResponses.clear();
-    this.pendingUiRequests.clear();
+    this.cancelExtensionUi();
     try {
       void this.inner.dispose?.();
     } finally {
@@ -1191,6 +1194,8 @@ export class AgentSessionWrapper {
     if (this.shutdownPromise) return this.shutdownPromise;
     if (!this._alive) return;
 
+    this.shuttingDown = true;
+    this.cancelExtensionUi();
     this.shutdownPromise = (async () => {
       try {
         try {
@@ -1207,6 +1212,15 @@ export class AgentSessionWrapper {
       }
     })();
     return this.shutdownPromise;
+  }
+
+  private cancelExtensionUi(): void {
+    for (const pending of this.pendingUiResponses.values()) pending.cancel();
+    for (const cancel of this.pendingCustomUiFactories.values()) cancel();
+    for (const id of Array.from(this.activeCustomUis.keys())) this.closeCustomUi(id, undefined);
+    this.pendingUiResponses.clear();
+    this.pendingCustomUiFactories.clear();
+    this.pendingUiRequests.clear();
   }
 
   private resolveExtensionUiResponse(response: ExtensionUiResponse): void {
@@ -1293,7 +1307,7 @@ export class AgentSessionWrapper {
     factory: unknown,
     options?: unknown,
   ): Promise<T> {
-    if (typeof factory !== "function") return Promise.resolve(undefined as T);
+    if (!this._alive || this.shuttingDown || typeof factory !== "function") return Promise.resolve(undefined as T);
 
     const id = randomUUID();
     const width = this.getCustomUiWidth(options);
@@ -1310,6 +1324,7 @@ export class AgentSessionWrapper {
       const finish = (value: T) => {
         if (completed) return;
         completed = true;
+        this.pendingCustomUiFactories.delete(id);
         resolve(value);
       };
       const done = (value: T) => {
@@ -1320,8 +1335,9 @@ export class AgentSessionWrapper {
         }
       };
 
+      this.pendingCustomUiFactories.set(id, () => finish(undefined as T));
       Promise.resolve()
-        .then(() => factory(tui, PLAIN_TEXT_THEME, CUSTOM_UI_KEYBINDINGS, done))
+        .then(() => completed ? undefined : factory(tui, PLAIN_TEXT_THEME, CUSTOM_UI_KEYBINDINGS, done))
         .then((component) => {
           if (completed) {
             try {
@@ -1341,6 +1357,7 @@ export class AgentSessionWrapper {
             resolve: (value) => finish(value as T),
             settled: false,
           };
+          this.pendingCustomUiFactories.delete(id);
           this.activeCustomUis.set(id, custom);
           this.emitCustomUiRender(id, custom);
         })
@@ -1364,7 +1381,7 @@ export class AgentSessionWrapper {
     timeout?: number,
     signal?: AbortSignal,
   ): Promise<T> {
-    if (signal?.aborted) return Promise.resolve(defaultValue);
+    if (!this._alive || this.shuttingDown || signal?.aborted) return Promise.resolve(defaultValue);
 
     const id = randomUUID();
     const fullRequest = {
@@ -1417,13 +1434,27 @@ export class AgentSessionWrapper {
         opts?.timeout,
         opts?.signal,
       ),
-      select: (title, options, opts) => this.requestExtensionUi(
-        { method: "select", title, options, ...(opts?.timeout ? { timeout: opts.timeout } : {}) },
-        undefined,
-        (response) => "value" in response ? response.value : undefined,
-        opts?.timeout,
-        opts?.signal,
-      ),
+      select: (title, options, opts) => {
+        const labels = options.map((option) => typeof option === "string" ? option : option.label);
+        const usedDisplays = new Set<string>();
+        const displayOptions = options.map((option) => {
+          const base = typeof option === "string"
+            ? option
+            : option.description ? `${option.label} — ${option.description}` : option.label;
+          let display = base;
+          let suffix = 2;
+          while (usedDisplays.has(display)) display = `${base} (${suffix++})`;
+          usedDisplays.add(display);
+          return display;
+        });
+        return this.requestExtensionUi(
+          { method: "select", title, options: displayOptions, ...(opts?.timeout ? { timeout: opts.timeout } : {}) },
+          undefined,
+          (response) => "value" in response ? labels[displayOptions.indexOf(response.value)] : undefined,
+          opts?.timeout,
+          opts?.signal,
+        );
+      },
       confirm: (title, message, opts) => this.requestExtensionUi(
         { method: "confirm", title, message, ...(opts?.timeout ? { timeout: opts.timeout } : {}) },
         false,
@@ -1735,7 +1766,7 @@ export async function startRpcSession(
   cwd: string | undefined,
   options: RpcSessionStartOptions = {},
 ): Promise<{ session: AgentSessionWrapper; realSessionId: string }> {
-  const { toolNames, initialModel, thinkingLevel } = options;
+  const { toolNames, initialModel, initialRole, thinkingLevel } = options;
   const registry = getRegistry();
   const locks = getLocks();
 
@@ -1788,11 +1819,14 @@ export async function startRpcSession(
       // not run its `.omp/extensions`, `.omp/tools`, or `.mcp.json` servers (see
       // lib/project-trust.ts). Discovery still runs — only project-local entries
       // are dropped, so user-level extensions keep working.
-      const [extensionPaths, customToolPaths] = await Promise.all([
+      const [extensionPaths, customToolPaths, projectExtensionPaths] = await Promise.all([
         discoverSessionExtensionPaths({}, sessionCwd, settings),
         discoverCustomToolPaths([], sessionCwd),
+        settings.extensionsSourceLevel() === "project"
+          ? discoverSessionExtensionPaths({ disableExtensionDiscovery: true, additionalExtensionPaths: cfgExtensions.get(settings) }, sessionCwd, settings)
+          : Promise.resolve([]),
       ]);
-      const untrusted = untrustedProjectSessionOptions(sessionCwd, agentDir, { extensionPaths, customToolPaths });
+      const untrusted = untrustedProjectSessionOptions(sessionCwd, agentDir, { extensionPaths, customToolPaths, projectExtensionPaths });
 
       // `SYSTEM.md` / `APPEND_SYSTEM.md`, resolved against this session's cwd the
       // way the CLI resolves them against its own (lib/session-system-prompt.ts).
@@ -1802,12 +1836,22 @@ export async function startRpcSession(
       const scope = await resolveVisibleModels(modelRegistry, cfgEnabledModels.get(settings), settings);
       const defaultRole = readDefaultModelRole(settings);
       const hasExistingMessages = sessionManager.buildSessionContext().messages.length > 0;
+      const roleResolution = initialRole && !hasExistingMessages
+        ? resolveRoleModelFull(settings, initialRole, modelRegistry.getAvailable(), undefined)
+        : undefined;
+      if (initialRole && !hasExistingMessages && !roleResolution?.model) {
+        throw new Error(`No model configured for role "${initialRole}"`);
+      }
+      const requestedModel = roleResolution?.model
+        ? { provider: roleResolution.model.provider, modelId: roleResolution.model.id }
+        : initialModel;
+      const requestedThinking = thinkingLevel ?? (roleResolution?.thinkingLevel !== "auto" ? roleResolution?.thinkingLevel : undefined);
       const initial = hasExistingMessages
         ? { scopedModels: [...scope.scopedModels], model: undefined, thinkingLevel: undefined }
         : selectInitialModelScope(scope, {
-          ...(initialModel ? { requestedModel: initialModel } : {}),
+          ...(requestedModel ? { requestedModel } : {}),
           ...(defaultRole ? { defaultModel: defaultRole } : {}),
-          ...(thinkingLevel ? { thinkingLevel } : {}),
+          ...(requestedThinking ? { thinkingLevel: requestedThinking } : {}),
         });
       const { skills } = await loadCompatibleSkills(sessionCwd, settings);
       const sessionOptions: CreateAgentSessionOptions = {
@@ -1828,11 +1872,20 @@ export async function startRpcSession(
       // CLI renders it with instead of overwriting the whole system prompt.
       applyResolvedSystemPromptInputs(sessionOptions, systemPrompts.systemPrompt, systemPrompts.appendPrompt);
       const { session: inner, eventBus, setToolUIContext } = await createAgentSession(sessionOptions);
+      if (initialRole && roleResolution?.model) {
+        try {
+          await inner.applyRoleModel({ ...roleResolution, model: roleResolution.model, role: initialRole });
+          if (thinkingLevel !== undefined) inner.setThinkingLevel(thinkingLevel);
+        } catch (error) {
+          await inner.dispose();
+          throw error;
+        }
+      }
       bindCompatibleSkillRefresh(inner, skills);
 
       const persistedPreferences = await persistExplicitStartupPreferences(
         runtime.settings,
-        {
+        initialRole ? {} : {
           ...(initialModel ? { model: initialModel } : {}),
           ...(thinkingLevel ? { thinkingLevel } : {}),
         },

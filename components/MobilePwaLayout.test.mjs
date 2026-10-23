@@ -4,6 +4,7 @@ import test from "node:test";
 
 const layoutSource = await readFile(new URL("../app/layout.tsx", import.meta.url), "utf8");
 const cssSource = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+const workspaceCssSource = await readFile(new URL("../app/workspace.css", import.meta.url), "utf8");
 const appShellSource = await readFile(new URL("./AppShell.tsx", import.meta.url), "utf8");
 const chatWindowSource = await readFile(new URL("./ChatWindow.tsx", import.meta.url), "utf8");
 const chatInputSource = await readFile(new URL("./ChatInput.tsx", import.meta.url), "utf8");
@@ -45,4 +46,5 @@ test("contains chat content and inputs within the mobile viewport", () => {
 
 test("prevents iOS focus zoom from widening the layout", () => {
   assert.match(cssSource, /@media \(max-width: 640px\)[\s\S]*?textarea,[\s\S]*?input,[\s\S]*?select \{\s*font-size: 16px !important;/);
+  assert.match(workspaceCssSource, /@media \(max-width: 640px\)[\s\S]*?\.composer-surface textarea \{ font-size: 16px !important; \}/);
 });

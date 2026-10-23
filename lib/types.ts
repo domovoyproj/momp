@@ -288,7 +288,7 @@ export type ExtensionUiRequest =
 
 export type BlockingExtensionUiRequest = Extract<
   ExtensionUiRequest,
-  { method: "select" | "confirm" | "input" | "editor" | "custom" }
+  { method: "select" | "ask" | "plan_review" | "confirm" | "input" | "editor" | "custom" }
 >;
 
 export type ExtensionUiResponse =

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import type { WebAccessStatus } from "@/lib/api-types";
 import styles from "./SettingsConfig.module.css";
 
@@ -31,6 +31,8 @@ function describeState(status: WebAccessStatus): string {
 }
 
 export function AccessConfig() {
+  const passwordId = useId();
+  const confirmationId = useId();
   const [status, setStatus] = useState<WebAccessStatus | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -160,13 +162,14 @@ export function AccessConfig() {
           <h3 className={styles.groupTitle}>{status.stored ? "Сменить пароль" : "Установить пароль"}</h3>
           <div className={styles.settingRow}>
             <div>
-              <div className={styles.settingLabel}>Новый пароль</div>
+              <label htmlFor={passwordId} className={styles.settingLabel}>Новый пароль</label>
               <div className={styles.settingDescription}>
                 Минимум {MIN_PASSWORD_LENGTH} символов. Сохранение пароля также активирует защиту.
               </div>
             </div>
             <div className={styles.settingControl}>
               <input
+                id={passwordId}
                 className={styles.textInput}
                 type="password"
                 autoComplete="new-password"
@@ -178,11 +181,12 @@ export function AccessConfig() {
           </div>
           <div className={styles.settingRow}>
             <div>
-              <div className={styles.settingLabel}>Подтверждение пароля</div>
+              <label htmlFor={confirmationId} className={styles.settingLabel}>Подтверждение пароля</label>
               <div className={styles.settingDescription}>Оба поля должны совпадать.</div>
             </div>
             <div className={styles.settingControl}>
               <input
+                id={confirmationId}
                 className={styles.textInput}
                 type="password"
                 autoComplete="new-password"

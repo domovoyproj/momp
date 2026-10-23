@@ -18,10 +18,15 @@ Only resources omp *executes*:
 
 | Kind | Paths |
 | --- | --- |
-| Extensions | `.omp/extensions`, `.pi/extensions`, `.claude/extensions`, `.agents/extensions` |
+| Extensions | `.omp/extensions`, `.pi/extensions`, `.claude/extensions`, `.agents/extensions`, `.codex/extensions`, `.gemini/extensions`, `.opencode/plugins` |
 | Hooks | the `hooks/` directory under each of those config roots |
 | Custom tools | the `tools/` directory under each of those config roots |
-| MCP servers | `.mcp.json`, `.omp/.mcp.json`, `.omp/mcp.json`, `.claude/.mcp.json`, `.claude/mcp.json`, `.cursor/mcp.json` |
+| MCP servers | Root `mcp.json` / `.mcp.json`, native and Claude manifests, `.cursor/mcp.json`, `.vscode/mcp.json`, `.windsurf/mcp_config.json` |
+| Executable-capable settings | Native `config.yml` / `config.yaml` / `settings.json`, Claude/Cursor settings, Codex `config.toml`, Gemini settings, root or `.opencode` `opencode.json` / `opencode.jsonc` |
+
+Settings files require trust conservatively even if their present contents only
+select a model: the same file can name extension packages outside the project
+or declare processes. Codex hook and custom-tool directories are also gated.
 
 Skills, rules, prompts and `AGENTS.md` are **not** gated. They are data folded
 into the system prompt, not modules the loader imports, and gating them would
@@ -38,11 +43,13 @@ own discovery, then removes the project-local entries from the result before
 handing it to `createAgentSession`:
 
 - `preloadedExtensionPaths` — discovered extensions minus anything under the
-  project root
+  project root or supplied by the project settings layer, including external paths
 - `preloadedCustomToolPaths` — discovered tools minus anything marked
   `level: "project"` or living under the project root
 - `enableMCP: false` — MCP servers are processes omp would spawn from a
   project manifest
+- `extensionRoots` — an explicit-only snapshot of retained user extensions,
+  preventing reload and child-session discovery from reintroducing project packages
 
 User-level extensions and tools in `~/.omp/agent` keep working throughout, so an
 untrusted project is a *narrowed* session, not a crippled one.

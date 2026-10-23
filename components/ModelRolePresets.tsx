@@ -12,7 +12,7 @@ interface Props {
 }
 
 export function ModelRolePresets({ models, disabled, onApply }: Props) {
-  const { locale } = useI18n();
+  const { locale, t } = useI18n();
   const russian = locale === "ru";
   const [preset, setPreset] = useState<ModelRolePreset>("balanced");
   const [gpt, setGpt] = useState("");
@@ -30,13 +30,13 @@ export function ModelRolePresets({ models, disabled, onApply }: Props) {
       <div className="role-preset-tabs">
         {MODEL_ROLE_PRESETS.map(value => <button key={value} type="button" aria-pressed={preset === value} disabled={pending} onClick={() => setPreset(value)}>{names[value]}</button>)}
       </div>
-      <p>{russian ? "Выберите доступные модели. Пресет заменит восемь ролей в выбранной области; остальные настройки сохранятся. Роль advisor сама по себе не включает автоматическое ревью." : "Choose available models. Applying replaces eight roles in the selected scope and preserves other settings. The advisor role does not enable automatic review by itself."}</p>
+      <p>{t("roles.presetDescription")}</p>
       <div className="role-preset-selectors">
         {([{ label: "GPT", value: selectedGpt, entries: gptModels, change: setGpt }, { label: "Gemini", value: selectedGemini, entries: geminiModels, change: setGemini }]).map(group => (
           <SearchableSelect key={group.label} value={group.value} ariaLabel={group.label} disabled={pending || disabled} onChange={group.change} options={[{ value: "", label: `${russian ? "Выберите" : "Choose"} ${group.label}` }, ...group.entries.map(model => ({ value: `${model.provider}/${model.id}`, label: `${model.name} — ${model.provider}` }))]} />
         ))}
       </div>
-      {ready && <div className="role-preset-preview">{Object.entries(createModelRolePreset(preset, selectedGpt, selectedGemini)).map(([role, model]) => <span key={role}><code>{role}</code><b>{model === selectedGpt ? "GPT" : "Gemini"}</b></span>)}</div>}
+      {ready && <div className="role-preset-preview">{Object.entries(createModelRolePreset(preset, selectedGpt, selectedGemini)).map(([role, model]) => <span key={role} title={["tiny", "memory", "widget"].includes(role) ? t(`roles.detail.${role}`) : undefined}><code>{role}</code><b>{model === selectedGpt ? "GPT" : "Gemini"}</b></span>)}</div>}
       {(!gptModels.length || !geminiModels.length) && <p role="status">{russian ? "Сначала подключите ChatGPT и Antigravity (или другие провайдеры GPT/Gemini) в разделе подключений." : "First connect ChatGPT and Antigravity, or other GPT/Gemini providers, in Connections."}</p>}
       <button className="role-preset-apply" type="button" disabled={!ready || pending || disabled} onClick={async () => { setPending(true); try { await onApply(preset, selectedGpt, selectedGemini); } finally { setPending(false); } }}>{pending ? (russian ? "Сохранение…" : "Saving…") : (russian ? "Применить пресет" : "Apply preset")}</button>
     </section>

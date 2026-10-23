@@ -167,7 +167,7 @@ Anything that mutates credentials or `models.yml` must call
 
 ### Model roles are the model selector
 omp assigns a model per scope of work (`default`, `smol`, `slow`, `vision`,
-`plan`, `designer`, `commit`, `tiny`, `task`, `advisor`), stored in the
+`plan`, `commit`, `tiny`, `memory`, `task`, `advisor`, `widget`), stored in the
 `modelRoles` record in `config.yml`. `lib/model-roles.ts` reads and writes that
 record; `GET /api/models` ships the resolved table so `ChatInput` can list roles
 above the flat model list, and `set_role_model` switches the session **and
@@ -385,3 +385,42 @@ This project is indexed by GitNexus as **omp-web** (2786 symbols, 7305 relations
 | Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md` |
 
 <!-- gitnexus:end -->
+
+## Project-local skills and verification workflow
+
+Selection reviewed on 2026-10-23 for Next.js 16, React 19, Tailwind CSS 4,
+Bun, and Tauri 2. Reuse these skills in `.agents/skills`; read the applicable
+`SKILL.md` before use instead of loading the whole collection.
+
+| Skill | Source and pinned commit | License | Selection |
+| --- | --- | --- | --- |
+| `frontend-design` | `anthropics/skills@dbd4588f9e1033efb41dad4bef2f7947c8993d44` | Apache-2.0 | Intentional desktop UI, responsive layout, typography, and visual review |
+| `accessibility` (2.0) | `addyosmani/web-quality-skills@afa8da942115f2961fdbfa80807ea0b232ff6c00` | MIT | Keyboard, focus, names, contrast, motion, and rendered interaction checks |
+| `systematic-debugging` | `obra/superpowers@2ce8aa15d05bd57213e6f746f953aafb7ded7a8b` | MIT | Reproduce, trace the cause, test a hypothesis, make a focused fix |
+| `verification-before-completion` | `obra/superpowers@2ce8aa15d05bd57213e6f746f953aafb7ded7a8b` | MIT | Fresh command output and user-flow evidence before completion claims |
+
+AutoSkills 0.4.1 dry-run produced 13 candidates. Its selection interface
+installed only the first two skills for Codex; preserve `skills-lock.json`.
+The two Superpowers skills were installed with the system skill-installer
+at the pinned commit and an explicit project-local destination. All selected
+instructions, supporting files, and licenses were reviewed before installation;
+upstream license files are retained. No global skills or services were changed.
+
+Excluded Node backend/Express guidance because the server runs on Bun; excluded
+SEO, Next cache-component adoption, extra Tailwind patterns, and duplicate
+framework/general-language guides because this task does not need them.
+Do not run the Superpowers `find-polluter.sh` npm example in this Bun project;
+use existing Bun tests and isolated fixtures. Its TypeScript example is
+reference material, excluded from application typechecking and linting.
+If a referenced optional skill is absent, follow the equivalent documented
+investigation and verification steps with existing project tools.
+
+When `.codex/MEGA-PROMPT.md` exists, consult that local user-provided workflow.
+It is private working context: keep it out of commits, releases, and published
+artifacts. Do not copy its contents into project documentation.
+
+The GitNexus CLI could not find a usable index during this review. A local
+Graphify code-only graph was built (2,555 nodes, 6,202 edges). While GitNexus is
+unavailable, run Graphify affected/dependency analysis and verify the result
+against imports and callers in source before editing; report this fallback.
+Graph data can become stale after edits and does not replace source review.

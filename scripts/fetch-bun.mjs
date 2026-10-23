@@ -14,14 +14,15 @@
  *
  * The zip from GitHub contains `bun-{triple}/bun` (or `bun.exe` on Windows).
  * The binary is moved to `src-tauri/resources/bun-{triple}` (with `.exe`
- * suffix for Windows) and made executable on unix. Idempotent: existing
- * targets are skipped unless --force is passed.
+ * suffix for Windows) and made executable on unix. Matching version/triple
+ * metadata and a SHA-256 content check are required before reusing a target.
  */
 
-import { chmodSync, cpSync, existsSync, mkdirSync, rmSync } from "node:fs";
+import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
+import { isBunRuntimeCacheValid, writeBunRuntimeCacheMetadata } from "./bun-runtime-cache.mjs";
 
 const TRIPLES = ["darwin-aarch64", "darwin-x64", "windows-x64"];
 
@@ -57,8 +58,8 @@ async function fetchTriple(triple, version) {
   const targetName = `bun-${triple}${isWindows ? ".exe" : ""}`;
   const target = join(RESOURCES_DIR, targetName);
 
-  if (existsSync(target) && !force) {
-    console.log(`[fetch-bun] ${targetName} already exists — skipping (use --force to re-download)`);
+  if (!force && await isBunRuntimeCacheValid(target, triple, version)) {
+    console.log(`[fetch-bun] ${targetName} matches v${version} and its content hash — skipping (use --force to re-download)`);
     return { target, skipped: true };
   }
 
@@ -70,8 +71,9 @@ async function fetchTriple(triple, version) {
     throw new Error(`download failed: HTTP ${res.status} ${res.statusText} (${url})`);
   }
 
-  const zipPath = join(tmpdir(), `bun-${triple}-${version}.zip`);
-  const extractDir = join(tmpdir(), `bun-${triple}-${version}-x`);
+  const temporaryRoot = mkdtempSync(join(tmpdir(), "momp-bun-"));
+  const zipPath = join(temporaryRoot, "runtime.zip");
+  const extractDir = join(temporaryRoot, "extracted");
   mkdirSync(extractDir, { recursive: true });
 
   try {
@@ -94,18 +96,19 @@ async function fetchTriple(triple, version) {
     cpSync(inner, target, { force: true });
     rmSync(inner, { force: true });
     if (!isWindows) chmodSync(target, 0o755);
+    await writeBunRuntimeCacheMetadata(target, triple, version);
 
     console.log(`[fetch-bun] installed ${target}`);
     return { target, skipped: false };
   } finally {
-    rmSync(zipPath, { force: true });
-    rmSync(extractDir, { recursive: true, force: true });
+    rmSync(temporaryRoot, { recursive: true, force: true });
   }
 }
 
 let version;
 try {
   version = bunVersion();
+  if (!/^\d+\.\d+\.\d+(?:-[\w.-]+)?$/.test(version)) throw new Error(`invalid Bun version: ${version}`);
   console.log(`[fetch-bun] pinning bun v${version}`);
 } catch (err) {
   console.error(`[fetch-bun] ${err.message}`);

@@ -381,7 +381,7 @@ function setCachedClientSession(sid: string, data: SessionData): void {
 export function useAgentSession(opts: UseAgentSessionOptions) {
   const {
     session, newSessionCwd, onAgentEnd, onAttentionNeeded, onSessionCreated, onSessionForked,
-    modelsRefreshKey, onBranchDataChange, onSystemPromptChange, onSessionStatsPanelOpen,
+    modelsRefreshKey, onBranchDataChange, onSystemPromptChange, onSessionStatsPanelOpen, chatInputRef,
   } = opts;
 
   const isNew = session === null && newSessionCwd !== null;
@@ -458,6 +458,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
   const ensuringNewSessionRef = useRef<Promise<string | null> | null>(null);
   const newSessionPromotedRef = useRef(false);
   const newSessionModelOverrideRef = useRef<SelectedModel | null>(null);
+  const newSessionRoleOverrideRef = useRef<string | null>(null);
   const thinkingLevelOverrideRef = useRef<Exclude<ThinkingLevelOption, "auto"> | null>(null);
   const promptRunIdRef = useRef(0);
   const contextUsageRequestIdRef = useRef(0);
@@ -512,7 +513,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     } satisfies SessionStatsInfo;
   }, [messages, sessionStatsOverride, contextUsage, data?.filePath, data?.totalActiveMs, session?.id, session?.name]);
 
-  const loadSession = useCallback(async (sid: string, showLoading = false, includeState = false) => {
+  const loadSession = useCallback(async (sid: string, showLoading = false, includeState = false): Promise<{ loaded: true; running?: boolean; state?: AgentStateResponse } | null> => {
     let messagesLoaded = false;
     const shouldShowLoading = showLoading && !clientSessionCache.has(sid);
     try {
@@ -553,13 +554,13 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       setContextUsage(d.contextUsage ?? null);
       setCurrentModelOverride((current) => modelSwitchPendingRef.current ? current : null);
       setError(null);
-      if (d.context.thinkingLevel && d.context.thinkingLevel !== "off") {
+      if (d.context.thinkingLevel !== undefined) {
         setThinkingLevel(d.context.thinkingLevel as ThinkingLevelOption);
       }
 
       messagesLoaded = true;
       if (shouldShowLoading) setLoading(false);
-      if (!includeState) return null;
+      if (!includeState) return { loaded: true };
 
       try {
         const stateRes = await fetch(`/api/sessions/${encodeURIComponent(sid)}/state`);
@@ -579,7 +580,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
         } else if (!agentState.running) {
           setQueuedMessages({ steering: [], followUp: [] });
         }
-        return agentState;
+        return { ...agentState, loaded: true };
       } catch (e) {
         console.error("Failed to load agent state:", e);
         return null;
@@ -649,6 +650,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       // Only send explicit user overrides. The server resolves the current
       // enabledModels scope atomically with AgentSession construction.
       const selectedModel = newSessionModelOverrideRef.current;
+      const selectedRole = newSessionRoleOverrideRef.current;
       const selectedThinkingLevel = thinkingLevelOverrideRef.current;
       if (selectedModel) setPendingModel(selectedModel);
       const toolNames = getToolNamesForPreset(toolPreset);
@@ -659,7 +661,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
           cwd: newSessionCwd,
           type: "ensure_session",
           toolNames,
-          ...(selectedModel ? { provider: selectedModel.provider, modelId: selectedModel.modelId } : {}),
+          ...(selectedRole ? { role: selectedRole } : selectedModel ? { provider: selectedModel.provider, modelId: selectedModel.modelId } : {}),
           ...(selectedThinkingLevel
             ? { thinkingLevel: selectedThinkingLevel }
             : {}),
@@ -1559,7 +1561,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       // any attached images) into the input instead of losing it. Mirrors the
       // shell-command recovery in executeBash; restoreSubmission avoids
       // clobbering anything typed since.
-      opts.chatInputRef?.current?.restoreSubmission?.(
+      chatInputRef?.current?.restoreSubmission?.(
         message,
         images?.map(({ data, mimeType }) => ({ data, mimeType })),
         session?.id ?? sentSessionId ?? undefined,
@@ -1569,7 +1571,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       setAgentPhase(null);
       dispatch({ type: "end" });
     }
-  }, [isNew, newSessionCwd, newSessionModel, session, ensureNewSession, ensureEventsConnected, promoteNewSession, waitForPromptSettlement, addNotice, cancelEventStreamGrace, closeEvents, opts.chatInputRef]);
+  }, [isNew, newSessionCwd, newSessionModel, session, ensureNewSession, ensureEventsConnected, promoteNewSession, waitForPromptSettlement, addNotice, cancelEventStreamGrace, closeEvents, chatInputRef]);
 
   const executeBash = useCallback(async (command: string, excludeFromContext: boolean) => {
     if (agentRunningRef.current || bashRunningRef.current) return;
@@ -1670,6 +1672,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
 
   const handleModelChange = useCallback(async (provider: string, modelId: string) => {
     if (isNew) {
+      newSessionRoleOverrideRef.current = null;
       const selectedModel = { provider, modelId };
       newSessionModelOverrideRef.current = selectedModel;
       setNewSessionModel(selectedModel);
@@ -1727,6 +1730,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
 
     if (isNew) {
       const selectedModel = { provider: resolved.provider, modelId: resolved.modelId };
+      newSessionRoleOverrideRef.current = role;
       const selectedThinkingLevel = resolved.thinkingLevel === "auto"
         ? null
         : resolved.thinkingLevel as Exclude<ThinkingLevelOption, "auto"> | undefined;
@@ -1743,10 +1747,12 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     try {
       await sendAgentCommand(sid, { type: "set_role_model", role });
       if (!isNew) setCurrentModelOverride({ provider: resolved.provider, modelId: resolved.modelId });
+      await loadSession(sid, false, true);
     } catch (e) {
       console.error("Failed to set role model:", e);
+      addNotice({ type: "error", message: `Failed to switch role: ${e instanceof Error ? e.message : String(e)}` });
     }
-  }, [isNew, modelRoles, setNewSessionModel]);
+  }, [addNotice, isNew, loadSession, modelRoles, setNewSessionModel]);
 
   const handleCompact = useCallback(async (customInstructions?: string) => {
     const sid = sessionIdRef.current;
@@ -2183,9 +2189,11 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
 
   // Load session on mount
   useEffect(() => {
+    let cancelled = false;
     if (session) {
       sessionIdRef.current = session.id;
       loadSession(session.id, true, true).then((agentState) => {
+        if (cancelled) return;
         if (agentState?.running) {
           loadTools(session.id);
           if (
@@ -2228,6 +2236,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       });
     }
     return () => {
+      cancelled = true;
       bashRecoveryIdRef.current += 1;
       cancelEventStreamGrace();
       closeEvents();

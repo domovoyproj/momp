@@ -20,10 +20,12 @@
 import { spawnSync } from "node:child_process";
 import { chmodSync, cpSync, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync } from "node:fs";
 import { join, sep } from "node:path";
+import { desktopPlatformPlan } from "./desktop-platforms.mjs";
 
 const root = join(import.meta.dir, "..");
 const server = join(root, "src-tauri", "server");
 const skipBuild = process.argv.includes("--skip-build");
+const platformPlan = desktopPlatformPlan(process.platform, process.arch, process.argv.includes("--universal"));
 
 // 1. clean slate — when skipping the build, keep the staged .next and wipe
 //    everything else so the remaining steps still re-run deterministically
@@ -148,28 +150,10 @@ if (existsSync(binDir)) {
 //     the host architecture — or both macOS architectures with --universal
 //     (the CI universal build needs them) — copying from the full install
 //     and fetching the exact version when the host lacks it.
-const universal = process.argv.includes("--universal");
 // @oh-my-pi/omp-stats is imported eagerly by the slash-command registry
 // (stats-dashboard helper); its client UI ships prebuilt inside the package,
 // so only the package itself is needed.
-const nativeVariants =
-  process.platform === "win32"
-    ? [
-        ["@next/swc-win32-x64-msvc", "next"],
-        ["@oh-my-pi/pi-natives-win32-x64", "@oh-my-pi/pi-natives"],
-        ["@oh-my-pi/omp-stats", "@oh-my-pi/omp-stats"],
-      ]
-    : [
-        ["@next/swc-darwin-arm64", "next"],
-        ["@oh-my-pi/pi-natives-darwin-arm64", "@oh-my-pi/pi-natives"],
-        ["@oh-my-pi/omp-stats", "@oh-my-pi/omp-stats"],
-        ...(universal
-          ? [
-              ["@next/swc-darwin-x64", "next"],
-              ["@oh-my-pi/pi-natives-darwin-x64", "@oh-my-pi/pi-natives"],
-            ]
-          : []),
-      ];
+const nativeVariants = platformPlan.nativeVariants;
 for (const [name, host] of nativeVariants) {
   const src = join(root, "node_modules", name);
   if (existsSync(src)) {
@@ -200,8 +184,7 @@ for (const [name, host] of nativeVariants) {
 }
 
 // 6. Bun runtime for this platform (macOS bundles both archs — universal app)
-const triples =
-  process.platform === "win32" ? ["windows-x64"] : ["darwin-aarch64", "darwin-x64"];
+const triples = platformPlan.triples;
 const resources = join(root, "src-tauri", "resources");
 for (const triple of triples) {
   const name = triple === "windows-x64" ? "bun-windows-x64.exe" : `bun-${triple}`;

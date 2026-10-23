@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
-import { existsSync, readFileSync } from "fs";
 import { join } from "path";
 import { getAgentDir } from "@oh-my-pi/pi-coding-agent";
-import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
+import { stringify as stringifyYaml } from "yaml";
 import { writePrivateFileAtomicSync } from "@/lib/atomic-file";
 import { invalidateModelsCache } from "@/lib/models-cache";
 import { invalidateOmpRuntime } from "@/lib/omp-runtime";
 import { isApiRequestAllowed } from "@/lib/request-security";
+import { readModelsConfig } from "@/lib/models-config";
 
 export const dynamic = "force-dynamic";
 
@@ -135,17 +135,7 @@ export async function POST(req: Request) {
     const agentDir = getAgentDir();
     const modelsPath = join(agentDir, "models.yml");
 
-    let currentConfig: Record<string, unknown> = { providers: {} };
-    if (existsSync(modelsPath)) {
-      try {
-        const parsed = parseYaml(readFileSync(modelsPath, "utf8"));
-        if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
-          currentConfig = parsed as Record<string, unknown>;
-        }
-      } catch {
-        // use default
-      }
-    }
+    const currentConfig = readModelsConfig(agentDir);
 
     const currentProviders = (
       typeof currentConfig.providers === "object" && currentConfig.providers !== null

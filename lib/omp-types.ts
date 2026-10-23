@@ -105,7 +105,7 @@ type WidgetOptionsLike = {
 export interface ExtensionUiContextLike {
   readonly timeoutStartsOnPresentation?: boolean;
   askDialog?(questions: ExtensionAskDialogQuestion[], opts?: DialogOptionsLike): Promise<ExtensionAskDialogResult | undefined>;
-  select(title: string, options: string[], opts?: DialogOptionsLike): Promise<string | undefined>;
+  select(title: string, options: Array<string | { label: string; description?: string }>, opts?: DialogOptionsLike): Promise<string | undefined>;
   confirm(title: string, message: string, opts?: DialogOptionsLike): Promise<boolean>;
   input(title: string, placeholder?: string, opts?: DialogOptionsLike): Promise<string | undefined>;
   editor(title: string, prefill?: string, opts?: DialogOptionsLike): Promise<string | undefined>;
@@ -178,6 +178,8 @@ export interface AgentSessionLike {
   readonly isBashRunning: boolean;
   setModel(model: ModelLike, role?: string, options?: { selector?: string; thinkingLevel?: string; persist?: boolean }): Promise<{ switched: boolean }>;
   resolveRoleModel(role: string): ModelLike | undefined;
+  resolveRoleModelWithThinking(role: string): { model?: ModelLike; thinkingLevel?: string; explicitThinkingLevel?: boolean };
+  applyRoleModel(entry: { model: ModelLike; role: string; thinkingLevel?: string; explicitThinkingLevel?: boolean }): Promise<void>;
   navigateTree(targetId: string, options?: { summarize?: boolean }): Promise<NavigateTreeResult>;
   branch(entryId: string): Promise<{ cancelled: boolean }>;
   /**

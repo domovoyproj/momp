@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "fs";
 import { homedir } from "os";
 import { isAbsolute, join, relative, resolve, sep } from "path";
 import type { SkillInfo, SkillInstallInfo, SkillInstallScope } from "@/lib/api-types";
+import { getCompatibleSkillRoots } from "./skill-compatibility";
 
 interface SkillLockEntry {
   source?: unknown;
@@ -26,6 +27,8 @@ interface AnnotateSkillOptions {
   agentDir: string;
   globalLockPath?: string;
   projectLockPath?: string;
+  homeDir?: string;
+  codexHome?: string;
 }
 
 export function getGlobalSkillsLockPath({
@@ -125,14 +128,14 @@ export function annotateSkillsWithInstallInfo(
     agentDir,
     globalLockPath = getGlobalSkillsLockPath(),
     projectLockPath = join(cwd, "skills-lock.json"),
+    homeDir = homedir(),
+    codexHome = process.env.CODEX_HOME,
   }: AnnotateSkillOptions,
 ): SkillInfo[] {
   const globalEntries = readSkillLock(globalLockPath);
   const projectEntries = readSkillLock(projectLockPath);
-  // omp reads its own `~/.omp/agent/skills` plus the Claude layout that the
-  // `skills` CLI writes into; treat both as managed install roots.
-  const globalSkillsRoots = [join(agentDir, "skills"), join(homedir(), ".claude", "skills")];
-  const projectSkillsRoots = [join(cwd, ".omp", "skills"), join(cwd, ".claude", "skills")];
+  const globalSkillsRoots = [join(agentDir, "skills"), join(homeDir, ".claude", "skills"), ...getCompatibleSkillRoots(undefined, homeDir, codexHome)];
+  const projectSkillsRoots = [join(cwd, ".omp", "skills"), join(cwd, ".claude", "skills"), ...getCompatibleSkillRoots(cwd, homeDir, codexHome)];
 
   return skills.map((skill) => {
     if (!existsSync(skill.filePath)) return skill;

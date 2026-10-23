@@ -1,172 +1,144 @@
-# === momp max Installer for Windows PowerShell ===
-$ErrorActionPreference = "Stop"
+﻿$ErrorActionPreference = 'Stop'
 
-# Переходим в домашнюю папку, чтобы не блокировать .momp-app текущим процессом терминала
-Set-Location $HOME
+function Invoke-MompNative {
+    param([string]$Executable, [string[]]$Arguments)
+    & $Executable @Arguments
+    if ($LASTEXITCODE -ne 0) { throw "$Executable завершился с кодом $LASTEXITCODE" }
+}
 
-Write-Host "==========================================" -ForegroundColor Cyan
-Write-Host "       Установка momp max                 " -ForegroundColor Cyan
-Write-Host "==========================================" -ForegroundColor Cyan
+function Get-MompReleaseAsset {
+    param($Release)
+    if ($Release.draft -ne $false -or $Release.prerelease -ne $false -or $Release.tag_name -notmatch '^v\d+\.\d+\.\d+$') {
+        throw 'Ожидался опубликованный стабильный релиз momp'
+    }
+    $assets = @($Release.assets | Where-Object { $_.name -ceq 'momp-web-dist.tar.gz' })
+    if ($assets.Count -ne 1) { throw 'В релизе нет единственного проверяемого web-пакета' }
+    $asset = $assets[0]
+    $expected = "https://github.com/domovoyproj/momp/releases/download/$($Release.tag_name)/momp-web-dist.tar.gz"
+    if ($asset.browser_download_url -cne $expected -or $asset.digest -notmatch '^sha256:[a-fA-F0-9]{64}$' -or $asset.size -le 0 -or $asset.size -gt 1GB) {
+        throw 'Недопустимые метаданные пакета: адрес, размер или SHA-256'
+    }
+    return $asset
+}
 
-$repo = "domovoyproj/momp"
-$installDir = "$HOME\.momp-app"
-$distUrl = "https://github.com/$repo/releases/latest/download/momp-web-dist.tar.gz"
-# 1. Проверка наличия Bun
-$bunInstalled = (Get-Command bun -ErrorAction SilentlyContinue)
-if (-not $bunInstalled) {
-    if (Test-Path "$HOME\.bun\bin\bun.exe") {
-        $env:PATH = "$HOME\.bun\bin;$env:PATH"
-    } else {
-        Write-Host "[1/3] Bun не найден. Установка Bun..." -ForegroundColor Yellow
-        try {
-            Invoke-RestMethod -Uri "https://bun.sh/install.ps1" | Invoke-Expression
-            $env:PATH = "$HOME\.bun\bin;$env:PATH"
-        } catch {
-            Write-Host "Ошибка при установке Bun. Попробуйте установить вручную: https://bun.sh" -ForegroundColor Red
-            Exit 1
-        }
+function Assert-MompDownloadedAsset {
+    param([string]$Path, $Asset)
+    if ((Get-Item -LiteralPath $Path).Length -ne $Asset.size -or (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash -ne $Asset.digest.Substring(7)) {
+        throw 'Проверка размера или SHA-256 пакета не пройдена'
     }
 }
 
-# Ускорение: исключаем папки из проверки Защитника Windows.
-# Иначе антивирус синхронно сканирует каждый распаковываемый файл, замедляя установку.
-function Test-Admin {
-    $id = [Security.Principal.WindowsIdentity]::GetCurrent()
-    (New-Object Security.Principal.WindowsPrincipal($id)).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-}
-$defenderPaths = @($installDir, "$HOME\.bun")
-try {
-    if (Test-Admin) {
-        Add-MpPreference -ExclusionPath $defenderPaths -ErrorAction SilentlyContinue
-    } else {
-        Write-Host "Запрашиваю права администратора, чтобы отключить сканирование антивирусом (ускоряет установку)..." -ForegroundColor DarkGray
-        $excl = ($defenderPaths | ForEach-Object { "'$_'" }) -join ","
-        $cmd = "Add-MpPreference -ExclusionPath $excl -ErrorAction SilentlyContinue"
-        Start-Process powershell -Verb RunAs -WindowStyle Hidden -Wait -ArgumentList "-NoProfile","-Command",$cmd -ErrorAction Stop
+function Assert-MompInstallPayload {
+    param([string]$Directory, [switch]$Dependencies)
+    $required = @('.next/BUILD_ID', 'package.json', 'bun.lock', 'next.config.js', 'bin/omp-web.js')
+    if ($Dependencies) { $required += @('node_modules/next/dist/bin/next', 'node_modules/@oh-my-pi/pi-coding-agent/package.json') }
+    foreach ($relative in $required) {
+        if (-not (Test-Path -LiteralPath (Join-Path $Directory $relative) -PathType Leaf)) { throw "Неполный пакет: $relative" }
     }
-} catch {
-    Write-Host "Ускорение через антивирус пропущено (нет прав администратора)." -ForegroundColor DarkGray
 }
 
-# 2. Получение приложения: сперва пробуем готовую сборку из GitHub Release
-# (только ~275 production-пакетов, без сборки webpack на машине пользователя),
-# при неудаче — откат на сборку из исходников.
-$prebuilt = $false
-Write-Host "[2/3] Загрузка momp max..." -ForegroundColor Yellow
-$tarPath = "$env:TEMP\momp-web-dist.tar.gz"
-try {
-    $tarExe = (Get-Command tar -ErrorAction SilentlyContinue)
-    if (-not $tarExe) { throw "tar недоступен" }
-    Write-Host "      → Скачивание готового пакета..." -ForegroundColor Cyan
-    Invoke-WebRequest -Uri $distUrl -OutFile $tarPath -TimeoutSec 60
-    if (-not (Test-Path $tarPath) -or (Get-Item $tarPath).Length -lt 1000) { throw "файл пакета поврежден или не найден" }
-    if (-not (Test-Path $installDir)) {
-        New-Item -ItemType Directory -Path $installDir -Force | Out-Null
-    } else {
-        Get-ChildItem -Path $installDir -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+function Move-MompStagedInstall {
+    param([string]$Source, [string]$Destination)
+    $sourcePath = [IO.Path]::GetFullPath($Source)
+    $destinationPath = [IO.Path]::GetFullPath($Destination)
+    if ((Split-Path -Parent $sourcePath) -ne (Split-Path -Parent $destinationPath) -or -not (Split-Path -Leaf $sourcePath).StartsWith((Split-Path -Leaf $destinationPath) + '.stage-')) {
+        throw 'Небезопасный каталог установки'
     }
-    Write-Host "      → Распаковка..." -ForegroundColor Cyan
-    tar -xzf $tarPath -C $installDir
-    Remove-Item -Force $tarPath -ErrorAction SilentlyContinue
-    if (-not (Test-Path "$installDir\.next")) { throw "в архиве нет .next" }
-    $prebuilt = $true
-} catch {
-    Write-Host "      Сборка из исходников ($($_.Exception.Message))..." -ForegroundColor DarkGray
-    Remove-Item -Force $tarPath -ErrorAction SilentlyContinue
-}
-
-if ($prebuilt) {
-    # 3a. Быстрый путь: только production-зависимости, без сборки
-    Push-Location $installDir
-    Write-Host "[3/3] Установка зависимостей (production)..." -ForegroundColor Yellow
+    foreach ($path in @($sourcePath, $destinationPath)) {
+        if ((Test-Path -LiteralPath $path) -and ((Get-Item -LiteralPath $path -Force).Attributes -band [IO.FileAttributes]::ReparsePoint)) { throw 'Каталог установки не должен быть ссылкой' }
+    }
+    Assert-MompInstallPayload -Directory $sourcePath -Dependencies
+    $backup = $null
+    if (Test-Path -LiteralPath $destinationPath) {
+        $backup = $destinationPath + '.backup-' + [guid]::NewGuid().ToString('N')
+        Move-Item -LiteralPath $destinationPath -Destination $backup
+    }
     try {
-        & bun install --production --frozen-lockfile
+        Move-Item -LiteralPath $sourcePath -Destination $destinationPath
     } catch {
-        & bun install --production
+        if ($backup -and -not (Test-Path -LiteralPath $destinationPath)) { Move-Item -LiteralPath $backup -Destination $destinationPath }
+        throw
     }
-    Pop-Location
-} else {
-    # 3b. Откат: загрузка исходного кода и полная сборка
-    Write-Host "      Загрузка исходного кода в $installDir..." -ForegroundColor Yellow
-    $gitInstalled = (Get-Command git -ErrorAction SilentlyContinue)
-    if ($gitInstalled) {
-        if (Test-Path "$installDir\.git") {
-            Push-Location $installDir
-            try { git pull --ff-only } catch { Write-Host "      Не удалось обновить git, продолжаем..." -ForegroundColor DarkGray }
-            Pop-Location
-        } else {
-            if (Test-Path $installDir) { Remove-Item -Recurse -Force $installDir }
-            git clone --depth 1 "https://github.com/$repo.git" $installDir
-        }
-    } else {
-        $zipUrl = "https://github.com/$repo/archive/refs/heads/main.zip"
-        $zipPath = "$env:TEMP\momp-main.zip"
-        $extractPath = "$env:TEMP\momp-extract"
-        Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath
-        if (Test-Path $extractPath) { Remove-Item -Recurse -Force $extractPath }
-        Expand-Archive -Path $zipPath -DestinationPath $extractPath -Force
-        if (Test-Path $installDir) { Remove-Item -Recurse -Force $installDir }
-        Move-Item -Path "$extractPath\momp-main" -Destination $installDir -Force
-        Remove-Item -Recurse -Force $extractPath -ErrorAction SilentlyContinue
-        Remove-Item -Force $zipPath -ErrorAction SilentlyContinue
-    }
-
-    Push-Location $installDir
-    Write-Host "[3/3] Установка зависимостей и сборка проекта..." -ForegroundColor Yellow
-    Write-Host "      → Установка пакетов (Bun)..." -ForegroundColor Cyan
-    try { & bun install --frozen-lockfile } catch { & bun install }
-    $env:OMP_WEB_FAST_BUILD = "1"
-    & bun run build
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "Ошибка при сборке проекта." -ForegroundColor Red
-        Pop-Location
-        Exit 1
-    }
-    Pop-Location
+    return $backup
 }
 
-# 4. Регистрация глобальной команды `momp`
-Write-Host "Настройка команды 'momp' в системе..." -ForegroundColor Yellow
-
-$cmdDir = "$installDir\cmd"
-if (-not (Test-Path $cmdDir)) {
-    New-Item -ItemType Directory -Path $cmdDir -Force | Out-Null
-}
-
-$mompCmdContent = @"
+function Write-MompLaunchers {
+    param([string]$Directory, [string]$BunExecutable)
+    if (-not [IO.Path]::IsPathRooted($BunExecutable) -or -not (Test-Path -LiteralPath $BunExecutable -PathType Leaf)) { throw 'Bun executable must be an existing absolute path' }
+    $bunPath = [IO.Path]::GetFullPath($BunExecutable)
+    [IO.Directory]::CreateDirectory($Directory) | Out-Null
+    $cmd = @'
 @echo off
-setlocal
-set "BUN_BIN=%USERPROFILE%\.bun\bin\bun.exe"
-if exist "%BUN_BIN%" (
-    "%BUN_BIN%" --bun "%~dp0..\bin\omp-web.js" %*
-) else (
-    bun --bun "%~dp0..\bin\omp-web.js" %*
-)
-"@
-
-$mompPs1Content = @"
-`$bunBin = if (Test-Path "`$HOME\.bun\bin\bun.exe") { "`$HOME\.bun\bin\bun.exe" } else { "bun" }
-& `$bunBin --bun "`$PSScriptRoot\..\bin\omp-web.js" @args
-"@
-
-Set-Content -Path "$cmdDir\momp.cmd" -Value $mompCmdContent -Encoding ASCII
-Set-Content -Path "$cmdDir\momp.ps1" -Value $mompPs1Content -Encoding UTF8
-
-# Добавление в системный PATH пользователя
-$userPath = [Environment]::GetEnvironmentVariable("Path", "User")
-if ($userPath -notlike "*$cmdDir*") {
-    $newPath = if ($userPath) { "$userPath;$cmdDir" } else { $cmdDir }
-    [Environment]::SetEnvironmentVariable("Path", $newPath, "User")
-}
-if ($env:PATH -notlike "*$cmdDir*") {
-    $env:PATH = "$cmdDir;$env:PATH"
+setlocal DisableDelayedExpansion
+chcp 65001 >nul
+set "BUN_BIN=__MOMP_BUN_PATH__"
+"%BUN_BIN%" --bun "%~dp0..\bin\omp-web.js" %*
+'@
+    $launcher = @'
+$bunBin = '__MOMP_BUN_PATH__'
+& $bunBin --bun "$PSScriptRoot\..\bin\omp-web.js" @args
+exit $LASTEXITCODE
+'@
+    [IO.File]::WriteAllText((Join-Path $Directory 'momp.cmd'), $cmd.Replace('__MOMP_BUN_PATH__', $bunPath.Replace('%', '%%')), (New-Object Text.UTF8Encoding($false)))
+    [IO.File]::WriteAllText((Join-Path $Directory 'momp.ps1'), $launcher.Replace('__MOMP_BUN_PATH__', $bunPath.Replace("'", "''")), (New-Object Text.UTF8Encoding($true)))
 }
 
-Write-Host ""
-Write-Host "==========================================" -ForegroundColor Green
-Write-Host "       momp max успешно установлен!       " -ForegroundColor Green
-Write-Host "==========================================" -ForegroundColor Green
-Write-Host ""
-Write-Host "Теперь вы можете запускать его из любого терминала командой:" -ForegroundColor Cyan
-Write-Host "   momp" -ForegroundColor Yellow
-Write-Host ""
+function Install-MompPayload {
+    $installDir = [IO.Path]::GetFullPath((Join-Path $HOME '.momp-app'))
+    $staging = $installDir + '.stage-' + [guid]::NewGuid().ToString('N')
+    $archive = Join-Path $staging 'momp-web-dist.tar.gz'
+    Write-Host 'Установка momp из проверенного GitHub Release' -ForegroundColor Cyan
+
+    if (-not (Get-Command bun -ErrorAction SilentlyContinue)) {
+        if (Test-Path -LiteralPath (Join-Path $HOME '.bun/bin/bun.exe')) {
+            $env:PATH = (Join-Path $HOME '.bun/bin') + ';' + $env:PATH
+        } else {
+            Invoke-RestMethod -Uri 'https://bun.sh/install.ps1' | Invoke-Expression
+            $env:PATH = (Join-Path $HOME '.bun/bin') + ';' + $env:PATH
+        }
+    }
+    $bun = (Get-Command bun -CommandType Application -ErrorAction Stop).Source
+    $tar = (Get-Command tar -ErrorAction Stop).Source
+    $release = Invoke-RestMethod -Uri 'https://api.github.com/repos/domovoyproj/momp/releases/latest' -Headers @{ 'User-Agent' = 'momp-installer' } -TimeoutSec 60
+    $asset = Get-MompReleaseAsset $release
+    New-Item -ItemType Directory -Path $staging | Out-Null
+    try {
+        Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $archive -UseBasicParsing -TimeoutSec 300
+        Assert-MompDownloadedAsset -Path $archive -Asset $asset
+        $entries = & $tar -tzf $archive
+        if ($LASTEXITCODE -ne 0) { throw 'Архив не читается' }
+        foreach ($entry in $entries) {
+            $normalized = $entry.Replace('\', '/')
+            if ($normalized.StartsWith('/') -or $normalized.Contains(':') -or $normalized.Split('/') -contains '..') { throw 'Небезопасный путь в архиве' }
+        }
+        Invoke-MompNative $tar @('-xzf', $archive, '-C', $staging)
+        Remove-Item -LiteralPath $archive
+        Assert-MompInstallPayload -Directory $staging
+        Push-Location $staging
+        try { Invoke-MompNative $bun @('install', '--production', '--frozen-lockfile') } finally { Pop-Location }
+        Assert-MompInstallPayload -Directory $staging -Dependencies
+        Write-MompLaunchers -Directory (Join-Path $staging 'cmd') -BunExecutable $bun
+        $backup = Move-MompStagedInstall -Source $staging -Destination $installDir
+        $commandPath = Join-Path $installDir 'cmd'
+        $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+        if (@($userPath -split ';') -notcontains $commandPath) {
+            [Environment]::SetEnvironmentVariable('Path', (@($userPath, $commandPath) | Where-Object { $_ }) -join ';', 'User')
+        }
+        if (@($env:PATH -split ';') -notcontains $commandPath) { $env:PATH = $commandPath + ';' + $env:PATH }
+        Write-Host "momp $($release.tag_name) установлен. Команда запуска: momp" -ForegroundColor Green
+        if ($backup) { Write-Host "Предыдущая установка сохранена: $backup" }
+    } finally {
+        $resolved = [IO.Path]::GetFullPath($staging)
+        if ($resolved -eq $staging -and (Split-Path -Parent $resolved) -eq (Split-Path -Parent $installDir) -and (Split-Path -Leaf $resolved) -match '^\.momp-app\.stage-[a-f0-9]{32}$' -and (Test-Path -LiteralPath $resolved)) {
+            Remove-Item -LiteralPath $resolved -Recurse -Force
+        }
+    }
+}
+
+function Install-Momp {
+    $lockPath = Join-Path $HOME '.momp-install.lock'
+    $lock = [IO.File]::Open($lockPath, [IO.FileMode]::OpenOrCreate, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None)
+    try { Install-MompPayload } finally { $lock.Dispose() }
+}
+
+if ($MyInvocation.InvocationName -ne '.') { Install-Momp }

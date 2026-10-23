@@ -798,7 +798,7 @@ export function FileViewer({ filePath, cwd, sourceSessionId, onOpenFile, onMenti
   if (isDocumentPreviewPath(filePath)) {
     return <DocumentViewer filePath={filePath} cwd={cwd} sourceSessionId={sourceSessionId} />;
   }
-  return <TextFileViewer filePath={filePath} cwd={cwd} sourceSessionId={sourceSessionId} onOpenFile={onOpenFile} onMentionLines={onMentionLines} onAtMention={onAtMention} gitRefreshKey={gitRefreshKey} initialDisplayMode={initialDisplayMode} />;
+  return <TextFileViewer key={JSON.stringify([filePath, sourceSessionId, cwd])} filePath={filePath} cwd={cwd} sourceSessionId={sourceSessionId} onOpenFile={onOpenFile} onMentionLines={onMentionLines} onAtMention={onAtMention} gitRefreshKey={gitRefreshKey} initialDisplayMode={initialDisplayMode} />;
 }
 
 function TextFileViewer({ filePath, cwd, sourceSessionId, onOpenFile, onMentionLines, onAtMention, gitRefreshKey, initialDisplayMode }: Props) {
@@ -819,16 +819,25 @@ function TextFileViewer({ filePath, cwd, sourceSessionId, onOpenFile, onMentionL
   const [editContent, setEditContent] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saved" | "error">("idle");
+  const activeRef = useRef(true);
+  const savingRef = useRef(false);
+  const contentRequestRef = useRef(0);
+  const loadedContentRef = useRef<string | null>(null);
   const isDirty = data !== null && editContent !== data.content;
 
   useEffect(() => {
-    if (data?.content !== undefined) {
-      setEditContent(data.content);
-    }
-  }, [data?.content]);
+    activeRef.current = true;
+    return () => {
+      activeRef.current = false;
+      contentRequestRef.current += 1;
+      gitDiffRequestRef.current += 1;
+    };
+  }, []);
 
   const handleSave = useCallback(async () => {
-    if (saving) return;
+    if (savingRef.current || !activeRef.current) return;
+    savingRef.current = true;
+    contentRequestRef.current += 1;
     setSaving(true);
     setSaveStatus("idle");
     try {
@@ -839,19 +848,22 @@ function TextFileViewer({ filePath, cwd, sourceSessionId, onOpenFile, onMentionL
         body: JSON.stringify({ content: editContent }),
       });
       const result = (await res.json()) as { ok?: boolean; size?: number; error?: string };
+      if (!activeRef.current) return;
       if (!res.ok || result.error) {
         setSaveStatus("error");
       } else {
         setSaveStatus("saved");
+        loadedContentRef.current = editContent;
         setData((prev) => (prev ? { ...prev, content: editContent, size: result.size ?? editContent.length } : null));
-        setTimeout(() => setSaveStatus("idle"), 2500);
+        setTimeout(() => { if (activeRef.current) setSaveStatus("idle"); }, 2500);
       }
     } catch {
-      setSaveStatus("error");
+      if (activeRef.current) setSaveStatus("error");
     } finally {
-      setSaving(false);
+      savingRef.current = false;
+      if (activeRef.current) setSaving(false);
     }
-  }, [editContent, filePath, saving]);
+  }, [editContent, filePath]);
 
   useEffect(() => {
     if (displayMode !== "edit") return;
@@ -867,19 +879,28 @@ function TextFileViewer({ filePath, cwd, sourceSessionId, onOpenFile, onMentionL
 
 
   const fetchContent = useCallback((filePath: string) => {
+    if (savingRef.current || !activeRef.current) return Promise.resolve(null);
+    const requestId = ++contentRequestRef.current;
     return fetch(getFileApiUrl(filePath, "read", sourceSessionId))
-      .then((r) => r.json())
+      .then((response) => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.json();
+      })
       .then((d: FileData & { error?: string }) => {
+        if (!activeRef.current || requestId !== contentRequestRef.current) return null;
         if (d.error) {
           setError(d.error);
           return null;
         }
         setError(null);
+        const previousContent = loadedContentRef.current;
+        loadedContentRef.current = d.content;
+        setEditContent((current) => previousContent === null || current === previousContent ? d.content : current);
         setData(d);
         return d;
       })
       .catch((e) => {
-        setError(String(e));
+        if (activeRef.current && requestId === contentRequestRef.current) setError(String(e));
         return null;
       });
   }, [sourceSessionId]);
@@ -921,7 +942,7 @@ function TextFileViewer({ filePath, cwd, sourceSessionId, onOpenFile, onMentionL
       esRef.current = null;
     }
 
-    fetchContent(filePath).finally(() => setLoading(false));
+    fetchContent(filePath).finally(() => { if (activeRef.current) setLoading(false); });
 
     // Set up SSE watch
     const es = new EventSource(getFileApiUrl(filePath, "watch", sourceSessionId));
@@ -1189,7 +1210,7 @@ function TextFileViewer({ filePath, cwd, sourceSessionId, onOpenFile, onMentionL
                     background: isDirty ? "var(--accent)" : "var(--bg-panel)",
                     border: "1px solid var(--border)",
                     borderRadius: 4,
-                    color: isDirty ? "#fff" : "var(--text-dim)",
+                    color: isDirty ? "var(--bg)" : "var(--text-dim)",
                     cursor: isDirty && !saving ? "pointer" : "default",
                     fontSize: 11,
                     fontWeight: 500,

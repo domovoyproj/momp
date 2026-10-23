@@ -1,0 +1,505 @@
+# Покрытие ревью исходного кода — 24 октября 2026
+
+Это проверяемый перечень области аудита, а не обещание отсутствия ошибок. Находки, исправления и оставшиеся риски: [основной отчёт](code-audit-2026-10-24.md).
+
+В зафиксированном дереве 547 tracked/non-ignored untracked файлов, включая этот документ. Перечень ниже включает 452 файла собственного кода, тестов, конфигурации и отдельно обозначенных данных/ресурсов; сам отчёт в этот перечень не включён. Для исполняемого кода и конфигурации вне перечисленных исключений пробелов в распределённом ревью не осталось. Это не означает, что все 547 файлов проверены одинаковым способом.
+
+## Методы и обозначения
+
+- `source` — чтение реализации, ветвлений и обработчиков вместе с тестами. Для больших JSX отдельно просмотрена логика, затем CSS и значимые inline styles; каждый SVG path и каждый style literal не выдаются за построчную визуальную проверку.
+- `structured-data` — структура конфигурации/схемы и связь с кодом. Четыре словаря i18n проверены по полной AST на структуру, ключи/интерполяции; исполняемые функции прочитаны вручную. Лингвистическая корректность каждой строки не сертифицирована.
+- `svg-scan` — успешный XML-разбор и поиск активного содержимого/внешних ссылок; не оценка каждой линии геометрии.
+- `signature-only` — проверка сигнатуры формата бинарного изображения; не визуальное сравнение и не доказательство корректности каждого пикселя.
+- `dependency-metadata` — анализ деклараций, версий, диапазонов/override, advisory-результатов и соответствия сборочным путям; не ручное чтение всего содержимого машинных lockfile или исходников зависимостей.
+- `reference` — прочитанные проектные инструкции/документация происхождения и лицензий, не исполняемый код.
+
+Ревью разделено между Frontend, Core (RPC/модели/данные), Backend (API/безопасность) и Integration (CLI/native/build/release). Списки первых трёх объединены с явным подтверждением полного чтения Integration для его области. Повторные имена означают независимую/межмодульную проверку, а не отдельное количество файлов. Graphify помогал найти связи, затем проверялись реальные импорты/вызовы; отсутствующий пригодный индекс GitNexus не заменялся предположением о полном графе.
+
+| Метод | Файлов |
+| --- | ---: |
+| source | 363 |
+| structured-data | 13 |
+| reference | 3 |
+| signature-only | 4 |
+| dependency-metadata | 4 |
+| svg-scan | 65 |
+
+## Границы проверки
+
+- `node_modules`, сгенерированные Next/Tauri bundles/target/gen/server/resources, OS/runtime и внешние сервисы не подвергались полному построчному аудиту. Отдельные SDK/API-контракты и метаданные проверялись адресно.
+- `.agents/skills/**` — сторонние проектные инструкции и ссылки; происхождение, лицензии и инструкции проверялись при выборе, но они не считаются собственным runtime-кодом и не включаются в приложение.
+- `src-tauri/icons/**` — сгенерированные desktop/mobile assets: полного визуального аудита нет. Документы, скриншоты, README/LICENSE вне явно перечисленных reference-файлов не включены в утверждение о полном source-review.
+- Приватные рабочие инструкции, локальные артефакты проверки, Git и индексатор не публикуются и не являются shipping payload.
+- Source-review не равен успешному browser/E2E или тестированию пользовательских аккаунтов. Реальные GPT/Gemini запросы не выполнялись в этих синтетических регрессиях.
+- Новый `runtime_extraction.rs`, включая восемь тестов, прочитан; локально прошли форматирование и rustc metadata typecheck без линковки. Выполнение native-тестов, Windows build и smoke настоящего EXE остаются обязательными CI-барьерами: отсутствие локального MSVC не выдаётся за успешный запуск.
+- Статический просмотр payload allowlist не равен исследованию готового EXE. Полный production build, actual Mermaid rendering и проверка опубликованного артефакта — отдельные этапы.
+
+## API — 59
+
+- `app/api/agent/[id]/bash-output/route.ts` — source; Backend
+- `app/api/agent/[id]/events/route.ts` — source; Backend
+- `app/api/agent/[id]/route.ts` — source; Backend
+- `app/api/agent/events-route.test.mjs` — source; Backend
+- `app/api/agent/new/route.ts` — source; Core + Backend
+- `app/api/agent/running/events/route.ts` — source; Backend
+- `app/api/agent/running/route.ts` — source; Backend
+- `app/api/auth/all-providers/route.ts` — source; Backend
+- `app/api/auth/api-key/[provider]/route.ts` — source; Backend
+- `app/api/auth/login/[provider]/route.ts` — source; Backend
+- `app/api/auth/logout/[provider]/route.ts` — source; Backend
+- `app/api/auth/providers/route.ts` — source; Backend
+- `app/api/cwd/browse/route.ts` — source; Backend
+- `app/api/cwd/delete/route.test.mjs` — source; Backend
+- `app/api/cwd/delete/route.ts` — source; Backend
+- `app/api/cwd/mkdir/route.ts` — source; Backend
+- `app/api/cwd/validate/route.ts` — source; Backend
+- `app/api/default-cwd/route.ts` — source; Backend
+- `app/api/display-settings/route.ts` — source; Backend
+- `app/api/file-index/route.ts` — source; Backend
+- `app/api/files/[...path]/route.ts` — source; Backend
+- `app/api/files/file-security.test.mjs` — source; Backend
+- `app/api/git/diff/route.ts` — source; Backend
+- `app/api/git/status/route.ts` — source; Backend
+- `app/api/github/route.ts` — source; Backend
+- `app/api/home/route.ts` — source; Backend
+- `app/api/mcp/route.ts` — source; Backend
+- `app/api/model-roles/route.test.mjs` — source; Backend
+- `app/api/model-roles/route.ts` — source; Backend
+- `app/api/models-config/catalog/route.ts` — source; Backend
+- `app/api/models-config/discover/route.ts` — source; Backend
+- `app/api/models-config/limits/route.ts` — source; Backend
+- `app/api/models-config/local-discovery/route.test.mjs` — source; Backend
+- `app/api/models-config/local-discovery/route.ts` — source; Backend
+- `app/api/models-config/route.ts` — source; Backend
+- `app/api/models-config/test/route.ts` — source; Backend
+- `app/api/models/route.ts` — source; Backend
+- `app/api/plugins/route.ts` — source; Backend
+- `app/api/project-trust/route.ts` — source; Backend
+- `app/api/sessions/[id]/auto-name/route.ts` — source; Backend
+- `app/api/sessions/[id]/context/route.ts` — source; Backend
+- `app/api/sessions/[id]/entries/[entryId]/thinking/route.ts` — source; Backend
+- `app/api/sessions/[id]/export/route.ts` — source; Backend
+- `app/api/sessions/[id]/route.ts` — source; Backend
+- `app/api/sessions/[id]/state/route.ts` — source; Backend
+- `app/api/sessions/route.ts` — source; Backend
+- `app/api/sessions/runtime-route.test.mjs` — source; Backend
+- `app/api/settings/route.ts` — source; Backend
+- `app/api/skills/check/route.ts` — source; Backend
+- `app/api/skills/install/route.ts` — source; Backend
+- `app/api/skills/route.ts` — source; Backend
+- `app/api/skills/search/route.ts` — source; Backend
+- `app/api/skills/update/route.ts` — source; Backend
+- `app/api/theme/route.ts` — source; Backend
+- `app/api/updates/route.test.mjs` — source; Backend
+- `app/api/updates/route.ts` — source; Backend
+- `app/api/web-access/recovery/route.ts` — source; Backend
+- `app/api/web-access/route.ts` — source; Backend
+- `app/api/worktrees/route.ts` — source; Backend
+
+## Интерфейс, страницы и hooks — 89
+
+- `app/favicon.ico` — signature-only; Frontend
+- `app/global-error.tsx` — source; Frontend
+- `app/globals.css` — source; Frontend
+- `app/layout.tsx` — source; Frontend
+- `app/manifest.ts` — source; Frontend
+- `app/page.tsx` — source; Frontend
+- `app/recover/page.tsx` — source; Frontend
+- `app/recover/recover.module.css` — source; Frontend
+- `app/workspace.css` — source; Frontend
+- `components/AccessConfig.tsx` — source; Frontend
+- `components/AppShell.auto-name.test.mjs` — source; Frontend
+- `components/AppShell.chat-tabs.test.mjs` — source; Frontend
+- `components/AppShell.tsx` — source; Frontend
+- `components/AppShell.workspace-memory.test.mjs` — source; Frontend
+- `components/BranchNavigator.test.mjs` — source; Frontend
+- `components/BranchNavigator.tsx` — source; Frontend
+- `components/ChatInput.dormancy.test.mjs` — source; Frontend
+- `components/ChatInput.test.mjs` — source; Frontend
+- `components/ChatInput.tsx` — source; Frontend
+- `components/ChatWindow.process-details.test.mjs` — source; Frontend
+- `components/ChatWindow.tsx` — source; Frontend
+- `components/Config.regressions.test.mjs` — source; Frontend
+- `components/Controls.accessibility.test.mjs` — source; Frontend
+- `components/DesktopTitlebar.tsx` — source; Frontend
+- `components/DirectoryPicker.tsx` — source; Frontend
+- `components/ExtensionStatusBar.test.mjs` — source; Frontend
+- `components/ExtensionStatusBar.tsx` — source; Frontend
+- `components/FileExplorer.tsx` — source; Frontend
+- `components/FileExplorer.upload.test.mjs` — source; Frontend
+- `components/FileIcons.tsx` — source; Frontend
+- `components/FileViewer.test.mjs` — source; Frontend
+- `components/FileViewer.tsx` — source; Frontend
+- `components/FrontmatterCard.tsx` — source; Frontend
+- `components/GitHubRepository.tsx` — source; Frontend
+- `components/LimitsModal.test.mjs` — source; Frontend
+- `components/LimitsModal.tsx` — source; Frontend
+- `components/MarkdownBody.test.mjs` — source; Frontend
+- `components/MarkdownBody.tsx` — source; Frontend
+- `components/MermaidBlock.test.mjs` — source; Frontend
+- `components/MermaidBlock.tsx` — source; Frontend
+- `components/MessageView.test.mjs` — source; Frontend
+- `components/MessageView.tsx` — source; Frontend
+- `components/MobilePwaLayout.test.mjs` — source; Frontend
+- `components/ModelRolePresets.tsx` — source; Frontend
+- `components/ModelRolesPanel.tsx` — source; Frontend
+- `components/ModelsConfig.test.mjs` — source; Frontend
+- `components/ModelsConfig.tsx` — source; Frontend
+- `components/OmpUpdateIndicator.tsx` — source; Frontend
+- `components/OmpWordmark.tsx` — source; Frontend
+- `components/PluginsConfig.tsx` — source; Frontend
+- `components/ProjectTrustDialog.tsx` — source; Frontend
+- `components/PwaRegistration.tsx` — source; Frontend
+- `components/SearchableSelect.module.css` — source; Frontend
+- `components/SearchableSelect.placement.test.mjs` — source; Frontend
+- `components/SearchableSelect.tsx` — source; Frontend
+- `components/SessionSidebar.test.mjs` — source; Frontend
+- `components/SessionSidebar.tsx` — source; Frontend
+- `components/SettingsConfig.accessibility.test.mjs` — source; Frontend
+- `components/SettingsConfig.module.css` — source; Frontend
+- `components/SettingsConfig.tsx` — source; Frontend
+- `components/SkillsConfig.tsx` — source; Frontend
+- `components/SubagentPanel.test.mjs` — source; Frontend
+- `components/SubagentPanel.tsx` — source; Frontend
+- `components/TabBar.tsx` — source; Frontend
+- `components/TurnWrittenFiles.test.mjs` — source; Frontend
+- `components/TurnWrittenFiles.tsx` — source; Frontend
+- `components/WelcomeScreen.tsx` — source; Frontend
+- `components/WorkspaceIcon.tsx` — source; Frontend
+- `components/models-config-helpers.ts` — source; Frontend
+- `components/source-test-helpers.mjs` — source; Frontend
+- `hooks/model-scope-startup.test.mjs` — source; Core
+- `hooks/model-switching.test.mjs` — source; Core
+- `hooks/useAgentSession.lifecycle.test.mjs` — source; Core
+- `hooks/useAgentSession.test.mjs` — source; Core
+- `hooks/useAgentSession.ts` — source; Core
+- `hooks/useAudio.ts` — source; Frontend
+- `hooks/useDisplaySettings.test.mjs` — source; Frontend
+- `hooks/useDisplaySettings.ts` — source; Frontend
+- `hooks/useDragDrop.ts` — source; Frontend
+- `hooks/useI18n.tsx` — source; Frontend
+- `hooks/useIsMobile.ts` — source; Frontend
+- `hooks/useKeyboardShortcuts.test.mjs` — source; Frontend
+- `hooks/useKeyboardShortcuts.ts` — source; Frontend
+- `hooks/usePopupPlacement.ts` — source; Frontend
+- `hooks/useResizablePanel.ts` — source; Frontend
+- `hooks/useTheme.test.mjs` — source; Frontend
+- `hooks/useTheme.ts` — source; Frontend
+- `hooks/useViewportHeight.test.mjs` — source; Frontend
+- `hooks/useViewportHeight.ts` — source; Frontend
+
+## Библиотеки и данные — 176
+
+- `lib/agent-client.test.mjs` — source; Core
+- `lib/agent-client.ts` — source; Core
+- `lib/allowed-roots.ts` — source; Backend
+- `lib/ansi.test.mjs` — source; Core
+- `lib/ansi.ts` — source; Core
+- `lib/api-types.ts` — source; Core
+- `lib/atomic-file.test.mjs` — source; Backend
+- `lib/atomic-file.ts` — source; Backend
+- `lib/bash-output.test.mjs` — source; Backend
+- `lib/bash-output.ts` — source; Backend
+- `lib/bounded-form-data.test.mjs` — source; Backend
+- `lib/bounded-form-data.ts` — source; Backend
+- `lib/browser-notifications.test.mjs` — source; Core
+- `lib/browser-notifications.ts` — source; Core
+- `lib/chat-lazy-load.test.mjs` — source; Core
+- `lib/chat-lazy-load.ts` — source; Core
+- `lib/clipboard.ts` — source; Core
+- `lib/compaction-summary.test.mjs` — source; Core
+- `lib/compaction-summary.ts` — source; Core
+- `lib/compatible-skills.ts` — source; Backend
+- `lib/custom-ui-terminal.test.mjs` — source; Core
+- `lib/custom-ui-terminal.ts` — source; Core
+- `lib/directory-browser.test.mjs` — source; Backend
+- `lib/directory-browser.ts` — source; Backend
+- `lib/draft-store.ts` — source; Core
+- `lib/featured-providers.ts` — source; Core
+- `lib/file-access.test.mjs` — source; Backend
+- `lib/file-access.ts` — source; Backend
+- `lib/file-dirent.test.mjs` — source; Backend
+- `lib/file-dirent.ts` — source; Backend
+- `lib/file-explorer-state.test.mjs` — source; Core
+- `lib/file-explorer-state.ts` — source; Core
+- `lib/file-fuzzy.test.mjs` — source; Core
+- `lib/file-fuzzy.ts` — source; Core
+- `lib/file-links.test.mjs` — source; Core
+- `lib/file-links.ts` — source; Core
+- `lib/file-paths.ts` — source; Backend
+- `lib/file-types.test.mjs` — source; Core
+- `lib/file-types.ts` — source; Core
+- `lib/file-upload.test.mjs` — source; Backend
+- `lib/file-upload.ts` — source; Backend
+- `lib/format-tokens.ts` — source; Core
+- `lib/frontmatter.test.mjs` — source; Core
+- `lib/frontmatter.ts` — source; Core
+- `lib/git-changes.test.mjs` — source; Core
+- `lib/git-changes.ts` — source; Core
+- `lib/git-status.ts` — source; Backend
+- `lib/git-types.ts` — source; Core
+- `lib/github-repository.test.mjs` — source; Backend
+- `lib/github-repository.ts` — source; Backend
+- `lib/goal-mode.test.mjs` — source; Core
+- `lib/goal-mode.ts` — source; Core
+- `lib/goal-mode.wiring.test.mjs` — source; Core
+- `lib/http-dispatcher.test.mjs` — source; Core
+- `lib/http-dispatcher.ts` — source; Core
+- `lib/i18n/format.test.mjs` — source; Core
+- `lib/i18n/format.ts` — source; Core
+- `lib/i18n/messages/en.ts` — structured-data; Core
+- `lib/i18n/messages/ru.ts` — structured-data; Core
+- `lib/i18n/messages/zh-CN.ts` — structured-data; Core
+- `lib/i18n/registry.test.mjs` — source; Core
+- `lib/i18n/registry.ts` — source; Core
+- `lib/i18n/settings-translations.ts` — structured-data; Core
+- `lib/i18n/types.ts` — source; Core
+- `lib/image-attachments.test.mjs` — source; Core
+- `lib/image-attachments.ts` — source; Core
+- `lib/initial-navigation.test.mjs` — source; Core
+- `lib/initial-navigation.ts` — source; Core
+- `lib/limits-checker.ts` — source; Core
+- `lib/loopback-proxy.test.mjs` — source; Core
+- `lib/loopback-proxy.ts` — source; Core
+- `lib/markdown-runtime.test.mjs` — source; Integration
+- `lib/markdown.test.mjs` — source; Core
+- `lib/markdown.ts` — source; Core
+- `lib/message-display.test.mjs` — source; Core
+- `lib/message-display.ts` — source; Core
+- `lib/model-catalog.test.mjs` — source; Core
+- `lib/model-catalog.ts` — source; Core
+- `lib/model-discovery-auth.ts` — source; Core
+- `lib/model-discovery.test.mjs` — source; Core
+- `lib/model-discovery.ts` — source; Core
+- `lib/model-role-presets.test.mjs` — source; Core
+- `lib/model-role-presets.ts` — source; Core
+- `lib/model-role-selection.test.mjs` — source; Core
+- `lib/model-role-selection.ts` — source; Core
+- `lib/model-roles.test.mjs` — source; Core
+- `lib/model-roles.ts` — source; Core
+- `lib/model-scope.test.mjs` — source; Core
+- `lib/model-scope.ts` — source; Core
+- `lib/models-cache.test.mjs` — source; Core
+- `lib/models-cache.ts` — source; Core
+- `lib/models-config.ts` — source; Backend
+- `lib/normalize.ts` — source; Core
+- `lib/npx.test.mjs` — source; Core
+- `lib/npx.ts` — source; Core
+- `lib/omp-runtime.ts` — source; Core
+- `lib/omp-settings-schema.ts` — source; Core
+- `lib/omp-theme.ts` — source; Core
+- `lib/omp-types.ts` — source; Core
+- `lib/omp-updates.test.mjs` — source; Core
+- `lib/omp-updates.ts` — source; Core
+- `lib/omp-web-options.test.mjs` — source; Core
+- `lib/open-external.ts` — source; Core
+- `lib/panel-layout.test.mjs` — source; Core
+- `lib/panel-layout.ts` — source; Core
+- `lib/patch.test.mjs` — source; Core
+- `lib/patch.ts` — source; Core
+- `lib/path-security.ts` — source; Backend
+- `lib/popup-placement.test.mjs` — source; Core
+- `lib/popup-placement.ts` — source; Core
+- `lib/project-tree.test.mjs` — source; Core
+- `lib/project-tree.ts` — source; Core
+- `lib/project-trust.test.mjs` — source; Backend
+- `lib/project-trust.ts` — source; Backend
+- `lib/provider-api-key-route.test.mjs` — source; Core
+- `lib/provider-auth-methods.test.mjs` — source; Core
+- `lib/provider-auth-methods.ts` — source; Core
+- `lib/provider-errors.test.mjs` — source; Core
+- `lib/provider-errors.ts` — source; Core
+- `lib/provider-listing-runtime.ts` — source; Core
+- `lib/provider-listing.test.mjs` — source; Core
+- `lib/provider-listing.ts` — source; Core
+- `lib/request-security.test.mjs` — source; Backend
+- `lib/request-security.ts` — source; Backend
+- `lib/rpc-manager-set-model.test.mjs` — source; Core
+- `lib/rpc-manager-shutdown.test.mjs` — source; Core
+- `lib/rpc-manager.test.mjs` — source; Core
+- `lib/rpc-manager.ts` — source; Core
+- `lib/rpc-session-info.test.mjs` — source; Core
+- `lib/rpc-startup-role.test.mjs` — source; Core
+- `lib/runtime.test.mjs` — source; Core
+- `lib/session-archive.ts` — source; Backend
+- `lib/session-file-references-core.ts` — source; Backend
+- `lib/session-file-references.test.mjs` — source; Backend
+- `lib/session-file-references.ts` — source; Backend
+- `lib/session-path.test.mjs` — source; Backend
+- `lib/session-path.ts` — source; Backend
+- `lib/session-reader.test.mjs` — source; Backend
+- `lib/session-reader.ts` — source; Backend
+- `lib/session-row-context-menu.test.mjs` — source; Core
+- `lib/session-row-context-menu.ts` — source; Core
+- `lib/session-system-prompt.ts` — source; Core
+- `lib/session-timing.test.mjs` — source; Core
+- `lib/session-timing.ts` — source; Core
+- `lib/session-title.test.mjs` — source; Core
+- `lib/session-title.ts` — source; Core
+- `lib/settings-api.ts` — source; Core
+- `lib/skill-compatibility.test.mjs` — source; Backend
+- `lib/skill-compatibility.ts` — source; Backend
+- `lib/skill-frontmatter.test.mjs` — source; Backend
+- `lib/skill-frontmatter.ts` — source; Backend
+- `lib/skill-lock.test.mjs` — source; Backend
+- `lib/skill-lock.ts` — source; Backend
+- `lib/skill-updates.test.mjs` — source; Backend
+- `lib/skill-updates.ts` — source; Backend
+- `lib/skills-service.ts` — source; Backend
+- `lib/slash-command-discovery.test.mjs` — source; Core
+- `lib/slash-display.test.mjs` — source; Core
+- `lib/slash-display.ts` — source; Core
+- `lib/startup-preferences.test.mjs` — source; Core
+- `lib/startup-preferences.ts` — source; Core
+- `lib/terminal-input.test.mjs` — source; Core
+- `lib/terminal-input.ts` — source; Core
+- `lib/tool-names.ts` — source; Core
+- `lib/tool-presets.test.mjs` — source; Core
+- `lib/tool-presets.ts` — source; Core
+- `lib/turn-written-files.test.mjs` — source; Core
+- `lib/turn-written-files.ts` — source; Core
+- `lib/types.ts` — source; Core
+- `lib/web-auth-store.test.mjs` — source; Integration
+- `lib/web-auth.test.mjs` — source; Backend
+- `lib/web-auth.ts` — source; Backend
+- `lib/workspace-memory.test.mjs` — source; Core
+- `lib/workspace-memory.ts` — source; Core
+- `lib/worktree.test.mjs` — source; Backend
+- `lib/worktree.ts` — source; Backend
+
+## CLI, установщики, native и сборка — 38
+
+- `bin/momp-web.js` — source; Integration
+- `bin/momp.js` — source; Integration
+- `bin/omp-web-options.js` — source; Integration
+- `bin/omp-web.js` — source; Integration
+- `bin/password-prompt.js` — source; Integration
+- `bin/runtime.js` — source; Integration
+- `bin/web-auth-store.d.ts` — source; Integration
+- `bin/web-auth-store.js` — source; Integration
+- `install.ps1` — source; Backend + Integration
+- `install.sh` — source; Backend + Integration
+- `scripts/build-desktop.mjs` — source; Core + Integration
+- `scripts/build-desktop.test.mjs` — source; Core + Integration
+- `scripts/build-updater-json.mjs` — source; Integration
+- `scripts/bun-runtime-cache.mjs` — source; Core + Integration
+- `scripts/bun-runtime-cache.test.mjs` — source; Core + Integration
+- `scripts/desktop-platforms.mjs` — source; Integration
+- `scripts/desktop-platforms.test.mjs` — source; Core + Integration
+- `scripts/fetch-bun.mjs` — source; Core + Integration
+- `scripts/generate_neon_m_icons.py` — source; Integration
+- `scripts/runtime-versions.test.mjs` — source; Frontend + Integration
+- `scripts/smoke-desktop.ps1` — source; Integration
+- `scripts/stage-desktop.mjs` — source; Backend + Integration
+- `scripts/sync-version.mjs` — source; Integration
+- `scripts/test-installer.ps1` — source; Backend + Integration
+- `scripts/test-installer.sh` — source; Backend + Integration
+- `scripts/test-update-helper.ps1` — source; Integration
+- `src-tauri/Cargo.lock` — dependency-metadata; Integration
+- `src-tauri/Cargo.toml` — structured-data; Integration
+- `src-tauri/build.rs` — source; Integration
+- `src-tauri/capabilities/default.json` — structured-data; Integration
+- `src-tauri/dist/index.html` — source; Integration
+- `src-tauri/src/main.rs` — source; Integration
+- `src-tauri/src/runtime_extraction.rs` — source; Core
+- `src-tauri/src/update-helper.ps1` — source; Integration
+- `src-tauri/src/updater.rs` — source; Integration
+- `src-tauri/tauri.conf.json` — structured-data; Integration
+- `src-tauri/tauri.macos.conf.json` — structured-data; Integration
+- `src-tauri/tauri.windows.conf.json` — structured-data; Integration
+
+## Корневые конфигурации и workflow — 17
+
+- `.gitattributes` — source; Integration
+- `.github/workflows/publish-dist.yml` — structured-data; Backend + Integration
+- `.gitignore` — source; Integration
+- `AGENTS.md` — reference; Integration
+- `bun.lock` — dependency-metadata; Integration
+- `eslint.config.mjs` — source; Integration
+- `instrumentation.ts` — source; Integration
+- `latest.json` — structured-data; Integration
+- `next.config.js` — source; Integration
+- `package-lock.json` — dependency-metadata; Integration
+- `package.json` — structured-data; Integration
+- `postcss.config.mjs` — source; Integration
+- `proxy.test.mjs` — source; Integration
+- `proxy.ts` — source; Integration
+- `skills-lock.json` — dependency-metadata; Integration
+- `tailwind.config.ts` — source; Integration
+- `tsconfig.json` — structured-data; Integration
+
+## Публичные ресурсы и service worker — 73
+
+- `public/icons/apple-touch-icon.png` — signature-only; Frontend
+- `public/icons/catppuccin/LICENSE` — reference; Frontend
+- `public/icons/catppuccin/README.md` — reference; Frontend
+- `public/icons/catppuccin/latte/_file.svg` — svg-scan; Frontend
+- `public/icons/catppuccin/latte/_folder.svg` — svg-scan; Frontend
+- `public/icons/catppuccin/latte/_folder_open.svg` — svg-scan; Frontend
+- `public/icons/catppuccin/latte/bash.svg` — svg-scan; Frontend
+- `public/icons/catppuccin/latte/bun-lock.svg` — svg-scan; Frontend
+- `public/icons/catppuccin/latte/config.svg` — svg-scan; Frontend
+- `public/icons/catppuccin/latte/css.svg` — svg-scan; Frontend
+- `public/icons/catppuccin/latte/database.svg` — svg-scan; Frontend
+- `public/icons/catppuccin/latte/docker.svg` — svg-scan; Frontend
+- `public/icons/catppuccin/latte/env.svg` — svg-scan; Frontend
+- `public/icons/catppuccin/latte/eslint.svg` — svg-scan; Frontend
+- `public/icons/catppuccin/latte/git.svg` — svg-scan; Frontend
+- `public/icons/catppuccin/latte/go.svg` — svg-scan; Frontend
+- `public/icons/catppuccin/latte/graphql.svg` — svg-scan; Frontend
+- `public/icons/catppuccin/latte/html.svg` — svg-scan; Frontend
+- `public/icons/catppuccin/latte/javascript-react.svg` — svg-scan; Frontend
+- `public/icons/catppuccin/latte/javascript.svg` — svg-scan; Frontend
+- `public/icons/catppuccin/latte/json.svg` — svg-scan; Frontend
+- `public/icons/catppuccin/latte/lock.svg` — svg-scan; Frontend
+- `public/icons/catppuccin/latte/markdown.svg` — svg-scan; Frontend
+- `public/icons/catppuccin/latte/ms-word.svg` — svg-scan; Frontend
+- `public/icons/catppuccin/latte/next.svg` — svg-scan; Frontend
+- `public/icons/catppuccin/latte/npm-lock.svg` — svg-scan; Frontend
+- `public/icons/catppuccin/latte/pdf.svg` — svg-scan; Frontend
+- `public/icons/catppuccin/latte/python.svg` — svg-scan; Frontend
+- `public/icons/catppuccin/latte/rust.svg` — svg-scan; Frontend
+- `public/icons/catppuccin/latte/sass.svg` — svg-scan; Frontend
+- `public/icons/catppuccin/latte/terraform.svg` — svg-scan; Frontend
+- `public/icons/catppuccin/latte/toml.svg` — svg-scan; Frontend
+- `public/icons/catppuccin/latte/typescript-react.svg` — svg-scan; Frontend
+- `public/icons/catppuccin/latte/typescript.svg` — svg-scan; Frontend
+- `public/icons/catppuccin/latte/yaml.svg` — svg-scan; Frontend
+- `public/icons/catppuccin/mocha/_file.svg` — svg-scan; Frontend
+- `public/icons/catppuccin/mocha/_folder.svg` — svg-scan; Frontend
+- `public/icons/catppuccin/mocha/_folder_open.svg` — svg-scan; Frontend
+- `public/icons/catppuccin/mocha/bash.svg` — svg-scan; Frontend
+- `public/icons/catppuccin/mocha/bun-lock.svg` — svg-scan; Frontend
+- `public/icons/catppuccin/mocha/config.svg` — svg-scan; Frontend
+- `public/icons/catppuccin/mocha/css.svg` — svg-scan; Frontend
+- `public/icons/catppuccin/mocha/database.svg` — svg-scan; Frontend
+- `public/icons/catppuccin/mocha/docker.svg` — svg-scan; Frontend
+- `public/icons/catppuccin/mocha/env.svg` — svg-scan; Frontend
+- `public/icons/catppuccin/mocha/eslint.svg` — svg-scan; Frontend
+- `public/icons/catppuccin/mocha/git.svg` — svg-scan; Frontend
+- `public/icons/catppuccin/mocha/go.svg` — svg-scan; Frontend
+- `public/icons/catppuccin/mocha/graphql.svg` — svg-scan; Frontend
+- `public/icons/catppuccin/mocha/html.svg` — svg-scan; Frontend
+- `public/icons/catppuccin/mocha/javascript-react.svg` — svg-scan; Frontend
+- `public/icons/catppuccin/mocha/javascript.svg` — svg-scan; Frontend
+- `public/icons/catppuccin/mocha/json.svg` — svg-scan; Frontend
+- `public/icons/catppuccin/mocha/lock.svg` — svg-scan; Frontend
+- `public/icons/catppuccin/mocha/markdown.svg` — svg-scan; Frontend
+- `public/icons/catppuccin/mocha/ms-word.svg` — svg-scan; Frontend
+- `public/icons/catppuccin/mocha/next.svg` — svg-scan; Frontend
+- `public/icons/catppuccin/mocha/npm-lock.svg` — svg-scan; Frontend
+- `public/icons/catppuccin/mocha/pdf.svg` — svg-scan; Frontend
+- `public/icons/catppuccin/mocha/python.svg` — svg-scan; Frontend
+- `public/icons/catppuccin/mocha/rust.svg` — svg-scan; Frontend
+- `public/icons/catppuccin/mocha/sass.svg` — svg-scan; Frontend
+- `public/icons/catppuccin/mocha/terraform.svg` — svg-scan; Frontend
+- `public/icons/catppuccin/mocha/toml.svg` — svg-scan; Frontend
+- `public/icons/catppuccin/mocha/typescript-react.svg` — svg-scan; Frontend
+- `public/icons/catppuccin/mocha/typescript.svg` — svg-scan; Frontend
+- `public/icons/catppuccin/mocha/yaml.svg` — svg-scan; Frontend
+- `public/icons/icon-192.png` — signature-only; Frontend
+- `public/icons/icon-512.png` — signature-only; Frontend
+- `public/icons/omp-icon.svg` — svg-scan; Frontend
+- `public/offline.html` — source; Frontend
+- `public/sw.js` — source; Frontend
+- `public/sw.test.mjs` — source; Frontend

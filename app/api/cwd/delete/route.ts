@@ -51,27 +51,24 @@ export async function POST(request: NextRequest) {
 
     const normTarget = normalize(resolved).toLowerCase();
 
-    // 1. Find and remove all session files associated with this cwd
-    try {
-      const allSessions = await listAllSessions({ force: true });
-      for (const session of allSessions) {
-        const sessionCwd = session.cwd ? normalize(resolve(session.cwd)).toLowerCase() : "";
-        const projectRoot = session.projectRoot ? normalize(resolve(session.projectRoot)).toLowerCase() : "";
-        if (sessionCwd === normTarget || projectRoot === normTarget) {
-          try {
-            await getRpcSession(session.id)?.shutdown();
-            if (session.path && existsSync(session.path)) {
-              unlinkSync(session.path);
-            }
-            invalidateSessionPathCache(session.id);
-          } catch { /* ignore per-session error */ }
-        }
-      }
-    } catch { /* ignore session list error */ }
+    const allSessions = await listAllSessions({ force: true });
+    const projectSessions = allSessions.filter((session) => {
+      const sessionCwd = session.cwd ? normalize(resolve(session.cwd)).toLowerCase() : "";
+      const projectRoot = session.projectRoot ? normalize(resolve(session.projectRoot)).toLowerCase() : "";
+      return sessionCwd === normTarget || projectRoot === normTarget;
+    });
+    for (const session of projectSessions) {
+      await getRpcSession(session.id)?.shutdown();
+    }
 
-    // 2. Permanently remove the directory from disk
     rmSync(resolved, { recursive: true, force: true });
 
+    for (const session of projectSessions) {
+      if (session.path && existsSync(session.path)) {
+        unlinkSync(session.path);
+      }
+      invalidateSessionPathCache(session.id);
+    }
     invalidateSessionListCache();
 
     return NextResponse.json({ ok: true, deletedPath: resolved });

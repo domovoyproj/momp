@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { openExternal } from "@/lib/open-external";
 import { useI18n } from "@/hooks/useI18n";
+import { WorkspaceIcon } from "./WorkspaceIcon";
 
 export function GitHubRepository({ cwd }: { cwd: string | null }) {
   const { t } = useI18n();
@@ -22,7 +23,7 @@ export function GitHubRepository({ cwd }: { cwd: string | null }) {
   return (
     <div className="github-repository">
       <button onClick={() => openExternal(repository.url)} title={repository.url}>
-        <span aria-hidden="true">⑂</span>
+        <WorkspaceIcon name="branch" />
         <span>GitHub<small>{repository.url.split("/").slice(-2).join("/")}</small></span>
         <code>{repository.branch}</code>
       </button>

@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, readFileSync, realpathSync } from "fs";
-import { join, relative, resolve, sep } from "path";
+import { isAbsolute, join, relative, resolve, sep } from "path";
 import { writePrivateFileAtomicSync } from "./atomic-file";
 import type { ProjectTrustStatus } from "./api-types";
 
@@ -31,14 +31,25 @@ const CODE_BEARING_PROJECT_DIRS = [
   ".pi/extensions", ".pi/hooks", ".pi/tools",
   ".claude/extensions", ".claude/hooks", ".claude/tools",
   ".agents/extensions", ".agents/hooks", ".agents/tools",
+  ".codex/extensions", ".codex/hooks", ".codex/tools",
+  ".gemini/extensions", ".opencode/plugins",
 ] as const;
 
 /** Project-relative files that declare MCP servers, i.e. processes omp spawns. */
 const MCP_MANIFEST_FILES = [
-  ".mcp.json",
+  ".mcp.json", "mcp.json",
   ".omp/.mcp.json", ".omp/mcp.json",
+  ".pi/.mcp.json", ".pi/mcp.json",
   ".claude/.mcp.json", ".claude/mcp.json",
-  ".cursor/mcp.json",
+  ".cursor/mcp.json", ".vscode/mcp.json", ".windsurf/mcp_config.json",
+] as const;
+
+const EXECUTABLE_CONFIG_FILES = [
+  ".omp/config.yml", ".omp/config.yaml", ".omp/settings.json",
+  ".pi/config.yml", ".pi/config.yaml", ".pi/settings.json",
+  ".claude/settings.json", ".cursor/settings.json",
+  ".codex/config.toml", ".gemini/settings.json",
+  "opencode.json", "opencode.jsonc", ".opencode/opencode.json", ".opencode/opencode.jsonc",
 ] as const;
 
 function trustFilePath(agentDir: string): string {
@@ -80,7 +91,7 @@ export function hasTrustRequiringProjectResources(cwd: string): boolean {
   for (const dir of CODE_BEARING_PROJECT_DIRS) {
     if (existsSync(join(cwd, dir))) return true;
   }
-  for (const file of MCP_MANIFEST_FILES) {
+  for (const file of [...MCP_MANIFEST_FILES, ...EXECUTABLE_CONFIG_FILES]) {
     if (existsSync(join(cwd, file))) return true;
   }
   return false;
@@ -110,7 +121,7 @@ export function trustProject(cwd: string, agentDir: string): ProjectTrustStatus 
 export function isInsideProject(candidate: string, root: string): boolean {
   const rel = relative(resolve(root), resolve(candidate));
   if (rel === "") return true;
-  return rel !== ".." && !rel.startsWith(`..${sep}`) && !rel.startsWith("../");
+  return !isAbsolute(rel) && rel !== ".." && !rel.startsWith(`..${sep}`) && !rel.startsWith("../");
 }
 
 /** Shape shared by omp's discovered custom-tool entries. */
@@ -124,12 +135,19 @@ export interface UntrustedProjectSessionOptions<TTool extends DiscoveredToolPath
   preloadedExtensionPaths: string[];
   /** Custom tool modules to load, with project-local ones removed. */
   preloadedCustomToolPaths: TTool[];
+  extensionRoots: () => {
+    mode: "explicit-only";
+    explicit: string[];
+    configured: string[];
+    configuredLevel: "user";
+  };
   /** MCP servers are processes omp spawns from project manifests — off entirely. */
   enableMCP: false;
 }
 
 export interface DiscoveredProjectCode<TTool extends DiscoveredToolPath> {
   extensionPaths: readonly string[];
+  projectExtensionPaths?: readonly string[];
   customToolPaths: readonly TTool[];
 }
 
@@ -150,13 +168,21 @@ export function untrustedProjectSessionOptions<TTool extends DiscoveredToolPath>
   discovered: DiscoveredProjectCode<TTool>,
 ): UntrustedProjectSessionOptions<TTool> | undefined {
   const status = getProjectTrustStatus(cwd, agentDir);
-  if (!status.requiresTrust || status.trusted) return undefined;
+  const projectExtensionPaths = discovered.projectExtensionPaths ?? [];
+  const isProjectExtension = (path: string) => isInsideProject(path, cwd)
+    || projectExtensionPaths.some((projectPath) => isInsideProject(path, projectPath));
+  const isProjectTool = (tool: TTool) => tool.source?.level === "project" || isInsideProject(tool.path, cwd);
+  const discoveredProjectCode = discovered.extensionPaths.some(isProjectExtension)
+    || discovered.customToolPaths.some(isProjectTool);
+  if (!status.requiresTrust && !discoveredProjectCode) return undefined;
+  if (readTrustedProjects(agentDir)[canonicalProjectKey(cwd)] === true) return undefined;
+
+  const extensionPaths = discovered.extensionPaths.filter((path) => !isProjectExtension(path));
 
   return {
-    preloadedExtensionPaths: discovered.extensionPaths.filter((path) => !isInsideProject(path, cwd)),
-    preloadedCustomToolPaths: discovered.customToolPaths.filter(
-      (tool) => tool.source?.level !== "project" && !isInsideProject(tool.path, cwd),
-    ),
+    preloadedExtensionPaths: extensionPaths,
+    preloadedCustomToolPaths: discovered.customToolPaths.filter((tool) => !isProjectTool(tool)),
+    extensionRoots: () => ({ mode: "explicit-only", explicit: [...extensionPaths], configured: [], configuredLevel: "user" }),
     enableMCP: false,
   };
 }

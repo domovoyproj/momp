@@ -5,7 +5,13 @@ const eslintConfig = [
   ...coreWebVitals,
   ...typescript,
   {
-    ignores: ["**/src-tauri/target", "**/src-tauri/gen"],
+    ignores: ["**/src-tauri/target", "**/src-tauri/gen", "src-tauri/server/**", ".next-desktop/**", ".agents/**", ".codex/**", "graphify-out/**"],
+  },
+  {
+    files: ["bin/momp.js", "bin/momp-web.js", "next.config.js"],
+    rules: {
+      "@typescript-eslint/no-require-imports": "off",
+    },
   },
   {
     rules: {

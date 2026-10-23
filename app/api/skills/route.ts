@@ -3,11 +3,11 @@ import { existsSync, readFileSync, realpathSync, statSync, writeFileSync } from 
 import { homedir } from "os";
 import path from "path";
 import { getAgentDir } from "@oh-my-pi/pi-coding-agent";
-import { parseFrontmatter } from "@oh-my-pi/pi-utils";
 import { loadSkillsWithInstallInfo } from "@/lib/skills-service";
 import { getAllowedFileRoots, isExistingFilePathAllowed } from "@/lib/file-access";
 import { hasJsonContentType, isApiRequestAllowed } from "@/lib/request-security";
 import { getCompatibleSkillRoots, readSkillInvocationPolicy } from "@/lib/skill-compatibility";
+import { setSkillInvocationDisabled } from "@/lib/skill-frontmatter";
 
 export const dynamic = "force-dynamic";
 
@@ -87,24 +87,7 @@ export async function PATCH(req: Request) {
     }
 
     const content = readFileSync(resolvedFilePath, "utf8");
-    const key = "disable-model-invocation";
-
-    // Use parseFrontmatter to check current value, then do a surgical line edit
-    // to preserve the original YAML formatting of all other fields.
-    const { frontmatter } = parseFrontmatter(content);
-    const alreadySet = Boolean(frontmatter[key]);
-
-    let updated = content;
-    if (disableModelInvocation && !alreadySet) {
-      // Add key after the opening --- line
-      updated = content.replace(/^---\r?\n/, `---\n${key}: true\n`);
-      // If no frontmatter exists, create one
-      if (updated === content) updated = `---\n${key}: true\n---\n${content}`;
-    } else if (!disableModelInvocation && alreadySet) {
-      // Remove the key line entirely
-      updated = content.replace(new RegExp(`^${key}\\s*:.*\\r?\\n`, "m"), "");
-    }
-
+    const updated = setSkillInvocationDisabled(content, disableModelInvocation);
     writeFileSync(resolvedFilePath, updated, "utf8");
     return NextResponse.json({ success: true });
   } catch {

@@ -46,13 +46,17 @@ export function useGlobalKeyboardShortcuts(
 
   useEffect(() => {
     const handler = (e: KeyboardEvent): void => {
+      if (e.defaultPrevented || e.isComposing) return;
       // ---- Esc: stop agent ----
       if (e.key === "Escape") {
         if (!globalAbortHandler) return;
 
-        const tag = (e.target as HTMLElement)?.tagName;
+        const target = e.target as HTMLElement | null;
+        const tag = target?.tagName;
         // Let textarea/input handle Esc internally (ChatInput menus / stop).
-        if (tag === "TEXTAREA" || tag === "INPUT") return;
+        if (tag === "TEXTAREA" || tag === "INPUT" || tag === "SELECT" || target?.isContentEditable) return;
+        const dialogSelector = 'dialog[open], [role="dialog"], [role="alertdialog"]';
+        if (target?.closest?.(dialogSelector) || document.querySelector('dialog[open], [aria-modal="true"]')) return;
 
         e.preventDefault();
         globalAbortHandler();

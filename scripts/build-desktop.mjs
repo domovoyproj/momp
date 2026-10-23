@@ -40,6 +40,10 @@ if (existsSync(exePath) && existsSync(payloadPath)) {
   console.log(`[build-desktop] packing embedded server payload (${payloadPath}) into single executable...`);
   const exeData = readFileSync(exePath);
   const payloadData = readFileSync(payloadPath);
+  if (exeData.length === 0 || payloadData.length === 0) {
+    console.error("[build-desktop] executable and server payload must both be non-empty");
+    process.exit(1);
+  }
   const sizeBuf = Buffer.alloc(8);
   sizeBuf.writeBigUInt64LE(BigInt(payloadData.length));
   const magicBuf = Buffer.from("MOMP_SFX");
@@ -50,6 +54,7 @@ if (existsSync(exePath) && existsSync(payloadPath)) {
     `[build-desktop] standalone executable ready: ${exePath} (${(standalone.length / 1024 / 1024).toFixed(1)} MB)`
   );
 } else {
-  console.warn("[build-desktop] warning: executable or server payload archive not found for embedding");
+  console.error("[build-desktop] executable or server payload archive not found for embedding");
+  process.exit(1);
 }
 process.exit(0);

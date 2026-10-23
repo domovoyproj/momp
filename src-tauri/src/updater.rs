@@ -11,6 +11,15 @@ pub async fn install_desktop_update(
     if window.label() != "main" || url.scheme() != "http" || url.host_str() != Some("127.0.0.1") {
         return Err("Updates are only available from the desktop application".into());
     }
+    if [
+        "MOMP_WEB_DISABLE_SELF_UPDATE",
+        "OMP_WEB_DISABLE_SELF_UPDATE",
+    ]
+    .iter()
+    .any(|name| std::env::var(name).as_deref() == Ok("1"))
+    {
+        return Err("Automatic updates have been disabled for this application".into());
+    }
     if INSTALLING.swap(true, Ordering::SeqCst) {
         return Err("An update is already being installed".into());
     }

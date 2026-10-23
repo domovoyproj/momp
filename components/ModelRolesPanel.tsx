@@ -31,6 +31,7 @@ interface Props {
 }
 
 const SCOPES: ModelRoleScope[] = ["global", "project"];
+const LOCALIZED_ROLE_NAMES: Record<string, string> = { tiny: "Tiny", memory: "Memory", widget: "Job widgets" };
 
 function selectorFor(model: ModelEntry): string {
   return `${model.provider}/${model.id}`;
@@ -209,6 +210,8 @@ export function ModelRolesPanel({ cwd, onRolesChanged }: Props) {
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {visibleRoles.map((role) => {
+            const translatedRole = role.builtin && role.name === LOCALIZED_ROLE_NAMES[role.role];
+            const roleName = translatedRole ? t(`roles.name.${role.role}`) : role.name;
             const current = role.resolved ? `${role.resolved.provider}/${role.resolved.modelId}` : "";
             const currentThinkingLevel = getModelRoleThinkingLevel(role.selector);
             const thinkingKey = role.resolved ? `${role.resolved.provider}:${role.resolved.modelId}` : "";
@@ -245,7 +248,7 @@ export function ModelRolesPanel({ cwd, onRolesChanged }: Props) {
                   </span>
 
                   <div style={{ minWidth: 0, flex: "0 0 auto", width: 128 }}>
-                    <div style={{ fontSize: 12, color: "var(--text)", fontWeight: 600 }}>{role.name}</div>
+                    <div title={translatedRole ? t(`roles.detail.${role.role}`) : undefined} style={{ fontSize: 12, color: "var(--text)", fontWeight: 600 }}>{roleName}</div>
                     <div style={{ fontSize: 10, color: "var(--text-dim)" }}>
                       {t(`roles.source.${role.source}`)}
                     </div>
@@ -254,7 +257,7 @@ export function ModelRolesPanel({ cwd, onRolesChanged }: Props) {
                   <SearchableSelect
                     value={current}
                     disabled={pendingRole !== null}
-                    ariaLabel={role.name}
+                    ariaLabel={roleName}
                     style={{ flex: 1, minWidth: 160 }}
                     onChange={(value) => {
                       if (!value) {
@@ -296,7 +299,7 @@ export function ModelRolesPanel({ cwd, onRolesChanged }: Props) {
                     </span>
                     <div
                       role="group"
-                      aria-label={`${role.name} ${t("roles.thinking")}`}
+                      aria-label={`${roleName} ${t("roles.thinking")}`}
                       style={{
                         display: "flex",
                         flex: "1 1 auto",

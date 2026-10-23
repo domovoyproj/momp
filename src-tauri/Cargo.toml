@@ -1,9 +1,10 @@
 [package]
 name = "momp"
-version = "1.4.0"
+version = "1.5.0"
 description = "Single standalone executable for momp"
 authors = ["domovoyproj"]
 edition = "2021"
+rust-version = "1.89"
 license = "MIT"
 repository = "https://github.com/domovoyproj/momp"
 

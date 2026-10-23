@@ -9,8 +9,8 @@ export function createModelRolePreset(preset: string, gpt: string, gemini: strin
   if (!/^(google-antigravity|google|google-gemini-cli|github-copilot)\/[^/]*gemini/i.test(gemini)) {
     throw new Error("Select a Gemini model");
   }
-  const roles = { default: gpt, plan: gpt, slow: gpt, smol: gemini, task: gemini, vision: gemini, commit: gemini, advisor: gemini };
-  if (preset === "quality") return { ...roles, task: gpt, commit: gpt };
+  const roles = { default: gpt, plan: gpt, slow: gpt, smol: gemini, task: gemini, vision: gemini, commit: gemini, advisor: gemini, tiny: gemini, memory: gemini, widget: gemini };
+  if (preset === "quality") return { ...roles, task: gpt, commit: gpt, memory: gpt };
   if (preset === "fast") return { ...roles, default: gemini, plan: gemini, advisor: gpt };
   return roles;
 }

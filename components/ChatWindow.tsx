@@ -252,6 +252,7 @@ export function ChatWindow({ session, newSessionCwd, onAgentEnd, onAttentionNeed
   // Register the abort handler for the global Esc shortcut
   useEffect(() => {
     registerAbortHandler(sessionBusy ? handleAbort : null);
+    return () => registerAbortHandler(null);
   }, [sessionBusy, handleAbort]);
 
   // --- Lazy-load historical messages ---
@@ -1112,7 +1113,7 @@ function ExtensionDialog({
                                 border: `1px solid ${checked ? "var(--accent)" : "var(--text-dim)"}`,
                                 borderRadius: question.multi ? 4 : "50%",
                                 background: checked ? "var(--accent)" : "transparent",
-                                color: "#fff",
+                                color: "var(--bg)",
                                 fontSize: 10,
                                 lineHeight: 1,
                               }}
@@ -1199,7 +1200,7 @@ function ExtensionDialog({
                 border: "1px solid var(--accent)",
                 borderRadius: 6,
                 background: "var(--accent)",
-                color: "#fff",
+                color: "var(--bg)",
                 cursor: canSubmit ? "pointer" : "not-allowed",
                 opacity: canSubmit ? 1 : 0.45,
                 fontWeight: 650,
@@ -1295,7 +1296,7 @@ function ExtensionDialog({
               <button
                 type="button"
                 onClick={() => onRespond(request, { value: JSON.stringify({ action: "approve" }) })}
-                style={{ padding: "7px 12px", border: "1px solid var(--accent)", borderRadius: 6, background: "var(--accent)", color: "#fff", cursor: "pointer", fontWeight: 650 }}
+                style={{ padding: "7px 12px", border: "1px solid var(--accent)", borderRadius: 6, background: "var(--accent)", color: "var(--bg)", cursor: "pointer", fontWeight: 650 }}
               >
                 {t("chat.approvePlan")}
               </button>
@@ -1435,7 +1436,7 @@ function ExtensionDialog({
                 borderRadius: 6,
                 border: "1px solid var(--accent)",
                 background: "var(--accent)",
-                color: "#fff",
+                color: "var(--bg)",
                 cursor: "pointer",
               }}
             >
@@ -1449,7 +1450,7 @@ function ExtensionDialog({
                 borderRadius: 6,
                 border: "1px solid var(--accent)",
                 background: "var(--accent)",
-                color: "#fff",
+                color: "var(--bg)",
                 cursor: "pointer",
               }}
             >

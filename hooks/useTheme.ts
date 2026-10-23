@@ -62,16 +62,27 @@ function resolveTheme(preference: ThemePreference): ResolvedTheme {
 function applyOmpPalette(theme: ResolvedTheme): void {
   const root = document.documentElement;
   const palette = themeConfig?.palettes[theme];
+  let variables: unknown;
+  try {
+    variables = JSON.parse(root.dataset.ompThemeVariables ?? "[]");
+  } catch {
+    variables = [];
+  }
+  if (Array.isArray(variables)) {
+    for (const name of variables) {
+      if (typeof name === "string" && name.startsWith("--")) root.style.removeProperty(name);
+    }
+  }
+  delete root.dataset.ompThemeVariables;
+  delete root.dataset.ompThemeName;
   root.dataset.ompThemeMode = theme;
   root.classList.toggle("dark", palette ? palette.colorScheme === "dark" : theme === "dark");
-  if (palette) {
-    for (const name of Object.keys(palette.variables)) root.style.removeProperty(name);
-  }
   if (palette && palette.name !== "light" && palette.name !== "titanium") {
     for (const [name, value] of Object.entries(palette.variables)) {
       root.style.setProperty(name, value);
     }
     root.dataset.ompThemeName = palette.name;
+    root.dataset.ompThemeVariables = JSON.stringify(Object.keys(palette.variables));
     root.style.colorScheme = palette.colorScheme;
   } else {
     root.style.colorScheme = theme;

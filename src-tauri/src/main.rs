@@ -10,7 +10,7 @@ use flate2::read::GzDecoder;
 use std::fs::OpenOptions;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{Ipv4Addr, SocketAddr, TcpListener, TcpStream};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
 use std::thread;
@@ -18,6 +18,7 @@ use std::time::{Duration, Instant};
 use tar::Archive;
 
 use tauri::{AppHandle, Manager, Url};
+mod runtime_extraction;
 mod updater;
 
 const MAGIC_SFX: &[u8; 8] = b"MOMP_SFX";
@@ -200,7 +201,6 @@ fn start_server(app: &mut tauri::App) -> Result<(), String> {
         .arg("-p")
         .arg(port.to_string())
         // Relative project paths in the browser resolve against this directory
-        .env("MOMP_WEB_DISABLE_SELF_UPDATE", "1")
         .env("OMP_DESKTOP", "1")
         .env(
             "OMP_WEB_LAUNCH_CWD",
@@ -295,7 +295,7 @@ fn has_embedded_payload() -> bool {
 }
 
 /// Extracts appended SFX payload (tar or tar.gz) from the currently executing binary if present.
-fn extract_sfx_payload(runtime_dir: &PathBuf) -> Result<bool, String> {
+fn extract_sfx_payload(runtime_dir: &Path) -> Result<bool, String> {
     let current_exe = std::env::current_exe().map_err(|e| e.to_string())?;
     let mut file = std::fs::File::open(&current_exe)
         .map_err(|e| format!("cannot open executable ({}): {e}", current_exe.display()))?;
@@ -367,38 +367,15 @@ fn ensure_server_extracted(app: &tauri::App) -> Result<PathBuf, String> {
     };
 
     let runtime_dir = runtime_base.join(format!("app-v{}", version));
-    let bun_path = runtime_dir.join(bun_binary_name());
-    let next_path = runtime_dir.join(".next");
-
-    // 1. If already extracted, return right away
-    if bun_path.is_file() && next_path.is_dir() {
-        return Ok(runtime_dir);
-    }
-
-    // 2. Extract into a staging dir, then atomically promote it. A partially
-    //    extracted app dir (interrupted by a crash, AV, or disk-full) must never
-    //    be left under the final name.
-    let staging = runtime_base.join(format!("app-v{}.partial", version));
-    let _ = std::fs::remove_dir_all(&staging);
-    match extract_sfx_payload(&staging) {
-        Ok(true) => {
-            let _ = std::fs::remove_dir_all(&runtime_dir);
-            if let Err(err) = std::fs::rename(&staging, &runtime_dir) {
-                let _ = std::fs::remove_dir_all(&staging);
-                return Err(format!("failed to promote extracted payload: {err}"));
-            }
-            let cleanup_base = runtime_base.clone();
-            let current_version = version.clone();
-            thread::spawn(move || {
-                clean_old_versions(&cleanup_base, &current_version);
-            });
-            return Ok(runtime_dir);
-        }
-        Ok(false) => {
-            let _ = std::fs::remove_dir_all(&staging);
-        }
+    match runtime_extraction::ensure_runtime(
+        &runtime_base,
+        &version,
+        bun_binary_name(),
+        extract_sfx_payload,
+    ) {
+        Ok(Some(runtime_dir)) => return Ok(runtime_dir),
+        Ok(None) => {}
         Err(err) => {
-            let _ = std::fs::remove_dir_all(&staging);
             desktop_log(&format!("[momp-desktop] SFX extraction error: {err}"));
         }
     }
@@ -428,26 +405,6 @@ fn ensure_server_extracted(app: &tauri::App) -> Result<PathBuf, String> {
         "server payload not found in {} or standalone executable",
         runtime_dir.display()
     ))
-}
-
-fn clean_old_versions(base: &PathBuf, current_version: &str) {
-    let current_dir_name = format!("app-v{}", current_version);
-    if let Ok(entries) = std::fs::read_dir(base) {
-        for entry in entries.filter_map(Result::ok) {
-            let path = entry.path();
-            if path.is_dir() {
-                if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-                    if name.starts_with("app-v") && name != current_dir_name {
-                        desktop_log(&format!(
-                            "[cleanup] removing old version folder: {}",
-                            path.display()
-                        ));
-                        let _ = std::fs::remove_dir_all(&path);
-                    }
-                }
-            }
-        }
-    }
 }
 
 /// Polls the server until it answers an HTTP request (up to 60s).

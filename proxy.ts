@@ -4,6 +4,7 @@ import {
   isApiRequestHostAllowed,
 } from "@/lib/request-security";
 import { authorizeWebRequest } from "@/lib/web-auth";
+import { WEB_AUTH_USERNAME } from "./bin/web-auth-store";
 
 /**
  * The password-recovery surface, and the only thing that answers without
@@ -39,7 +40,7 @@ function unauthorizedPage(): string {
 <body>
 <main>
   <h1>Требуется авторизация</h1>
-  <p>momp-web защищен паролем. Перезагрузите страницу и войдите под именем пользователя <code>momp</code> и вашим паролем.</p>
+  <p>momp-web защищен паролем. Перезагрузите страницу и войдите под именем пользователя <code>${WEB_AUTH_USERNAME}</code> и вашим паролем.</p>
   <p>Забыли пароль? <a href="${RECOVERY_PAGE}">Восстановить доступ</a> — потребуется ввести проверочный код из консоли сервера momp-web.</p>
 </main>
 </body>

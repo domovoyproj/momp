@@ -12,6 +12,7 @@ import { SettingsConfig } from "./SettingsConfig";
 import { DesktopTitlebar } from "./DesktopTitlebar";
 import { GitHubRepository } from "./GitHubRepository";
 import { WelcomeScreen } from "./WelcomeScreen";
+import { WorkspaceIcon } from "./WorkspaceIcon";
 import { LimitsModal } from "./LimitsModal";
 import { ProjectTrustDialog } from "./ProjectTrustDialog";
 import { OmpUpdateIndicator } from "./OmpUpdateIndicator";
@@ -538,29 +539,33 @@ export function AppShell() {
 
   const handleSelectChatTab = useCallback((tab: ChatTabItem) => {
     if (tab.id.startsWith("new:")) {
-      setNewSessionCwd(tab.cwd);
-      setSelectedSession(null);
+      if (!selectedSession && newSessionCwd === tab.cwd) return;
+      handleNewSession(tab.id, tab.cwd);
     } else {
       handleSelectSession({ id: tab.id, name: tab.name, cwd: tab.cwd } as SessionInfo);
     }
-  }, [handleSelectSession]);
+  }, [handleNewSession, handleSelectSession, newSessionCwd, selectedSession]);
 
   const handleCloseChatTab = useCallback((tabId: string) => {
-    setChatTabs((prev) => {
-      const next = prev.filter((t) => t.id !== tabId);
-      const isCurrent = (selectedSession?.id === tabId) || (tabId.startsWith("new:") && newSessionCwd !== null);
-      if (isCurrent) {
-        if (next.length > 0) {
-          const fallback = next[next.length - 1];
-          setTimeout(() => handleSelectChatTab(fallback), 0);
-        } else {
-          setSelectedSession(null);
-          setNewSessionCwd(null);
-        }
-      }
-      return next;
-    });
-  }, [handleSelectChatTab, newSessionCwd, selectedSession?.id]);
+    const next = chatTabs.filter((tab) => tab.id !== tabId);
+    setChatTabs(next);
+    const isCurrent = selectedSession?.id === tabId
+      || (!selectedSession && newSessionCwd !== null && tabId === `new:${newSessionCwd}`);
+    if (!isCurrent) return;
+    if (next.length > 0) {
+      handleSelectChatTab(next[next.length - 1]);
+    } else {
+      invalidateWorkspaceRestore();
+      setSelectedSession(null);
+      setNewSessionCwd(null);
+      setSessionKey((key) => key + 1);
+      setBranchTree([]);
+      setBranchActiveLeafId(null);
+      setSystemPrompt(null);
+      setActiveTopPanel(null);
+      router.replace("/", { scroll: false });
+    }
+  }, [chatTabs, handleSelectChatTab, invalidateWorkspaceRestore, newSessionCwd, router, selectedSession]);
 
 
   // Global keyboard shortcuts (handles Esc, Ctrl+Alt+N etc.)
@@ -591,6 +596,9 @@ export function AppShell() {
   // Called by ChatWindow when a new session gets its real id from omp
   const handleSessionCreated = useCallback((session: SessionInfo) => {
     invalidateWorkspaceRestore();
+    setChatTabs((current) => current.map((tab) => tab.id === `new:${session.cwd}`
+      ? { id: session.id, name: session.name || session.firstMessage?.slice(0, 24) || "Диалог", cwd: session.cwd }
+      : tab));
     setNewSessionCwd(null);
     setSelectedSession(session);
     setRefreshKey((k) => k + 1);
@@ -653,7 +661,7 @@ export function AppShell() {
     deliverSessionNotification({
       targetSession: selectedSession,
       title: translate("i18n.attentionNeeded"),
-      body: request.method === "custom"
+      body: request.method === "custom" || request.method === "ask"
         ? translate("i18n.extensionInputNeeded")
         : request.title,
       tag: `pi-extension-ui:${request.id}`,
@@ -892,13 +900,13 @@ export function AppShell() {
       <div className="sidebar-footer">
         <GitHubRepository cwd={projectTrustCwd} />
         <button onClick={() => { setSettingsSection("models"); setSettingsConfigOpen(true); }}>
-          <span aria-hidden="true">↗</span>{translate("connections.title")}
+          <WorkspaceIcon name="connections" />{translate("connections.title")}
         </button>
         <button onClick={() => { setSettingsSection("skills"); setSettingsConfigOpen(true); }}>
-          <span aria-hidden="true">◈</span>{translate("connections.skillsLibrary")}
+          <WorkspaceIcon name="skills" />{translate("connections.skillsLibrary")}
         </button>
         <button className="profile-button" onClick={() => { setSettingsSection("themes"); setSettingsConfigOpen(true); }}>
-          <span className="profile-mark" aria-hidden="true">m</span>
+          <span className="profile-mark"><WorkspaceIcon name="settings" size={17} /></span>
           <span>{translate("connections.localProfile")}<small>{translate("common.settings")}</small></span>
         </button>
       </div>
@@ -1033,9 +1041,9 @@ export function AppShell() {
       )}
 
       {/* Center: chat */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
+      <main className="workspace-main" style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
         {/* Top bar with sidebar toggle */}
-        <div ref={topBarRef} style={{ display: "flex", alignItems: "center", flexShrink: 0, borderBottom: "1px solid var(--border)", height: "calc(36px + env(safe-area-inset-top))", paddingTop: "env(safe-area-inset-top)", background: "var(--bg-panel)" }}>
+        <div ref={topBarRef} className="workspace-toolbar" style={{ display: "flex", alignItems: "center", flexShrink: 0, borderBottom: "1px solid var(--border)", height: "calc(48px + env(safe-area-inset-top))", paddingTop: "env(safe-area-inset-top)", background: "var(--bg)" }}>
           <button
             onClick={handleSidebarToggle}
              title={sidebarOpen ? translate("sidebar.hide") : translate("sidebar.show")}
@@ -1892,7 +1900,7 @@ export function AppShell() {
               <div className="workspace-onboarding">
                 <WelcomeScreen />
                 <div className="onboarding-actions">
-                  <button type="button" onClick={() => { setSidebarOpen(true); setProjectPickerRequest(value => value + 1); }}>{locale === "ru" ? "Открыть проект" : "Open project"}</button>
+                  <button type="button" onClick={() => { setSidebarOpen(true); setProjectPickerRequest(value => value + 1); }}>{translate("workspace.openProject")}</button>
                   <button type="button" onClick={() => { setSettingsSection("models"); setSettingsConfigOpen(true); }}>{translate("connections.title")}</button>
                 </div>
                 <p className="welcome-footnote">GitHub · ChatGPT · Gemini</p>
@@ -1910,7 +1918,7 @@ export function AppShell() {
             </div>
           )}
         </div>
-      </div>
+      </main>
 
       <div
         aria-hidden="true"

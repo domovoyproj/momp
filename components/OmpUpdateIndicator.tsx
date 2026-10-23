@@ -153,7 +153,7 @@ export function OmpUpdateIndicator() {
     }
   };
   const installUpdate = async () => {
-    if (installing) return;
+    if (installing || !status.install.canInstall) return;
     if (status.desktop) {
       setInstalling(true);
       setMessage(null);
@@ -168,7 +168,6 @@ export function OmpUpdateIndicator() {
       }
       return;
     }
-    if (!status.install.canInstall) return;
     setInstalling(true);
     setMessage(null);
     try {
@@ -290,7 +289,7 @@ export function OmpUpdateIndicator() {
               </a>
             </div>
 
-            {status.desktop || status.install.canInstall ? (
+            {status.install.canInstall ? (
               <button
                 type="button"
                 onClick={() => void installUpdate()}

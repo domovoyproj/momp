@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
-import { existsSync, mkdirSync, readFileSync } from "fs";
+import { existsSync, mkdirSync } from "fs";
 import { dirname, join } from "path";
 import { getAgentDir } from "@oh-my-pi/pi-coding-agent";
-import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
+import { stringify as stringifyYaml } from "yaml";
 import { writePrivateFileAtomicSync } from "@/lib/atomic-file";
 import { invalidateModelsCache } from "@/lib/models-cache";
 import { invalidateOmpRuntime } from "@/lib/omp-runtime";
 import { hasJsonContentType, isApiRequestAllowed } from "@/lib/request-security";
+import { readModelsConfig } from "@/lib/models-config";
 export const dynamic = "force-dynamic";
 
 /**
@@ -17,33 +18,8 @@ export const dynamic = "force-dynamic";
  * always write back to `models.yml` so the CLI and omp-web agree on one file.
  */
 const CANONICAL_FILE = "models.yml";
-const READ_CANDIDATES = ["models.yml", "models.yaml", "models.json"] as const;
-
-function getModelsPath(): string {
-  const agentDir = getAgentDir();
-  for (const candidate of READ_CANDIDATES) {
-    const path = join(agentDir, candidate);
-    if (existsSync(path)) return path;
-  }
-  return join(agentDir, CANONICAL_FILE);
-}
-
 function getWritePath(): string {
   return join(getAgentDir(), CANONICAL_FILE);
-}
-
-function readModelsConfig(): Record<string, unknown> {
-  const path = getModelsPath();
-  if (!existsSync(path)) return { providers: {} };
-  try {
-    // `parse` handles JSON too — it is a subset of YAML — so a not-yet-migrated
-    // `models.json` still loads.
-    const parsed: unknown = parseYaml(readFileSync(path, "utf8"));
-    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return { providers: {} };
-    return parsed as Record<string, unknown>;
-  } catch {
-    return { providers: {} };
-  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -78,7 +54,11 @@ export async function GET(req: Request) {
   if (!isApiRequestAllowed(req)) {
     return NextResponse.json({ error: "Untrusted API request" }, { status: 403 });
   }
-  return NextResponse.json(readModelsConfig());
+  try {
+    return NextResponse.json(readModelsConfig(getAgentDir()));
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to read models config" }, { status: 500 });
+  }
 }
 
 export async function PUT(req: Request) {

@@ -8,6 +8,7 @@ import {
 } from "@oh-my-pi/pi-coding-agent/config/model-roles";
 import { resolveModelRoleValue } from "@oh-my-pi/pi-coding-agent/config/model-resolver";
 import type { Api, Model } from "@oh-my-pi/pi-ai";
+import { MAX_THINKING_SUFFIX_OPTIONS, parseModelString } from "@oh-my-pi/pi-tui/overlays/model-selector";
 import type { ModelRoleAssignment, ModelRoleModelRef, ModelRoleScope } from "./api-types";
 
 export type { ModelRoleAssignment, ModelRoleModelRef, ModelRoleScope };
@@ -30,11 +31,12 @@ const ROLE_DESCRIPTIONS: Record<string, string> = {
   slow: "Deep-reasoning model for hard problems.",
   vision: "Model used when a turn carries images.",
   plan: "Model that drives plan mode.",
-  designer: "Model used for UI and design work.",
   commit: "Model that writes commit messages and changelogs.",
   tiny: "Smallest model, used for classification and routing.",
   task: "Model subagents spawn with by default.",
   advisor: "Second model that reviews every turn inline.",
+  memory: "Model used for memory extraction and consolidation.",
+  widget: "Model used for background job widgets.",
 };
 
 export function describeModelRole(role: string): string | undefined {
@@ -59,12 +61,8 @@ function toModelRef(model: Model<Api>, thinkingLevel?: string): ModelRoleModelRe
 export function readDefaultModelRole(settings: Settings): { provider: string; modelId: string } | undefined {
   const selector = settings.getModelRole("default");
   if (!selector) return undefined;
-  const slash = selector.indexOf("/");
-  if (slash <= 0) return undefined;
-  // Strip a `:thinkingLevel` suffix; startup applies thinking separately.
-  const modelId = selector.slice(slash + 1).split(":")[0];
-  if (!modelId) return undefined;
-  return { provider: selector.slice(0, slash), modelId };
+  const parsed = parseModelString(selector, MAX_THINKING_SUFFIX_OPTIONS);
+  return parsed?.id ? { provider: parsed.provider, modelId: parsed.id } : undefined;
 }
 
 /**

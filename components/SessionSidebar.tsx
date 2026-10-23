@@ -9,6 +9,7 @@ import { useI18n } from "@/hooks/useI18n";
 import { DirectoryPicker } from "./DirectoryPicker";
 import { FileExplorer, type FileExplorerHandle } from "./FileExplorer";
 import { OmpWordmark } from "./OmpWordmark";
+import { WorkspaceIcon } from "./WorkspaceIcon";
 
 declare global {
   interface Window {
@@ -466,9 +467,11 @@ function PiWebTitle() {
 export function SessionSidebar({ selectedSessionId, optimisticSession, onSelectSession, onNewSession, initialSessionId, skipInitialProjectSelection, onInitialRestoreDone, refreshKey, onSessionDeleted, selectedCwd: selectedCwdProp, onCwdChange, onOpenFile, explorerRefreshKey, onExplorerRefresh, onAtMention, onAtMentions, onBackgroundTaskDone, projectPickerRequest = 0 }: Props) {
   const { t } = useI18n();
   const [allSessions, setAllSessions] = useState<SessionInfo[]>([]);
-  const sessionsForDisplay = optimisticSession && !allSessions.some((session) => session.id === optimisticSession.id)
-    ? [optimisticSession, ...allSessions]
-    : allSessions;
+  const sessionsForDisplay = useMemo(() => (
+    optimisticSession && !allSessions.some((session) => session.id === optimisticSession.id)
+      ? [optimisticSession, ...allSessions]
+      : allSessions
+  ), [allSessions, optimisticSession]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedCwd, setSelectedCwd] = useState<string | null>(null);
@@ -955,7 +958,7 @@ export function SessionSidebar({ selectedSessionId, optimisticSession, onSelectS
     setProjectMenuOpen(null);
   };
 
-  const handleRemoveProject = (project: string) => {
+  const handleRemoveProject = useCallback((project: string) => {
     const key = normalizeProjectKey(project);
     setRemovedProjects((current) => {
       if (current.has(key)) return current;
@@ -970,10 +973,11 @@ export function SessionSidebar({ selectedSessionId, optimisticSession, onSelectS
     setWtNewBranch("");
     setWtConfirmRemove(null);
     setWtFilter("");
-    if (selectedProject && normalizeProjectKey(selectedProject) === key) {
+    const currentProject = projectRootFor(selectedCwd);
+    if (currentProject && normalizeProjectKey(currentProject) === key) {
       setSelectedCwd(null);
     }
-  };
+  }, [projectRootFor, selectedCwd]);
 
   const handleCopyProjectPath = useCallback((project: string) => {
     navigator.clipboard?.writeText(project);
@@ -1089,7 +1093,7 @@ export function SessionSidebar({ selectedSessionId, optimisticSession, onSelectS
                 display: "flex", alignItems: "center", justifyContent: "center",
                 background: sessionRefreshDone ? "rgba(74,222,128,0.18)" : "var(--bg-hover)",
                 border: `1px solid ${sessionRefreshDone ? "rgba(74,222,128,0.4)" : "var(--border)"}`,
-                color: sessionRefreshDone ? "#4ade80" : "var(--text-muted)",
+                color: sessionRefreshDone ? "var(--success)" : "var(--text-muted)",
                 cursor: "pointer",
                 width: 32, height: 32,
                 borderRadius: 7,
@@ -1110,9 +1114,10 @@ export function SessionSidebar({ selectedSessionId, optimisticSession, onSelectS
                 event.currentTarget.style.borderColor = "var(--border)";
               }}
               title={t("sidebar.refresh")}
+              aria-label={t("sidebar.refresh")}
             >
               {sessionRefreshDone ? (
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <polyline points="20 6 9 17 4 12" />
                 </svg>
               ) : (
@@ -1124,14 +1129,14 @@ export function SessionSidebar({ selectedSessionId, optimisticSession, onSelectS
             </button>
           </div>
         </div>
-        <div className="sidebar-workspace-label">{t("connections.workspace")}</div>
         <button className="sidebar-primary" onClick={() => selectedCwd ? handleNewSession() : handleCustomPathClick()}>
-          <span aria-hidden="true">＋</span>{t("tabs.newChat")}
+          <WorkspaceIcon name="chat" />{t("tabs.newChat")}
         </button>
       </div>
 
 
       <div
+        className="sidebar-section-heading"
         style={{
           display: "flex",
           alignItems: "center",
@@ -1177,7 +1182,7 @@ export function SessionSidebar({ selectedSessionId, optimisticSession, onSelectS
           </svg>
         </button>
       </div>
-        <label style={{ position: "relative", display: "block", margin: "0 8px 8px" }}>
+        <label className="sidebar-search" style={{ position: "relative", display: "block", margin: "0 14px 12px" }}>
           <svg
             width="14"
             height="14"
@@ -1207,15 +1212,14 @@ export function SessionSidebar({ selectedSessionId, optimisticSession, onSelectS
             aria-label={t("sidebar.searchProjectsAndSessions")}
             style={{
               width: "100%",
-              height: 34,
+              height: 38,
               padding: "0 10px 0 32px",
               border: "1px solid var(--border)",
-              borderRadius: 7,
-              outline: "none",
-              background: "var(--bg-hover)",
+              borderRadius: 9,
+              background: "var(--bg)",
               color: "var(--text)",
-              fontFamily: "var(--font-mono)",
-              fontSize: 11,
+              fontFamily: "inherit",
+              fontSize: 12,
             }}
           />
         </label>
@@ -1245,7 +1249,7 @@ export function SessionSidebar({ selectedSessionId, optimisticSession, onSelectS
           const showMore = sessions.length > PROJECT_SESSION_LIMIT;
 
           return (
-            <section key={project} style={{ marginBottom: isCollapsed ? 3 : 9 }}>
+            <section key={project} className="sidebar-project" style={{ marginBottom: isCollapsed ? 3 : 9 }}>
               <div
                 ref={projectMenuOpen === project ? wtDropdownRef : undefined}
                 onMouseEnter={() => setHoveredProject(project)}

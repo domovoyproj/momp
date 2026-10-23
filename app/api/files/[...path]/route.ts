@@ -342,6 +342,10 @@ function streamFile(filePath: string, stat: fs.Stats, contentType: string, range
     "Cache-Control": "no-cache",
     "Accept-Ranges": "bytes",
     "Content-Disposition": getContentDisposition(filePath, asDownload),
+    "X-Content-Type-Options": "nosniff",
+    ...(contentType === "image/svg+xml" ? {
+      "Content-Security-Policy": "sandbox; default-src 'none'; script-src 'none'; style-src 'unsafe-inline'; img-src data: blob:; base-uri 'none'; form-action 'none'",
+    } : {}),
   };
 
   if (!rangeHeader) {

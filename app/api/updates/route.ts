@@ -28,6 +28,9 @@ export async function POST(req: Request) {
   if (!hasJsonContentType(req)) {
     return NextResponse.json({ error: "Content-Type must be application/json" }, { status: 415 });
   }
+  if (process.env.OMP_DESKTOP === "1") {
+    return NextResponse.json({ error: "Use the desktop application's update and restart action" }, { status: 409 });
+  }
 
   try {
     const status = await getOmpWebUpdateStatus();
