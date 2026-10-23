@@ -7,7 +7,7 @@
 
 ## GPT + Gemini
 - Ядро обновлено с **18.11.1 до 18.12.6**. Все пакеты OMP обновлены согласованно.
-- Upstream исправляет Codex HTTP 404 для некоторых личных аккаунтов ChatGPT, ложные HTTP 429 Antigravity и сопоставление параллельных Gemini tool results.
+- Upstream исправляет Codex HTTP 404 для некоторых личных аккаунтов ChatGPT, ложные HTTP 429 в Antigravity web search и сопоставление параллельных Gemini tool results.
 - Пресеты покрывают все 11 ролей чата, включая `tiny`, `memory` и `widget`. В пресете «Качество» память обрабатывает GPT; вспомогательные быстрые роли — Gemini.
 - Пресет распределяет модели по ролям. Он не запускает автоматическое перекрёстное ревью и не создаёт доступ к недоступным моделям.
 
@@ -39,3 +39,9 @@
 EXE не имеет Authenticode-подписи. SHA-256 подтверждает целостность относительно GitHub, но не заменяет подпись издателя.
 
 Upstream: [OMP 18.12.6](https://github.com/can1357/oh-my-pi/releases/tag/v18.12.6), [Codex](https://github.com/can1357/oh-my-pi/releases/tag/v18.12.5), [Antigravity](https://github.com/can1357/oh-my-pi/releases/tag/v18.12.4), [Gemini](https://github.com/can1357/oh-my-pi/releases/tag/v18.12.3).
+
+## Проверка релиза
+- [CI #45](https://github.com/domovoyproj/momp/actions/runs/40033692896): 651 Bun tests passed, 2 skipped, 0 failed на Linux и Windows; 10 Rust tests passed. TypeScript, lint (0 errors, 2 warnings), установщики и production-сборки прошли.
+- Настоящий EXE запущен в чистой Windows CI: проверены распаковка, встроенный Bun, UI и SDK-backed API. На неизменённом payload этого же EXE отдельно проверены редактор, переключение черновиков, Mermaid/KaTeX и обе темы в Chrome.
+- `momp.exe`: 776 519 696 байт; SHA-256 `14784aa94ea464361bb41d51a88148f04ab29cec673d808c707b259a72e5012a`.
+- [Полный отчёт аудита](https://github.com/domovoyproj/momp/blob/main/docs/code-audit-2026-10-24.md) и [покрытие 454 файлов](https://github.com/domovoyproj/momp/blob/main/docs/code-audit-coverage-2026-10-24.md) содержат методы, исключения и оставшиеся ограничения. Live-запросы GPT/Gemini не выдаются за пройденные тесты.
