@@ -9,8 +9,7 @@
  *   --force: re-download even when the target file already exists
  *
  * Environment:
- *   BUN_VERSION: override the pinned version (default: installed bun version,
- *   read from Bun.version, falling back to `bun --version`).
+ *   BUN_VERSION: override the version pinned in package.json.
  *
  * The zip from GitHub contains `bun-{triple}/bun` (or `bun.exe` on Windows).
  * The binary is moved to `src-tauri/resources/bun-{triple}` (with `.exe`
@@ -18,7 +17,7 @@
  * metadata and a SHA-256 content check are required before reusing a target.
  */
 
-import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -44,12 +43,9 @@ for (const triple of triples) {
 /** Resolve the bun version to pin. */
 function bunVersion() {
   if (process.env.BUN_VERSION) return process.env.BUN_VERSION;
-  if (typeof Bun !== "undefined" && Bun.version) return Bun.version;
-  const res = spawnSync("bun", ["--version"], { encoding: "utf8" });
-  if (res.status !== 0) {
-    throw new Error(`could not read bun version: ${res.stderr || "bun --version failed"}`);
-  }
-  return res.stdout.trim();
+  const { packageManager } = JSON.parse(readFileSync(join(REPO_ROOT, "package.json"), "utf8"));
+  if (typeof packageManager !== "string" || !packageManager.startsWith("bun@")) throw new Error("Bun must be pinned in package.json");
+  return packageManager.slice(4);
 }
 
 /** Download and install one triple. Returns { target, skipped }. */

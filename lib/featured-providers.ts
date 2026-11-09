@@ -1,7 +1,8 @@
 export const FEATURED_PROVIDERS = [
-  { id: "openai-codex", name: "ChatGPT", descriptionKey: "connections.chatgpt" },
-  { id: "github-copilot", name: "GitHub Copilot", descriptionKey: "connections.github" },
-  { id: "google-antigravity", name: "Antigravity", descriptionKey: "connections.antigravity" },
+  { id: "openai-codex", name: "ChatGPT", descriptionKey: "connections.chatgpt", auth: "oauth" },
+  { id: "google", name: "Gemini API", descriptionKey: "connections.geminiApi", auth: "apikey" },
+  { id: "google-antigravity", name: "Antigravity", descriptionKey: "connections.antigravity", auth: "oauth" },
+  { id: "github-copilot", name: "GitHub Copilot", descriptionKey: "connections.github", auth: "oauth" },
 ] as const;
 
 export function sortFeaturedProviders<Provider extends { id: string }>(providers: readonly Provider[]): Provider[] {

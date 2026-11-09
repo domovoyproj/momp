@@ -1,6 +1,8 @@
 name: Verified release
 
 on:
+  pull_request:
+    branches: [main]
   push:
     branches: [main]
     paths: [package.json, .github/workflows/publish-dist.yml]
@@ -19,13 +21,16 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.version.outputs.tag }}
+      bun: ${{ steps.version.outputs.bun }}
     steps:
       - uses: actions/checkout@v4
       - id: version
         run: |
           VERSION=$(node -p "require('./package.json').version")
+          BUN_VERSION=$(node -p "require('./package.json').packageManager.split('@')[1]")
           if [[ "$GITHUB_REF" == refs/tags/* && "$GITHUB_REF_NAME" != "v$VERSION" ]]; then exit 1; fi
           echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          echo "bun=$BUN_VERSION" >> "$GITHUB_OUTPUT"
 
   web:
     needs: version
@@ -34,13 +39,25 @@ jobs:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: "1.4.2"
+          bun-version: ${{ needs.version.outputs.bun }}
       - run: bun install --frozen-lockfile
+      - run: bun run test:release
       - run: bun run typecheck
       - run: bun run lint
       - run: bun test
       - run: bash scripts/test-installer.sh
-      - run: bun run build
+      - name: Build the production web app
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'
+        run: bun run build
+      - run: bun x playwright install --with-deps chromium
+      - run: bun run test:browser
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: browser-verification
+          path: test-artifacts/browser
+          if-no-files-found: warn
       - run: tar --exclude='.next/cache' --exclude='.next/dev' -czf momp-web-dist.tar.gz .next public bin next.config.js package.json bun.lock
       - uses: actions/upload-artifact@v4
         with:
@@ -54,7 +71,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: "1.4.2"
+          bun-version: ${{ needs.version.outputs.bun }}
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
@@ -65,11 +82,18 @@ jobs:
           BUN_INSTALL_CACHE_DIR: ${{ github.workspace }}\.bun-cache
         run: bun install --frozen-lockfile --backend=copyfile
       - run: bun run typecheck
+      - run: bun run test:release
       - run: bun test
       - run: cargo test --manifest-path src-tauri/Cargo.toml --locked
       - run: ./scripts/test-update-helper.ps1
       - run: ./scripts/test-installer.ps1
       - run: bun run desktop:fetch-bun windows-x64
+      - name: Verify the bundled Bun version
+        env:
+          EXPECTED_BUN: ${{ needs.version.outputs.bun }}
+        run: |
+          $actual = & ./src-tauri/resources/bun-windows-x64.exe --version
+          if ($LASTEXITCODE -ne 0 -or $actual -ne $env:EXPECTED_BUN) { throw "Bundled Bun version mismatch" }
       - name: Stage server payload
         env:
           BUN_INSTALL_CACHE_DIR: ${{ github.workspace }}\.bun-cache
@@ -82,7 +106,6 @@ jobs:
       - name: Test the actual release executable
         run: ./scripts/smoke-desktop.ps1
       - uses: actions/upload-artifact@v4
-        if: always()
         with:
           name: desktop-release
           path: src-tauri/target/release/momp.exe
@@ -100,8 +123,15 @@ jobs:
           pattern: '*-release'
           path: release
           merge-multiple: true
-      - run: cd release && sha256sum momp.exe momp-web-dist.tar.gz > SHA256SUMS
-      - name: Publish only verified artifacts
+      - uses: actions/download-artifact@v4
+        with:
+          name: browser-verification
+          path: release/browser-verification
+      - run: |
+          cd release
+          tar -czf browser-verification.tar.gz browser-verification
+          sha256sum momp.exe momp-web-dist.tar.gz browser-verification.tar.gz > SHA256SUMS
+      - name: Create a draft from verified artifacts
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ needs.version.outputs.tag }}
@@ -110,4 +140,10 @@ jobs:
             echo "Release already exists; refusing to overwrite published executables."
             exit 1
           fi
-          gh release create "$RELEASE_TAG" release/momp.exe release/momp-web-dist.tar.gz release/SHA256SUMS --draft --target "$GITHUB_SHA" --title "momp $RELEASE_TAG" --notes-file docs/release-notes.md
+          args=(--draft --target "$GITHUB_SHA" --title "momp $RELEASE_TAG")
+          notes=docs/release-notes.md
+          if [[ "$RELEASE_TAG" == *-* ]]; then
+            args+=(--prerelease)
+            notes=docs/release-candidate.md
+          fi
+          gh release create "$RELEASE_TAG" release/momp.exe release/momp-web-dist.tar.gz release/browser-verification.tar.gz release/SHA256SUMS "${args[@]}" --notes-file "$notes"

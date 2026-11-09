@@ -6,16 +6,19 @@ export interface UsageLimitView {
   id: string;
   label: string;
   /** Fraction used, 0..1 (>1 means overage). */
-  usedFraction: number;
+  usedFraction: number | null;
   used?: number;
   limit?: number;
   remaining?: number;
   unit: string;
   windowLabel?: string;
+  windowDurationMs?: number;
+  modelId?: string;
   resetsAt?: number;
   resetLabel?: string;
   status: "ok" | "warning" | "exhausted" | "unknown";
   notes?: string[];
+  source: "provider" | "sdk";
 }
 
 /** One account's usage report, grouped by provider. */
@@ -41,16 +44,20 @@ function reportToView(report: UsageReport): UsageReportView {
       return {
         id: limit.id,
         label: limit.label,
-        usedFraction: used ?? 0,
+        usedFraction: used !== undefined && Number.isFinite(used) && used >= 0 ? used : null,
         used: limit.amount.used,
         limit: limit.amount.limit,
         remaining: limit.amount.remaining,
         unit: limit.amount.unit,
         windowLabel: limit.window?.label,
-        resetsAt: limit.window?.resetsAt,
+        windowDurationMs: limit.window?.durationMs,
+        modelId: limit.scope.modelId,
+        resetsAt: typeof limit.window?.resetsAt === "number" && Number.isFinite(limit.window.resetsAt)
+          && limit.window.resetsAt > 0 ? limit.window.resetsAt : undefined,
         resetLabel: limit.window?.resetLabel,
         status: limit.status ?? "unknown",
         notes: limit.notes,
+        source: report.provider === "openai-codex" ? "provider" : "sdk",
       };
     }),
   };

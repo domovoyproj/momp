@@ -15,6 +15,7 @@ import { GitHubRepository } from "./GitHubRepository";
 import { WelcomeScreen } from "./WelcomeScreen";
 import { WorkspaceIcon } from "./WorkspaceIcon";
 import { LimitsModal } from "./LimitsModal";
+import { CollaborationPanel } from "./CollaborationPanel";
 import { ProjectTrustDialog } from "./ProjectTrustDialog";
 import { OmpUpdateIndicator } from "./OmpUpdateIndicator";
 import { BranchNavigator } from "./BranchNavigator";
@@ -92,6 +93,7 @@ export function AppShell() {
   const [settingsConfigOpen, setSettingsConfigOpen] = useState(false);
   const [settingsSection, setSettingsSection] = useState<"models" | "skills" | "themes">("models");
   const [limitsOpen, setLimitsOpen] = useState(false);
+  const [collaborationCwd, setCollaborationCwd] = useState<string | null>(null);
   const [projectTrust, setProjectTrust] = useState<ProjectTrustStatus | null>(null);
   const [projectTrustDialogOpen, setProjectTrustDialogOpen] = useState(false);
   const [projectTrustBusy, setProjectTrustBusy] = useState(false);
@@ -905,6 +907,9 @@ export function AppShell() {
       </div>
       <div className="sidebar-footer">
         <GitHubRepository cwd={projectTrustCwd} />
+        <button type="button" disabled={!projectTrustCwd} onClick={() => setCollaborationCwd(projectTrustCwd)}>
+          <WorkspaceIcon name="branch" />{translate("collaboration.title")}
+        </button>
         <button onClick={() => { setSettingsSection("models"); setSettingsConfigOpen(true); }}>
           <WorkspaceIcon name="connections" />{translate("connections.title")}
         </button>
@@ -1050,6 +1055,10 @@ export function AppShell() {
       <main className="workspace-main" style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
         {/* Top bar with sidebar toggle */}
         <div ref={topBarRef} className="workspace-toolbar" style={{ display: "flex", alignItems: "center", flexShrink: 0, borderBottom: "1px solid var(--border)", height: "calc(48px + env(safe-area-inset-top))", paddingTop: "env(safe-area-inset-top)", background: "var(--bg)" }}>
+          {isMobile && projectTrustCwd && <button type="button" className="mobile-ai-tasks" aria-label={translate("collaboration.title")}
+            title={translate("collaboration.title")} onClick={() => setCollaborationCwd(projectTrustCwd)}>
+            <WorkspaceIcon name="branch" size={17} />
+          </button>}
           <button
             onClick={handleSidebarToggle}
              title={sidebarOpen ? translate("sidebar.hide") : translate("sidebar.show")}
@@ -2036,6 +2045,7 @@ export function AppShell() {
     {limitsOpen && (
       <LimitsModal onClose={() => setLimitsOpen(false)} />
     )}
+    {collaborationCwd && <CollaborationPanel cwd={collaborationCwd} onClose={() => setCollaborationCwd(null)} />}
     {projectTrustDialogOpen && projectTrustCwd && (
       <ProjectTrustDialog
         cwd={projectTrustCwd}

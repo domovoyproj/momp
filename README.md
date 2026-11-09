@@ -1,23 +1,31 @@
 # ⚡ momp — Modern Web & Desktop GUI for Oh My Pi
 
-## Версия 1.5 — GPT + Gemini
+**[Русский](docs/ru/USER_GUIDE.md) · [English](docs/en/USER_GUIDE.md)**
 
-Новый интерфейс в стиле разговорного desktop-клиента: спокойные темы, переработанная боковая панель, библиотека skills и нативные кнопки окна. Подключайте **ChatGPT, GitHub Copilot и Antigravity**, назначайте доступные модели через пресеты ролей и используйте общие Codex/Gemini skills.
+## momp 1.6 candidate branch
+
+momp is a local AI coding workspace for the web and Windows. The candidate branch adds saved AI tasks with GPT or Gemini, a lead and independent reviewers, and exportable Git patches.
+
+momp — локальное рабочее пространство для программирования с AI в браузере и Windows. В ветке кандидата появились сохраняемые задачи с GPT или Gemini, роли исполнителя и независимых ревьюеров, скачивание Git-патчей.
+
+[Release notes EN](docs/en/RELEASE_NOTES.md) · [Заметки RU](docs/ru/RELEASE_NOTES.md) · [Installation EN](docs/en/INSTALLATION.md) · [Установка RU](docs/ru/INSTALLATION.md)
 
 [Изменения 1.5](docs/release-notes.md) · [Совместимость и ограничения](docs/compatibility.md)
 
 [Полное ревью кода](docs/code-audit-2026-10-24.md) · [Проверенные файлы и границы аудита](docs/code-audit-coverage-2026-10-24.md)
 
 <p align="center">
-  <img src="docs/screenshots/06-workspace-v1.4.jpg" alt="Рабочее пространство momp 1.4" width="1000" />
+  <img src="docs/screenshots/next/ai-tasks-desktop-dark.png" alt="momp AI tasks with a GPT lead, Gemini review and Git diff" width="1000" />
 </p>
+
+[Mobile workspace](docs/screenshots/next/ai-tasks-mobile-light.png) · [Usage limits](docs/screenshots/next/usage-dark.png)
 
 <p align="center">
   <a href="https://github.com/domovoyproj/momp/releases"><img src="https://img.shields.io/github/v/release/domovoyproj/momp?style=for-the-badge&colorA=222222&colorB=58A6FF" alt="version"></a>
   <a href="https://github.com/domovoyproj/momp/actions/workflows/publish-dist.yml"><img src="https://img.shields.io/github/actions/workflow/status/domovoyproj/momp/publish-dist.yml?style=for-the-badge&label=Build&colorA=222222&colorB=2ea44f" alt="build"></a>
   <img src="https://img.shields.io/badge/Next.js-16-black?style=for-the-badge&logo=next.js&logoColor=white" alt="Next.js 16" />
   <img src="https://img.shields.io/badge/Tauri-v2-24C8DB?style=for-the-badge&logo=tauri&logoColor=white" alt="Tauri v2" />
-  <img src="https://img.shields.io/badge/Runtime-Bun%201.3.14+-FBF0DF?style=for-the-badge&logo=bun&logoColor=black" alt="Bun" />
+  <img src="https://img.shields.io/badge/Runtime-Bun%201.4.4+-FBF0DF?style=for-the-badge&logo=bun&logoColor=black" alt="Bun" />
   <img src="https://img.shields.io/badge/TypeScript-5-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" />
   <a href="https://github.com/domovoyproj/momp/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-58A6FF?style=for-the-badge&colorA=222222" alt="License"></a>
 </p>
