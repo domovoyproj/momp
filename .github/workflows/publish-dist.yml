@@ -3,6 +3,7 @@ name: Verified release
 on:
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, edited]
   push:
     branches: [main]
     paths: [package.json, .github/workflows/publish-dist.yml]
@@ -16,14 +17,27 @@ concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
+env:
+  VERIFIED_COMMIT: ${{ github.event.action == 'edited' && github.event.pull_request.head.sha || github.sha }}
+
 jobs:
   version:
+    if: >-
+      github.event.action != 'edited' ||
+      (github.event.changes.title.from != null &&
+      !startsWith(github.event.changes.title.from, '[prepare-rc] ') &&
+      startsWith(github.event.pull_request.title, '[prepare-rc] ') &&
+      github.actor == github.repository_owner &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.draft)
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.version.outputs.tag }}
       bun: ${{ steps.version.outputs.bun }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.VERIFIED_COMMIT }}
       - id: version
         run: |
           VERSION=$(node -p "require('./package.json').version")
@@ -37,6 +51,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.VERIFIED_COMMIT }}
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: ${{ needs.version.outputs.bun }}
@@ -69,6 +85,8 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.VERIFIED_COMMIT }}
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: ${{ needs.version.outputs.bun }}
@@ -111,13 +129,23 @@ jobs:
           path: src-tauri/target/release/momp.exe
 
   publish:
-    if: github.event_name == 'workflow_dispatch'
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' && github.event.action == 'edited' &&
+      github.event.changes.title.from != null &&
+      !startsWith(github.event.changes.title.from, '[prepare-rc] ') &&
+      startsWith(github.event.pull_request.title, '[prepare-rc] ') &&
+      github.actor == github.repository_owner &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.draft && contains(needs.version.outputs.tag, '-rc.'))
     needs: [version, web, desktop]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.VERIFIED_COMMIT }}
       - uses: actions/download-artifact@v4
         with:
           pattern: '*-release'
@@ -140,7 +168,7 @@ jobs:
             echo "Release already exists; refusing to overwrite published executables."
             exit 1
           fi
-          args=(--draft --target "$GITHUB_SHA" --title "momp $RELEASE_TAG")
+          args=(--draft --target "$VERIFIED_COMMIT" --title "momp $RELEASE_TAG")
           notes=docs/release-notes.md
           if [[ "$RELEASE_TAG" == *-* ]]; then
             args+=(--prerelease)
