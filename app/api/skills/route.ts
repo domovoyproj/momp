@@ -4,7 +4,7 @@ import { homedir } from "os";
 import path from "path";
 import { getAgentDir } from "@oh-my-pi/pi-coding-agent";
 import { loadSkillsWithInstallInfo } from "@/lib/skills-service";
-import { getAllowedFileRoots, isExistingFilePathAllowed } from "@/lib/file-access";
+import { getAllowedFileRoots, isExistingFilePathAllowed, isFilePathAllowed } from "@/lib/file-access";
 import { hasJsonContentType, isApiRequestAllowed } from "@/lib/request-security";
 import { getCompatibleSkillRoots, readSkillInvocationPolicy } from "@/lib/skill-compatibility";
 import { setSkillInvocationDisabled } from "@/lib/skill-frontmatter";
@@ -27,6 +27,9 @@ export async function GET(req: Request) {
   try {
     const allowedRoots = await getAllowedFileRoots();
     if (!isExistingFilePathAllowed(cwd, allowedRoots)) {
+      if (isFilePathAllowed(cwd, allowedRoots) && !existsSync(cwd)) {
+        return NextResponse.json({ error: "Workspace folder is unavailable" }, { status: 404 });
+      }
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
     return NextResponse.json(await loadSkillsWithInstallInfo(cwd));

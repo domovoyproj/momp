@@ -33,6 +33,7 @@ interface FileNode {
 interface Props {
   cwd: string;
   onOpenFile: (filePath: string, fileName: string, options?: OpenFileOptions) => void;
+  onChooseProject?: () => void;
   refreshKey?: number;
   onAtMention?: (relativePath: string, isDir: boolean) => void;
   onAtMentions?: (relativePaths: string[]) => void;
@@ -86,7 +87,7 @@ async function fetchEntries(dirPath: string): Promise<FileNode[]> {
     } catch {
       // ignore non-JSON error bodies
     }
-    throw new Error(message);
+    throw Object.assign(new Error(message), { status: res.status });
   }
   const data = await res.json() as { entries?: FileEntry[] };
   return (data.entries ?? []).map((e) => ({
@@ -518,6 +519,7 @@ function ChangeRow({
 export const FileExplorer = forwardRef<FileExplorerHandle, Props>(function FileExplorer({
   cwd,
   onOpenFile,
+  onChooseProject,
   refreshKey,
   onAtMention,
   onAtMentions,
@@ -528,7 +530,7 @@ export const FileExplorer = forwardRef<FileExplorerHandle, Props>(function FileE
   const { t } = useI18n();
   const [roots, setRoots] = useState<FileNode[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{ message: string; workspaceUnavailable: boolean } | null>(null);
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
   const [treeRefreshKey, setTreeRefreshKey] = useState(0);
   const [highlightedPaths, setHighlightedPaths] = useState<Set<string>>(new Set());
@@ -710,7 +712,11 @@ export const FileExplorer = forwardRef<FileExplorerHandle, Props>(function FileE
     let cancelled = false;
     fetchEntries(cwd)
       .then((entries) => { if (!cancelled) setRoots(entries); })
-      .catch((e) => { if (!cancelled) setError(e instanceof Error ? e.message : String(e)); })
+      .catch((e: unknown) => {
+        if (cancelled) return;
+        const status = (e as { status?: number } | null)?.status;
+        setError({ message: e instanceof Error ? e.message : String(e), workspaceUnavailable: status === 403 || status === 404 });
+      })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [cwd, refreshKey, treeRefreshKey]);
@@ -896,7 +902,11 @@ export const FileExplorer = forwardRef<FileExplorerHandle, Props>(function FileE
           {loading ? (
             <div style={{ padding: "8px 12px", fontSize: 11, color: "var(--text-dim)" }}>Загрузка файлов...</div>
           ) : error ? (
-            <div style={{ padding: "8px 12px", fontSize: 11, color: "#f87171" }}>{error}</div>
+            <div role="alert" style={{ padding: "8px 12px", fontSize: 11, color: "var(--danger)" }}>
+              {error.workspaceUnavailable ? t("workspace.folderUnavailable") : error.message}
+              {error.workspaceUnavailable && onChooseProject && <button className="workspace-recovery-button" type="button"
+                onClick={onChooseProject}>{t("workspace.openProject")}</button>}
+            </div>
           ) : (
             roots.map((node) => (
               <TreeNode

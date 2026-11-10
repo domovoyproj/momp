@@ -709,17 +709,19 @@ function AddSkillPanel({
 export function SkillsConfig({
   cwd,
   onClose,
+  onChooseProject,
   embedded = false,
 }: {
   cwd: string;
   onClose: () => void;
+  onChooseProject: () => void;
   embedded?: boolean;
 }) {
   const isMobile = useIsMobile();
   const { t } = useI18n();
   const [skills, setSkills] = useState<Skill[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{ message: string; workspaceUnavailable?: boolean } | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [toggling, setToggling] = useState<Set<string>>(new Set());
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -738,6 +740,12 @@ export function SkillsConfig({
     try {
       const res = await fetch(`/api/skills?cwd=${encodeURIComponent(cwd)}`);
       const d = (await res.json()) as Partial<SkillsResponse> & { error?: string };
+      if (res.status === 403 || res.status === 404) {
+        setSkills([]);
+        setSelected(null);
+        setError({ message: d.error ?? `HTTP ${res.status}`, workspaceUnavailable: true });
+        return [];
+      }
       if (!res.ok || d.error) throw new Error(d.error ?? `HTTP ${res.status}`);
       const list = d.skills ?? [];
       setSkills(list);
@@ -754,7 +762,7 @@ export function SkillsConfig({
       }
       return list;
     } catch (e) {
-      setError(String(e));
+      setError({ message: e instanceof Error ? e.message : String(e) });
       return [];
     } finally {
       setLoading(false);
@@ -1021,14 +1029,17 @@ export function SkillsConfig({
                    {t("i18n.loading")}
                 </div>
               ) : error ? (
-                <div
+                <div role="alert"
                   style={{
                     padding: "10px 8px",
                     fontSize: 11,
                     color: "#f87171",
                   }}
                 >
-                  {error}
+                  {error.workspaceUnavailable ? <>
+                    {t("workspace.folderUnavailable")}
+                    <button className="workspace-recovery-button" type="button" onClick={onChooseProject}>{t("workspace.openProject")}</button>
+                  </> : error.message}
                 </div>
               ) : skills.length === 0 ? (
                 <div

@@ -72,6 +72,8 @@ function getLanguage(filePath: string): string {
 function filePathFromSegments(segments: string[]): string {
   const joined = segments.join("/");
   const slashJoined = normalizeSlashes(joined);
+  // The catch-all URL has no segment for the trailing slash of a drive root.
+  if (process.platform === "win32" && /^[a-zA-Z]:$/.test(slashJoined)) return `${slashJoined}/`;
   if (isWindowsAbsolutePath(slashJoined)) return slashJoined;
   return "/" + joined.replace(/^\/+/, "");
 }

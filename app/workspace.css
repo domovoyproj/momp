@@ -76,6 +76,29 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .sidebar-section-heading > button { background: transparent !important; }
 .sidebar-project { padding: 0 6px; }
 .sidebar-project > div:first-child { border-radius: 9px !important; }
+.sidebar-project-menu {
+  position: fixed;
+  z-index: 210;
+  visibility: hidden;
+  box-sizing: border-box;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 6px 20px #0003;
+}
+.workspace-recovery-button {
+  display: block;
+  margin-top: 8px;
+  padding: 5px 9px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  background: var(--bg);
+  cursor: pointer;
+}
+.workspace-recovery-button:hover { background: var(--bg-hover); }
 .sidebar-search input:focus { border-color: var(--accent); }
 .sidebar-footer { padding: 8px 12px 14px; display: grid; gap: 2px; flex-shrink: 0; border-top: 1px solid var(--border); }
 .sidebar-footer > button, .sidebar-footer .github-repository button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px; border: 0; border-radius: 8px; background: transparent; color: var(--text-muted); cursor: pointer; text-align: left; }

@@ -95,7 +95,7 @@ export function AppShell() {
   const [settingsSection, setSettingsSection] = useState<"models" | "skills" | "themes">("models");
   const [limitsOpen, setLimitsOpen] = useState(false);
   const [collaborationCwd, setCollaborationCwd] = useState<string | null>(null);
-  const [antigravityCwd, setAntigravityCwd] = useState<string | null>(null);
+  const [antigravityOpen, setAntigravityOpen] = useState(false);
   const [projectTrust, setProjectTrust] = useState<ProjectTrustStatus | null>(null);
   const [projectTrustDialogOpen, setProjectTrustDialogOpen] = useState(false);
   const [projectTrustBusy, setProjectTrustBusy] = useState(false);
@@ -819,6 +819,14 @@ export function AppShell() {
   const showChat = selectedSession !== null || effectiveNewSessionCwd !== null;
   const showSubagentPanel = !isMobile && selectedSession !== null && subagents.length > 0;
   const projectTrustCwd = selectedSession?.cwd ?? effectiveNewSessionCwd;
+  const chooseProject = () => {
+    setSidebarOpen(true);
+    setProjectPickerRequest(value => value + 1);
+  };
+  const openAntigravity = () => {
+    setSettingsConfigOpen(false);
+    setAntigravityOpen(true);
+  };
   // While restoring initial session from URL, don't show the placeholder
   const showPlaceholder = initialSessionRestored && !showChat;
 
@@ -906,7 +914,7 @@ export function AppShell() {
       />
       <div className="sidebar-footer">
         <GitHubRepository cwd={projectTrustCwd} />
-        <button type="button" disabled={!projectTrustCwd} onClick={() => setAntigravityCwd(projectTrustCwd)}>
+        <button type="button" onClick={openAntigravity}>
           <WorkspaceIcon name="chat" />{translate("antigravity.title")}
         </button>
         <button type="button" disabled={!projectTrustCwd} onClick={() => setCollaborationCwd(projectTrustCwd)}>
@@ -1062,8 +1070,8 @@ export function AppShell() {
             title={translate("collaboration.title")} onClick={() => setCollaborationCwd(projectTrustCwd)}>
             <WorkspaceIcon name="branch" size={17} />
           </button>}
-          {isMobile && projectTrustCwd && <button type="button" className="mobile-ai-tasks" aria-label={translate("antigravity.title")}
-            title={translate("antigravity.title")} onClick={() => setAntigravityCwd(projectTrustCwd)}>
+          {isMobile && <button type="button" className="mobile-ai-tasks" aria-label={translate("antigravity.title")}
+            title={translate("antigravity.title")} onClick={openAntigravity}>
             <WorkspaceIcon name="chat" size={17} />
           </button>}
           <button
@@ -1923,7 +1931,7 @@ export function AppShell() {
               <div className="workspace-onboarding">
                 <WelcomeScreen />
                 <div className="onboarding-actions">
-                  <button type="button" onClick={() => { setSidebarOpen(true); setProjectPickerRequest(value => value + 1); }}>{translate("workspace.openProject")}</button>
+                  <button type="button" onClick={chooseProject}>{translate("workspace.openProject")}</button>
                   <button type="button" onClick={() => { setSettingsSection("models"); setSettingsConfigOpen(true); }}>{translate("connections.title")}</button>
                 </div>
                 <p className="welcome-footnote">GitHub · ChatGPT · Gemini</p>
@@ -2046,6 +2054,8 @@ export function AppShell() {
         initialSection={settingsSection}
         sessionId={selectedSession?.id ?? null}
         onClose={() => setSettingsConfigOpen(false)}
+        onChooseProject={chooseProject}
+        onOpenAntigravity={openAntigravity}
         onModelsChanged={() => setModelsRefreshKey((key) => key + 1)}
         onReloaded={() => setSessionKey((key) => key + 1)}
       />
@@ -2055,10 +2065,12 @@ export function AppShell() {
     )}
     {collaborationCwd && <CollaborationPanel cwd={collaborationCwd} onClose={() => setCollaborationCwd(null)}
       onWorkingFilesChanged={() => setExplorerRefreshKey((key) => key + 1)} />}
-    {antigravityCwd && <AntigravityPanel cwd={antigravityCwd} onClose={() => {
-      setAntigravityCwd(null);
-      setExplorerRefreshKey((key) => key + 1);
-    }} />}
+    {antigravityOpen && <AntigravityPanel key={projectTrustCwd ?? ""} cwd={projectTrustCwd ?? ""}
+      onChooseProject={() => { setAntigravityOpen(false); chooseProject(); }}
+      onClose={() => {
+        setAntigravityOpen(false);
+        setExplorerRefreshKey((key) => key + 1);
+      }} />}
     {projectTrustDialogOpen && projectTrustCwd && (
       <ProjectTrustDialog
         cwd={projectTrustCwd}

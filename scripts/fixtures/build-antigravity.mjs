@@ -14,7 +14,14 @@ export function buildAntigravityFixture(directory) {
     copyFileSync(process.execPath, copy);
     runtime.push(`--compile-executable-path=${copy}`);
   }
-  execFileSync(process.execPath, ["build", "--compile", "--no-compile-autoload-dotenv", "--no-compile-autoload-bunfig", ...runtime, script, "--outfile", executable],
-    { timeout: 60_000, windowsHide: true });
-  return executable;
+  const args = ["build", "--compile", "--no-compile-autoload-dotenv", "--no-compile-autoload-bunfig", ...runtime, script, "--outfile", executable];
+  for (let attempt = 0; ; attempt++) {
+    try {
+      execFileSync(process.execPath, args, { timeout: 60_000, windowsHide: true, stdio: "pipe" });
+      return executable;
+    } catch (error) {
+      if (!windows || attempt === 2 || !String(error.stderr).includes("Error truncating PE file")) throw error;
+      Bun.sleepSync(500 * (attempt + 1));
+    }
+  }
 }

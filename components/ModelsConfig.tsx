@@ -1820,7 +1820,13 @@ function AddProviderPicker({
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export function ModelsConfig({ cwd, onClose, embedded = false, onModelsChanged }: { cwd?: string | null; onClose: () => void; embedded?: boolean; onModelsChanged?: () => void }) {
+export function ModelsConfig({ cwd, onClose, embedded = false, onOpenAntigravity, onModelsChanged }: {
+  cwd?: string | null;
+  onClose: () => void;
+  embedded?: boolean;
+  onOpenAntigravity: () => void;
+  onModelsChanged?: () => void;
+}) {
   const isMobile = useIsMobile();
   const { t } = useI18n();
   const [config, setConfig] = useState<ModelsJson>({ providers: {} });
@@ -2140,13 +2146,13 @@ export function ModelsConfig({ cwd, onClose, embedded = false, onModelsChanged }
             const oauth = featured.auth === "oauth" ? oauthProviders.find((entry) => entry.id === featured.id) : undefined;
             const apiKey = featured.auth === "apikey" ? apiKeyProviders.find((entry) => entry.id === featured.id) : undefined;
             const enabled = Boolean(oauth || apiKey);
-            if (featured.id === "google-antigravity" && !enabled) {
-              return <a key={featured.id} className="connection-card" href="https://antigravity.google/docs/cli/install" target="_blank" rel="noreferrer">
+            if (featured.id === "google-antigravity") {
+              return <button key={featured.id} type="button" className="connection-card" onClick={onOpenAntigravity}>
                 <ProviderIcon id={featured.id} size={23} />
                 <strong>{featured.name}</strong>
                 <small>{t("connections.antigravityCli")}</small>
-                <span className="connection-state">{t("connections.antigravitySetup")} ↗</span>
-              </a>;
+                <span className="connection-state">{t("connections.connect")}</span>
+              </button>;
             }
             return (
               <button key={featured.id} type="button" className="connection-card" disabled={!enabled}

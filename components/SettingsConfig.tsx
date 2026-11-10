@@ -29,6 +29,8 @@ interface SettingsConfigProps {
   sessionId: string | null;
   initialSection?: SettingsSection;
   onClose: () => void;
+  onChooseProject: () => void;
+  onOpenAntigravity: () => void;
   onModelsChanged?: () => void;
   onReloaded?: () => void;
 }
@@ -190,7 +192,7 @@ function ThemePreview({ palette }: { palette: WebThemePalette }) {
 /** Settings the web client applies itself, without reloading the agent. */
 const DISPLAY_SETTING_PATHS = new Set(["hideThinkingBlock"]);
 
-export function SettingsConfig({ cwd, sessionId, initialSection = "models", onClose, onModelsChanged, onReloaded }: SettingsConfigProps) {
+export function SettingsConfig({ cwd, sessionId, initialSection = "models", onClose, onChooseProject, onOpenAntigravity, onModelsChanged, onReloaded }: SettingsConfigProps) {
   const windowRef = useRef<HTMLDialogElement>(null);
   const [section, setSection] = useState<SettingsSection>(initialSection);
   const [settings, setSettings] = useState<SettingsResponse | null>(null);
@@ -392,7 +394,13 @@ export function SettingsConfig({ cwd, sessionId, initialSection = "models", onCl
           <div className={styles.closeRail}><button type="button" className={styles.closeButton} aria-label={t("settings.close")} onClick={close}><span>{t("settings.close")}</span><span aria-hidden="true">×</span></button></div>
         </aside>
         <main className={styles.content}>
-          {query.trim() ? renderGenericSettings() : section === "models" ? <ModelsConfig cwd={cwd} embedded onClose={close} onModelsChanged={onModelsChanged} /> : section === "themes" ? renderThemeSection() : section === "skills" && cwd ? <SkillsConfig cwd={cwd} embedded onClose={close} /> : section === "plugins" && cwd ? <PluginsConfig cwd={cwd} sessionId={sessionId} embedded onClose={close} onReloaded={onReloaded} /> : section === "mcp" ? <McpSettings cwd={cwd} sessionId={sessionId} onReloaded={onReloaded} /> : section === "access" ? <AccessConfig /> : renderGenericSettings()}
+          {query.trim() ? renderGenericSettings()
+            : section === "models" ? <ModelsConfig cwd={cwd} embedded onClose={close} onOpenAntigravity={onOpenAntigravity} onModelsChanged={onModelsChanged} />
+            : section === "themes" ? renderThemeSection()
+            : section === "skills" && cwd ? <SkillsConfig cwd={cwd} embedded onClose={close} onChooseProject={() => { close(); onChooseProject(); }} />
+            : section === "plugins" && cwd ? <PluginsConfig cwd={cwd} sessionId={sessionId} embedded onClose={close} onReloaded={onReloaded} />
+            : section === "mcp" ? <McpSettings cwd={cwd} sessionId={sessionId} onReloaded={onReloaded} />
+            : section === "access" ? <AccessConfig /> : renderGenericSettings()}
         </main>
     </dialog>
   );
