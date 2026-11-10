@@ -38,7 +38,7 @@ try {
     $project = @{ cwd = $projectDir } | ConvertTo-Json
     $null = Invoke-WebRequest -Uri "$origin/api/cwd/validate" -Method Post -ContentType 'application/json' -Body $project -UseBasicParsing -TimeoutSec 60
     $query = '?cwd=' + [Uri]::EscapeDataString($projectDir)
-    foreach ($endpoint in @('/api/display-settings', '/api/auth/providers', '/api/auth/all-providers', '/api/settings', '/api/models-config/limits', "/api/models$query", "/api/model-roles$query", "/api/skills$query", "/api/collaboration$query")) {
+    foreach ($endpoint in @('/api/display-settings', '/api/auth/providers', '/api/auth/all-providers', '/api/settings', '/api/models-config/limits', '/api/workspace-activity', "/api/models$query", "/api/model-roles$query", "/api/skills$query", "/api/collaboration$query", "/api/antigravity$query")) {
         $response = Invoke-WebRequest -Uri "$origin$endpoint" -UseBasicParsing -TimeoutSec 90
         if ($response.StatusCode -ne 200) { throw "Failed: $endpoint" }
         $null = $response.Content | ConvertFrom-Json

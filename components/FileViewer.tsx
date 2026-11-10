@@ -49,13 +49,6 @@ interface FileData {
 
 type DisplayMode = "source" | "edit" | "preview" | "diff";
 
-const DISPLAY_MODE_LABELS: Record<DisplayMode, string> = {
-  source: "Source",
-  edit: "Правка",
-  preview: "Preview",
-  diff: "Diff",
-};
-
 const FILE_CODE_STYLE: CSSProperties = {
   fontFamily: "var(--font-mono)",
   fontSize: 13,
@@ -1202,7 +1195,7 @@ function TextFileViewer({ filePath, cwd, sourceSessionId, onOpenFile, onMentionL
                       color: active ? "var(--text)" : "var(--text-muted)",
                     }}
                   >
-                    {DISPLAY_MODE_LABELS[mode]}
+                    {t(`files.mode.${mode}`)}
                   </button>
                 );
               })}
@@ -1327,6 +1320,7 @@ function TextFileViewer({ filePath, cwd, sourceSessionId, onOpenFile, onMentionL
               ))}
             </div>
             <textarea
+              aria-label={t("files.editorLabel")}
               value={editContent}
               onChange={(e) => updateEditContent(e.target.value)}
               onKeyDown={(e) => {
@@ -1335,7 +1329,7 @@ function TextFileViewer({ filePath, cwd, sourceSessionId, onOpenFile, onMentionL
                   void handleSave();
                   return;
                 }
-                if (e.key === "Tab") {
+                if (e.key === "Tab" && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
                   e.preventDefault();
                   const target = e.currentTarget;
                   const start = target.selectionStart;

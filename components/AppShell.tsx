@@ -16,6 +16,7 @@ import { WelcomeScreen } from "./WelcomeScreen";
 import { WorkspaceIcon } from "./WorkspaceIcon";
 import { LimitsModal } from "./LimitsModal";
 import { CollaborationPanel } from "./CollaborationPanel";
+import { AntigravityPanel } from "./AntigravityPanel";
 import { ProjectTrustDialog } from "./ProjectTrustDialog";
 import { OmpUpdateIndicator } from "./OmpUpdateIndicator";
 import { BranchNavigator } from "./BranchNavigator";
@@ -94,6 +95,7 @@ export function AppShell() {
   const [settingsSection, setSettingsSection] = useState<"models" | "skills" | "themes">("models");
   const [limitsOpen, setLimitsOpen] = useState(false);
   const [collaborationCwd, setCollaborationCwd] = useState<string | null>(null);
+  const [antigravityCwd, setAntigravityCwd] = useState<string | null>(null);
   const [projectTrust, setProjectTrust] = useState<ProjectTrustStatus | null>(null);
   const [projectTrustDialogOpen, setProjectTrustDialogOpen] = useState(false);
   const [projectTrustBusy, setProjectTrustBusy] = useState(false);
@@ -902,11 +904,11 @@ export function AppShell() {
         onAtMentions={handleAtMentions}
         onBackgroundTaskDone={handleBackgroundTaskDone}
       />
-      <div style={{ padding: "0 8px", flexShrink: 0 }}>
-        <OmpUpdateIndicator />
-      </div>
       <div className="sidebar-footer">
         <GitHubRepository cwd={projectTrustCwd} />
+        <button type="button" disabled={!projectTrustCwd} onClick={() => setAntigravityCwd(projectTrustCwd)}>
+          <WorkspaceIcon name="chat" />{translate("antigravity.title")}
+        </button>
         <button type="button" disabled={!projectTrustCwd} onClick={() => setCollaborationCwd(projectTrustCwd)}>
           <WorkspaceIcon name="branch" />{translate("collaboration.title")}
         </button>
@@ -916,6 +918,7 @@ export function AppShell() {
         <button onClick={() => { setSettingsSection("skills"); setSettingsConfigOpen(true); }}>
           <WorkspaceIcon name="skills" />{translate("connections.skillsLibrary")}
         </button>
+        <OmpUpdateIndicator />
         <button className="profile-button" onClick={() => { setSettingsSection("themes"); setSettingsConfigOpen(true); }}>
           <span className="profile-mark"><WorkspaceIcon name="settings" size={17} /></span>
           <span>{translate("connections.localProfile")}<small>{translate("common.settings")}</small></span>
@@ -1058,6 +1061,10 @@ export function AppShell() {
           {isMobile && projectTrustCwd && <button type="button" className="mobile-ai-tasks" aria-label={translate("collaboration.title")}
             title={translate("collaboration.title")} onClick={() => setCollaborationCwd(projectTrustCwd)}>
             <WorkspaceIcon name="branch" size={17} />
+          </button>}
+          {isMobile && projectTrustCwd && <button type="button" className="mobile-ai-tasks" aria-label={translate("antigravity.title")}
+            title={translate("antigravity.title")} onClick={() => setAntigravityCwd(projectTrustCwd)}>
+            <WorkspaceIcon name="chat" size={17} />
           </button>}
           <button
             onClick={handleSidebarToggle}
@@ -1792,7 +1799,9 @@ export function AppShell() {
               paddingLeft: 4,
             }}>
               {activeChatTabs.map((tab: ChatTabItem) => {
-                const isActive = selectedSession?.id === tab.id || (tab.id.startsWith("new:") && newSessionCwd !== null);
+                const isNew = tab.id.startsWith("new:");
+                const isActive = selectedSession?.id === tab.id || (isNew && newSessionCwd !== null);
+                const label = isNew ? translate("tabs.newChat") : tab.name;
                 return (
                   <div
                     key={tab.id}
@@ -1816,12 +1825,10 @@ export function AppShell() {
                       transition: "background 0.1s, color 0.1s",
                     }}
                   >
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: isActive ? 1 : 0.6, flexShrink: 0 }}>
-                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                    </svg>
-                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }} title={tab.name}>
-                      {tab.name}
-                    </span>
+                    <button type="button" className="workspace-tab-select" aria-pressed={isActive} title={label}>
+                      <WorkspaceIcon name="chat" size={13} />
+                      <span>{label}</span>
+                    </button>
                     <button
                       type="button"
                       onClick={(e) => {
@@ -1829,6 +1836,7 @@ export function AppShell() {
                         handleCloseChatTab(tab.id);
                       }}
                       title={translate("tabs.closeTab")}
+                      aria-label={translate("tabs.closeTab")}
                       style={{
                         display: "flex", alignItems: "center", justifyContent: "center",
                         width: 16, height: 16, border: "none", background: "none",
@@ -2045,7 +2053,12 @@ export function AppShell() {
     {limitsOpen && (
       <LimitsModal onClose={() => setLimitsOpen(false)} />
     )}
-    {collaborationCwd && <CollaborationPanel cwd={collaborationCwd} onClose={() => setCollaborationCwd(null)} />}
+    {collaborationCwd && <CollaborationPanel cwd={collaborationCwd} onClose={() => setCollaborationCwd(null)}
+      onWorkingFilesChanged={() => setExplorerRefreshKey((key) => key + 1)} />}
+    {antigravityCwd && <AntigravityPanel cwd={antigravityCwd} onClose={() => {
+      setAntigravityCwd(null);
+      setExplorerRefreshKey((key) => key + 1);
+    }} />}
     {projectTrustDialogOpen && projectTrustCwd && (
       <ProjectTrustDialog
         cwd={projectTrustCwd}

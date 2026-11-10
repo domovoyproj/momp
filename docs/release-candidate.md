@@ -1,101 +1,93 @@
-# momp 1.6.0-rc.1
+# momp 1.6.0-rc.2
 
 ## English
 
 ### Overview
 
-This candidate brings the OMP engine up to date and adds persistent AI tasks in the local workspace.
+momp is a local coding workspace for Windows and the web. This candidate updates the Oh My Pi engine and brings two independent provider modes and an explicit workflow for working with both models.
 
 ### What’s New
 
-Prepare an AI task, check the models and source context, and confirm the run. Resume unfinished steps after an interruption and export the proposed Git patch.
+Open a project, work in a saved conversation or prepare an AI task. Review the proposed patch and apply or reverse it from the task after checking the working files.
 
 ### AI Providers
 
-ChatGPT sign-in and OpenAI API keys use separate routes. Gemini API can power a normal coding session. Google Antigravity can participate in AI tasks through its official CLI.
+ChatGPT uses Codex OAuth. Google Antigravity uses the official CLI for sign-in, model and thinking options, streamed chat and tool approvals. OpenAI API and Gemini API remain separate connections. Usage limits displays the latest successful reports and counts down to provider-reported reset times when available.
 
 ### Hybrid AI
 
-Choose GPT Lead, Gemini Lead, Dual Review or routing by task type. Each reviewer receives the proposed diff and the result of the Git whitespace check.
+Choose GPT Lead, Gemini Lead, Dual Review or smart routing. Independent reviewers receive the lead’s summary, the actual Git diff, the whitespace check and optional project test results. You can pause, retry an unfinished stage or approve a separate fallback. Optional project tests run in an offline, unprivileged container with a snapshot of the proposed tree.
 
 ### Interface Improvements
 
-AI tasks shows the selected models, stage results and review history. Connections distinguishes API keys and account sign-in. Usage limits displays missing figures, a countdown and the most recent provider report.
-
-The browser-verification archive contains screenshots from the production web build in light and dark themes, at desktop and mobile sizes.
+The split view keeps editor and composer controls readable. Connections, mobile settings search, tool permissions and the Update center have dedicated views. See the [screenshot gallery](https://github.com/domovoyproj/momp/tree/feat/next-generation-rc/docs/screenshots/next).
 
 ### How to Use
 
-Open a Git project and choose **AI tasks** in the sidebar. Select the strategy and committed source files, then prepare and confirm. See the [English guide](https://github.com/domovoyproj/momp/blob/feat/next-generation-rc/docs/en/USER_GUIDE.md).
+Open a project, choose the provider in **Connections** or **Antigravity chat**, then select **AI tasks** for lead-and-review work. Follow the [workspace guide](https://github.com/domovoyproj/momp/blob/feat/next-generation-rc/docs/en/USER_GUIDE.md).
 
 ### Installation / Upgrade
 
-Use the Windows executable or the web archive for candidate testing. Keep the previous stable installation for rollback. Preview builds are separate from automatic stable updates.
+Verify the SHA-256 of the downloaded asset. Keep the previous stable installation and follow the [installation and rollback guide](https://github.com/domovoyproj/momp/blob/feat/next-generation-rc/docs/en/INSTALLATION.md). Preview builds stay outside the automatic stable update channel.
 
 ### Bug Fixes
 
-Unknown quota amounts no longer appear as an entirely unused allowance. The paused SDK Antigravity route no longer advertises API-key sign-in.
+Refresh failures preserve the most recent quota report. A replayed Antigravity session keeps the existing transcript. The editor supports leaving with Shift+Tab. MCP launch credentials and authenticated URLs are redacted while stored values survive an edit.
 
 ### Compatibility
 
-Oh My Pi 18.18.5, Bun 1.4.4, Next.js 16.4.3, React 19.2.8 and Tauri 2.11.5.
-
-Local validation passed 659 Bun tests with five platform-dependent skips, TypeScript, lint, the web build, and four browser scenarios with synthetic providers. The release workflow also requires native Windows build and executable smoke checks.
+Oh My Pi 18.18.5, Bun 1.4.4, Next.js 16.4.3, React 19.2.8 and Tauri 2.11.5. The release workflow checks TypeScript, ESLint, unit and integration tests, simulated OAuth and providers, Docker isolation, production browser flows and installer rollback. The Windows job builds and smoke-tests the portable EXE and its embedded Bun runtime. The browser archive records the light and dark desktop and mobile runs.
 
 ### Known Issues
 
-Real account sign-in, inference and quota checks are pending. OMP's Antigravity OAuth is paused. The official CLI adapter is available for proposals and reviews in AI tasks. Applying patches and running project tests are manual.
+**PENDING LIVE VERIFICATION** for real OAuth, responses and account quotas. Antigravity requires the official CLI. Hybrid edits are scoped to selected UTF-8 paths. Isolated project tests require a local Linux container engine and a prepared Bun image. The Windows EXE has no Authenticode signature. See the [live checklist](https://github.com/domovoyproj/momp/blob/feat/next-generation-rc/docs/en/LIVE_VERIFICATION.md).
 
 ### Download
 
-Check the candidate assets against SHA256SUMS in this release. The Windows portable executable has no Authenticode signature.
+Use `momp.exe` for portable Windows, `momp-web-dist.tar.gz` for web, and `browser-verification.tar.gz` for screenshots. Verify each with `SHA256SUMS`.
 
 ## Русский
 
 ### Обзор обновления
 
-Кандидат обновляет ядро OMP и добавляет сохраняемые задачи AI в локальном рабочем пространстве.
+momp — локальная среда разработки для Windows и браузера. Кандидат обновляет ядро Oh My Pi и добавляет два самостоятельных режима и сценарий совместной работы моделей.
 
 ### Что нового
 
-Подготовьте задачу, проверьте модели и исходный контекст, затем подтвердите запуск. После прерывания можно повторить незавершённые этапы и скачать предложенный Git-патч.
+Откройте проект, продолжите сохранённый диалог или подготовьте задачу AI. Проверьте предложенный патч, примените или отмените его из задачи после сверки рабочих файлов.
 
 ### AI-провайдеры
 
-Для входа в ChatGPT и ключей OpenAI API предусмотрены отдельные подключения. Gemini API доступен в обычном чате. Google Antigravity может участвовать в задачах через официальный CLI.
+ChatGPT использует Codex OAuth. Google Antigravity использует официальный CLI для входа, выбора модели и рассуждений, потокового чата и разрешений на действия. OpenAI API и Gemini API остаются отдельными подключениями. Окно лимитов сохраняет последние успешные отчёты и показывает обратный отсчёт до сообщённого провайдером восстановления.
 
 ### Совместный режим
 
-Выберите GPT или Gemini исполнителем, включите двойное ревью или распределение по типу задачи. Каждый ревьюер получает предложенный diff и результат проверки пробелов Git.
+Выберите GPT или Gemini исполнителем, двойное ревью или автоматическое распределение. Независимые ревьюеры получают сводку, настоящий Git diff, проверку пробелов и результаты запрошенных тестов. Задачу можно приостановить, повторить незавершённый этап или подтвердить отдельный запуск с одним провайдером. Тесты проекта работают в контейнере без сети и повышенных привилегий на снимке дерева с патчем.
 
 ### Улучшения интерфейса
 
-Панель задач показывает модели, результаты этапов и историю ревью. В подключениях различаются вход в аккаунт и API-ключи. Окно лимитов показывает отсутствующие данные, обратный отсчёт и время последнего отчёта.
-
-В архиве браузерной проверки находятся скриншоты production-сборки в светлой и тёмной темах на desktop и mobile.
+Редактор и панель ввода остаются читаемыми в разделённом окне. Добавлены отдельные экраны подключений, мобильного поиска настроек, разрешений и обновлений. Снимки доступны в [галерее](https://github.com/domovoyproj/momp/tree/feat/next-generation-rc/docs/screenshots/next).
 
 ### Как пользоваться
 
-Откройте Git-проект и выберите **Задачи AI** в боковой панели. Укажите стратегию и файлы из коммита, подготовьте и подтвердите задачу. См. [руководство](https://github.com/domovoyproj/momp/blob/feat/next-generation-rc/docs/ru/USER_GUIDE.md).
+Откройте проект, выберите провайдера в **Подключениях** или **Чате Antigravity**. Для работы с исполнителем и ревьюером откройте **Задачи AI**. См. [руководство](https://github.com/domovoyproj/momp/blob/feat/next-generation-rc/docs/ru/USER_GUIDE.md).
 
 ### Установка / обновление
 
-Для проверки кандидата используйте EXE или веб-архив. Сохраните предыдущую стабильную версию для отката. Предварительные сборки отделены от автоматических стабильных обновлений.
+Сверьте SHA-256 скачанного файла. Сохраните предыдущую стабильную версию и следуйте [инструкции установки и отката](https://github.com/domovoyproj/momp/blob/feat/next-generation-rc/docs/ru/INSTALLATION.md). Предварительные сборки не попадают в автоматические стабильные обновления.
 
 ### Исправления
 
-Неизвестная квота больше не выглядит полностью свободной. Приостановленный в OMP Antigravity OAuth больше не предлагается как подключение по API-ключу.
+При сбое обновления лимитов виден последний успешный отчёт. Восстановление Antigravity сохраняет переписку без повторов. Из редактора можно выйти сочетанием Shift+Tab. Секреты в аргументах запуска MCP и URL скрыты, а сохранённые значения переживают редактирование.
 
 ### Совместимость
 
-Oh My Pi 18.18.5, Bun 1.4.4, Next.js 16.4.3, React 19.2.8 и Tauri 2.11.5.
-
-Локально прошли 659 тестов Bun при пяти платформенных пропусках, TypeScript, ESLint, веб-сборка и четыре браузерных сценария с имитаторами провайдеров. Релизный процесс также требует нативной сборки Windows и smoke-теста EXE.
+Oh My Pi 18.18.5, Bun 1.4.4, Next.js 16.4.3, React 19.2.8 и Tauri 2.11.5. Релизный процесс проверяет TypeScript, ESLint, модульные и интеграционные тесты, имитацию OAuth и провайдеров, изоляцию Docker, браузерные сценарии production-сборки и откат установки. Задача Windows собирает и проверяет переносимый EXE со встроенным Bun. Браузерный архив содержит результаты в светлой и тёмной темах на desktop и mobile.
 
 ### Известные проблемы
 
-Вход в реальные аккаунты, ответы моделей и квоты ожидают проверки. Antigravity OAuth в OMP приостановлен. Официальный CLI доступен для предложений и ревью в задачах AI. Патчи применяются и тесты проекта запускаются вручную.
+**PENDING LIVE VERIFICATION** для реального OAuth, ответов и квот. Для Antigravity нужен официальный CLI. В Hybrid изменяются выбранные UTF-8 файлы. Для изолированных тестов нужен локальный движок Linux-контейнеров и подготовленный образ Bun. EXE Windows не подписан Authenticode. См. [порядок ручной проверки](https://github.com/domovoyproj/momp/blob/feat/next-generation-rc/docs/ru/LIVE_VERIFICATION.md).
 
 ### Скачать
 
-Сверьте файлы кандидата с SHA256SUMS в релизе. Переносимый EXE не подписан Authenticode.
+`momp.exe` — переносимое приложение Windows, `momp-web-dist.tar.gz` — веб-сборка, `browser-verification.tar.gz` — скриншоты. Для каждого файла сверяйте `SHA256SUMS`.

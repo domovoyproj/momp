@@ -2326,7 +2326,7 @@ export function ModelsConfig({ cwd, onClose, embedded = false, onModelsChanged }
                   }
                 }}
               >
-                {localDiscovery.scanning ? "Поиск Ollama / LM Studio..." : "🔍 Найти Ollama / LM Studio"}
+                {t(localDiscovery.scanning ? "models.localDiscoveryScanning" : "models.localDiscoveryScan")}
               </button>
 
               {localDiscovery.services.length > 0 && (

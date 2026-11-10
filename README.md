@@ -4,9 +4,9 @@
 
 ## momp 1.6 candidate branch
 
-momp is a local AI coding workspace for the web and Windows. The candidate branch adds saved AI tasks with GPT or Gemini, a lead and independent reviewers, and exportable Git patches.
+momp is a local AI coding workspace for the web and Windows. Use ChatGPT or Google Antigravity on its own, or coordinate GPT and Gemini on a saved task with test evidence, review and explicit patch approval.
 
-momp — локальное рабочее пространство для программирования с AI в браузере и Windows. В ветке кандидата появились сохраняемые задачи с GPT или Gemini, роли исполнителя и независимых ревьюеров, скачивание Git-патчей.
+momp — локальное рабочее пространство для программирования с AI в браузере и Windows. Работайте только с ChatGPT или Google Antigravity либо поручайте задачу GPT и Gemini, чтобы проверить результат, провести ревью и подтвердить применение патча.
 
 [Release notes EN](docs/en/RELEASE_NOTES.md) · [Заметки RU](docs/ru/RELEASE_NOTES.md) · [Installation EN](docs/en/INSTALLATION.md) · [Установка RU](docs/ru/INSTALLATION.md)
 
@@ -18,7 +18,7 @@ momp — локальное рабочее пространство для пр�
   <img src="docs/screenshots/next/workspace-desktop-dark.png" alt="momp workspace with projects, files and chat" width="1000" />
 </p>
 
-[Screenshots / Скриншоты](docs/screenshots/next/README.md) · [Hybrid AI](docs/screenshots/next/ai-tasks-desktop-dark.png) · [Usage limits / Лимиты](docs/screenshots/next/usage-dark.png)
+[Screenshots / Скриншоты](docs/screenshots/next/README.md) · [Antigravity](docs/screenshots/next/antigravity-desktop-dark.png) · [Hybrid AI](docs/screenshots/next/ai-tasks-desktop-dark.png) · [Usage limits / Лимиты](docs/screenshots/next/usage-dark.png)
 
 <p align="center">
   <a href="https://github.com/domovoyproj/momp/releases"><img src="https://img.shields.io/github/v/release/domovoyproj/momp?style=for-the-badge&colorA=222222&colorB=58A6FF" alt="version"></a>
@@ -34,7 +34,7 @@ momp — локальное рабочее пространство для пр�
   Форк <a href="https://github.com/ddallabenetta/omp-web">omp-web</a> • Совместимо с <b><a href="https://github.com/can1357/oh-my-pi">oh-my-pi</a></b>
 </p>
 
-Современный веб-интерфейс и десктопное приложение для **momp max** ([oh-my-pi](https://github.com/can1357/oh-my-pi)) с приоритетной поддержкой Google Antigravity. Сам автономный агент работает как обычно, а momp предоставляет полноценное интерактивное рабочее пространство: древовидный список сессий с ветвлением (fork), чат в реальном времени с поддержкой Server-Sent Events, матричную настройку ролей моделей, мониторинг лимитов и квот провайдеров, управление плагинами, навыками (skills) и встроенный просмотрщик файлов проекта.
+momp объединяет [Oh My Pi](https://github.com/can1357/oh-my-pi) и официальный интерфейс Google Antigravity. В рабочей области доступны сессии с ветвлением, потоковый чат, настройки моделей, отчёты о квотах, расширения, редактор и просмотр Git diff.
 
 ---
 
@@ -60,14 +60,9 @@ curl -fsSL https://raw.githubusercontent.com/domovoyproj/momp/main/install.sh | 
 
 ## ⚡ Google Antigravity
 
-Antigravity — один из трёх приоритетных провайдеров momp наряду с ChatGPT и GitHub Copilot. Для начала работы:
+В версии 1.6 установите официальный Antigravity CLI и задайте путь к `agy` в `MOMP_ANTIGRAVITY_CLI` перед запуском momp. Откройте проект, выберите **Чат Antigravity** и нажмите **Войти через Google**. После входа подтвердите доступ к проекту. В чате доступны модели и уровни рассуждений, которые возвращает CLI. Для совместных задач выберите **Google Antigravity CLI** как подключение Gemini.
 
-1. Откройте **Подключения** и выберите карточку **Antigravity**.
-2. Нажмите **Войти** и завершите авторизацию Google в браузере. Ключи вручную вводить не нужно.
-3. В разделе **Роли моделей** назначьте модели Antigravity для `default`, `smol`, `plan` и других задач.
-4. Нажмите **Лимиты**, чтобы увидеть доступную квоту и время до сброса.
-
-ChatGPT, GitHub Copilot и Antigravity вынесены в начало списка. Ошибки квоты `429 RESOURCE_EXHAUSTED` отображаются понятным сообщением, одинаковые уведомления не дублируются, а при истёкшей OAuth-сессии интерфейс предлагает переподключить аккаунт.
+[Настройка AI-режимов](docs/ru/AI_MODES.md) · [AI modes setup](docs/en/AI_MODES.md)
 
 ---
 

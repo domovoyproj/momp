@@ -1,13 +1,17 @@
-# momp 1.6.0-rc.1
+# momp 1.6.0-rc.2
 
 [Русский](../ru/RELEASE_NOTES.md) · [Install or roll back](INSTALLATION.md) · [Live verification](LIVE_VERIFICATION.md)
 
-The 1.6 candidate branch upgrades Oh My Pi to 18.18.5 and pins Bun 1.4.4 for local, CI and desktop runs. It keeps Next.js 16.4.3, React 19.2.8 and Tauri 2.11.5.
+## Provider modes
 
-**AI tasks** adds single-provider runs, lead-and-review workflows, dual review, and selection by task type. The task panel shows the lead, reviewers, results, progress and an exportable Git patch. Failed stages can resume independently. The working checkout stays available for other work.
+Use ChatGPT through Codex sign-in, Gemini through Antigravity chat, or both in AI tasks. Antigravity chat uses the official CLI and supports model and thinking selection, streamed responses, tool permissions and saved conversations. Gemini API and OpenAI API remain separate connections. Usage limits keeps provider-reported figures and shows the reset countdown when an exact timestamp is available.
 
-**Connections** distinguishes ChatGPT OAuth, OpenAI API, Gemini API and the official Antigravity CLI. **Usage limits** preserves unknown usage, refreshes while visible and displays provider reset timestamps where available.
+## Tasks and workspace
 
-The existing chat and SDK credential store remain in place. The official Antigravity integration is limited to AI tasks through `agy`; native OMP Antigravity OAuth is paused upstream. Project test execution and patch application are manual. Real provider sign-in, inference and account quotas are [pending live verification](LIVE_VERIFICATION.md).
+Review a diff and optional offline project test evidence before applying a patch. AI tasks can also reverse their own patches after verifying the working files. Select the models and file scope before execution. The workspace keeps the file editor and composer readable in a split view, provides mobile settings search, and shows update status and rollback instructions in the Update center.
 
-See [implementation progress](../IMPLEMENTATION_PROGRESS.md) for test results, outstanding release gates and build instructions.
+## Compatibility and checks
+
+Oh My Pi 18.18.5, Bun 1.4.4, Next.js 16.4.3, React 19.2.8 and Tauri 2.11.5. Existing OMP sessions, settings and credentials use their existing stores. MCP secret values in supported configuration fields stay on the server.
+
+Preview builds use a separate release channel. The Windows EXE is portable and has no Authenticode signature. Real account sign-in, inference and quota reporting are [pending live verification](LIVE_VERIFICATION.md). See [implementation progress](../IMPLEMENTATION_PROGRESS.md) for the release gates and [the screenshot gallery](../screenshots/next/README.md) for captured application states.

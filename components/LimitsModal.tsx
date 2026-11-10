@@ -31,12 +31,23 @@ function LimitRow({ limit, now }: { limit: UsageLimitView; now: number }) {
   </li>;
 }
 
+function CliQuotaCell({ value, now }: { value: string; now: number }) {
+  const { t, locale } = useI18n();
+  const timestamp = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(value) ? Date.parse(value) : NaN;
+  if (!Number.isFinite(timestamp)) return <td>{value}</td>;
+  const reset = new Date(timestamp);
+  const minutes = Math.ceil((timestamp - now) / 60_000);
+  return <td><time dateTime={reset.toISOString()} title={value}>{reset.toLocaleString(locale)}</time>
+    <small className="usage-meta">{minutes > 0 ? t("usage.countdown", { hours: Math.floor(minutes / 60), minutes: minutes % 60 }) : t("usage.refreshPending")}</small></td>;
+}
+
 export function LimitsModal({ onClose }: { onClose: () => void }) {
   const { t, locale } = useI18n();
   const dialog = useRef<HTMLDialogElement>(null);
   const active = useRef<AbortController | null>(null);
   const [reports, setReports] = useState<UsageReportView[] | null>(null);
   const [antigravity, setAntigravity] = useState<AntigravityUsage | undefined>();
+  const [cliUnavailable, setCliUnavailable] = useState(false);
   const [error, setError] = useState(false);
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(() => Date.now());
@@ -54,7 +65,8 @@ export function LimitsModal({ onClose }: { onClose: () => void }) {
       if (!Array.isArray(data.reports)) throw new Error();
       if (!data.ompUnavailable) setReports(data.reports);
       setError(Boolean(data.ompUnavailable));
-      setAntigravity(data.antigravity);
+      setCliUnavailable(data.antigravity?.status === "unavailable");
+      setAntigravity((previous) => data.antigravity?.status === "ready" || !previous ? data.antigravity : previous);
     } catch {
       if (!controller.signal.aborted) setError(true);
     } finally {
@@ -107,9 +119,10 @@ export function LimitsModal({ onClose }: { onClose: () => void }) {
         <h3>Google Antigravity CLI</h3>
         {antigravity.status === "ready" ? <>
           <p className="usage-meta">{t("usage.source.provider")} · {new Date(antigravity.fetchedAt).toLocaleString(locale)}</p>
+          {cliUnavailable && <p className="workbench-error" role="status">{t("usage.antigravityUnavailable")}</p>}
           <table className="usage-cli-table" aria-label="Google Antigravity CLI"><tbody>
             {antigravity.rows.map((row, rowIndex) => <tr key={rowIndex}>
-              {row.map((cell, index) => <td key={index}>{cell}</td>)}
+              {row.map((cell, index) => <CliQuotaCell key={index} value={cell} now={now} />)}
             </tr>)}
           </tbody></table>
         </> : <p className="usage-meta">{t("usage.antigravityUnavailable")}</p>}

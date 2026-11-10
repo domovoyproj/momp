@@ -125,7 +125,9 @@ function validateSettingValue(path: SettingPath, value: unknown): SettingsValue 
 
 export async function GET(req: Request) {
   try {
-    const cwd = await validateCwd(new URL(req.url).searchParams.get("cwd"));
+    const query = new URL(req.url).searchParams;
+    const cwd = await validateCwd(query.get("cwd"));
+    const english = query.get("locale") === "en";
     const settings = await getSettingsForCwd(cwd);
     const [availableThemes, theme] = await Promise.all([
       getAvailableWebThemes(),
@@ -140,11 +142,11 @@ export async function GET(req: Request) {
         const ui = getUi(path);
         if (!fieldType || !ui) continue;
         const secret = isCredential(path);
-        const trans = translateField(path, ui.label, ui.description);
+        const trans = english ? ui : translateField(path, ui.label, ui.description);
         fields.push({
           path,
           tab,
-          group: translateGroupTitle(ui.group || ""),
+          group: english ? ui.group : translateGroupTitle(ui.group || ""),
           label: trans.label,
           description: trans.description || ui.description,
           type: fieldType,
@@ -161,8 +163,8 @@ export async function GET(req: Request) {
     const response: SettingsResponse = {
       tabs: SETTING_TABS.map((id) => ({
         id,
-        label: translateTabLabel(id, TAB_METADATA[id].label),
-        groups: [...TAB_GROUPS[id]].map(translateGroupTitle),
+        label: english ? TAB_METADATA[id].label : translateTabLabel(id, TAB_METADATA[id].label),
+        groups: english ? [...TAB_GROUPS[id]] : [...TAB_GROUPS[id]].map(translateGroupTitle),
       })),
       fields,
       availableThemes,

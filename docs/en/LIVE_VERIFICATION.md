@@ -1,12 +1,12 @@
 # PENDING LIVE VERIFICATION
 
-[Русский](../ru/LIVE_VERIFICATION.md) · [Connection instructions](AI_MODES.md)
+[Русский](../ru/LIVE_VERIFICATION.md) · [Provider setup](AI_MODES.md)
 
-Use a disposable Git project with one committed text file. Start with one connected provider at a time. Never include credentials in reports.
+Use a disposable Git project with one committed text file. Keep provider credentials and project contents out of reports.
 
-1. Sign in to ChatGPT from Connections. Select a model and reasoning level, send a short prompt, close and reopen the session. Check the usage window and timestamp, if the provider returns them. Repeat sign-in after a deliberate sign-out.
-2. Sign in to the official Google Antigravity CLI, run `agy models` and configure the executable path. Choose Gemini only in AI tasks, select the CLI and send a short task. Verify the selected model, result and official usage view. Repeat after re-authentication.
-3. With Gemini API configured separately, run a normal chat with a file read and confirm the session reopens.
-4. Configure both providers. Run GPT lead, then Gemini lead, verify the second provider saw the exact diff, and verify the Git checkout remained unchanged. Switch the selected model and rerun. When a real quota or connection error occurs, check pause and explicit resume without a provider switch.
+1. With only ChatGPT connected, sign in from **Connections → ChatGPT**. Select a model and reasoning level. Ask the agent to inspect the test file and reopen the session. Check usage and reported reset time, then sign out and sign back in.
+2. Without ChatGPT connected, open **Antigravity chat**, choose **Sign in with Google**, then start a conversation. Select a Gemini model and thinking level. Ask it to inspect the file and run a read-only Git command. If the CLI asks for permission, deny one action and allow another once. Close the conversation, reopen it from history and check continuity. Open **Usage limits** and compare the CLI figures with `/usage`. Repeat after signing out in the CLI.
+3. Configure Gemini API separately if you use it. Run a normal chat with a file read and check that the saved session reopens.
+4. Connect both providers. Run GPT lead and Gemini lead. Check the displayed model, generated diff, test results and independent review. Confirm that working files change only after **Approve and apply**, then reverse the patch. When a real quota or connection error occurs, check pause, explicit retry and the optional single-provider fallback.
 
-Record outcomes separately for real OAuth, model discovery, quota reporting and inference. Account-free automated tests use local fixtures.
+Record the outcomes separately for OAuth, model discovery, permissions, inference, quota reporting and recovery. The automated suite uses local provider fixtures.

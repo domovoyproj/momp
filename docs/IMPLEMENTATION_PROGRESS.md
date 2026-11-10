@@ -36,7 +36,7 @@ The code-only Graphify index covered 371 files, 2,750 nodes and 6,529 edges. The
 - Adds persistent AI tasks, solo and two-provider strategies, parallel independent review, task-type routing with a preferred lead, explicit retry or fallback, and downloadable Git patches. A disposable Git index provides the actual diff and whitespace check. The workspace and its uncommitted files are outside the proposal write path.
 - Adds a Windows release smoke fixture with Git and verifies the embedded Bun version. GitHub Actions runs typecheck, lint, Bun, browser, installer and native desktop checks before creating any draft. Bilingual user and live-verification guides are under `docs/en/` and `docs/ru/`.
 
-## Verification and open gates
+## Verification for 1.6.0-rc.1
 
 | Check | Result |
 | --- | --- |
@@ -50,7 +50,15 @@ The code-only Graphify index covered 371 files, 2,750 nodes and 6,529 edges. The
 | Draft release | [1.6.0-rc.1](https://github.com/domovoyproj/momp/releases/tag/untagged-40ead598f02af6bf4f63) created after the release gates with the EXE, web archive, browser evidence and SHA-256 checksums. |
 | Live provider checks | **PENDING LIVE VERIFICATION.** No real model response or OAuth login was exercised. |
 
-Priority follow-ups are full Antigravity chat via a permission-aware integration, project test execution in an explicit sandbox, and broader browser verification of the existing editor, extensions and updater UI. Hybrid currently validates Git whitespace and exports the patch for manual review and application. Antigravity account quotas are shown as CLI-supplied rows when available.
+## Follow-up candidate 1.6.0-rc.2
+
+- The independent Antigravity chat launches Google's `agy acp --sandbox` and uses OMP's ACP transport. The CLI owns Google OAuth and restores its conversation context. momp persists the recent transcript, reconnects a browser stream from a full snapshot and displays plan updates, tools, diffs and one-time permissions. The Windows ACP contract test uses a compiled fixture with no accounts.
+- Hybrid can generate, verify, review, apply and reverse scoped Git patches. An optional offline, unprivileged Docker runner executes `bun test` on an isolated archive of the patched commit. Model review receives exact diff and test evidence. In-app application checks HEAD, staged changes, symlinks and content digests. The task journal permits retry after an interruption without overwriting mismatched files.
+- The workspace gained narrower split-pane composer controls, a native settings dialog with mobile search, translated file modes, a keyboard exit from the editor and an Update center with active-task checks. MCP protects credentials in native and imported config views and preserves stored values during editing. Quota countdowns require an explicit timestamp from the provider.
+- Fixed Windows short-path aliases in Git status and diff. The regression covers an aliased working directory and a deleted file whose parent directory is gone.
+- Local Windows verification passed 668 Bun tests with six skips, including the Linux Docker contract, and no failures. Typecheck, ESLint, the 180-package production dependency audit, release metadata, Windows installer and update helper passed. ESLint retained two existing warnings and the production build retained the session export dynamic-import warning.
+- The extended production browser suite passed all four light/dark desktop/mobile runs, including normal GPT and Gemini chat, Antigravity stream recovery, MCP saving and redaction, file edits, Git diff, skills, plugins and update checks. The [gallery](screenshots/next/README.md) contains 35 captured states. The Linux Docker contract and native Windows EXE smoke are enforced by GitHub Actions.
+- **PENDING LIVE VERIFICATION.** Follow the [English checklist](en/LIVE_VERIFICATION.md) or [Russian checklist](ru/LIVE_VERIFICATION.md) with real accounts. Prepare a new GitHub draft only after the automated gates pass.
 
 ## Resume
 

@@ -30,17 +30,21 @@ for (const [name, version] of Object.entries(manifest.dependencies)) {
 }
 
 const names = ["AI_MODES.md", "HYBRID_MODE.md", "INSTALLATION.md", "LIVE_VERIFICATION.md", "RELEASE_NOTES.md", "TROUBLESHOOTING.md", "USER_GUIDE.md"];
+const linkedDocuments = ["README.md", "docs/release-candidate.md", "docs/screenshots/next/README.md"];
 for (const language of ["en", "ru"]) {
-  const directory = `docs/${language}`;
+  const directory = "docs/" + language;
   assert.deepEqual(readdirSync(join(root, directory)).filter((file) => file.endsWith(".md")).sort(), names);
-  assert.match(read(`${directory}/RELEASE_NOTES.md`), new RegExp(`^# momp ${manifest.version.replaceAll(".", "\\.")}\\r?$`, "m"));
-  for (const name of names) {
-    const document = `${directory}/${name}`;
-    for (const [, target] of read(document).matchAll(/\]\(([^\s)]+)\)/g)) {
-      if (target.startsWith("https://") || target.startsWith("#")) continue;
-      const relative = target.split("#", 1)[0];
-      assert.ok(existsSync(resolve(root, dirname(document), relative)), `Broken documentation link in ${document}: ${target}`);
-    }
+  const title = "^# momp " + manifest.version.replaceAll(".", "\\.") + "\\r?$";
+  assert.match(read(directory + "/RELEASE_NOTES.md"), new RegExp(title, "m"));
+  linkedDocuments.push(...names.map((name) => directory + "/" + name));
+}
+for (const document of linkedDocuments) {
+  const links = read(document).matchAll(/\]\(([^\s)]+)\)|(?:href|src)="([^"]+)"/g);
+  for (const [, markdownLink, htmlLink] of links) {
+    const target = markdownLink ?? htmlLink;
+    if (/^(?:[a-z]+:|#)/i.test(target)) continue;
+    const relative = target.split("#", 1)[0];
+    assert.ok(existsSync(resolve(root, dirname(document), relative)), "Broken documentation link in " + document + ": " + target);
   }
 }
 assert.ok(read("README.md").includes("docs/ru/USER_GUIDE.md") && read("README.md").includes("docs/en/USER_GUIDE.md"));

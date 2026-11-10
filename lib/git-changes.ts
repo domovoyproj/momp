@@ -44,6 +44,19 @@ function toGitPath(filePath: string): string {
   return filePath.split(path.sep).join("/");
 }
 
+function canonicalDirectory(directory: string): string {
+  try {
+    // Bun's compatibility realpath can retain an 8.3 alias on Windows.
+    // Git reports the long pathname. Use the OS path for containment checks.
+    return fs.realpathSync.native(directory);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    const parent = path.dirname(directory);
+    if (parent === directory) throw error;
+    return path.join(canonicalDirectory(parent), path.basename(directory));
+  }
+}
+
 async function readStatusEntries(repositoryRoot: string): Promise<GitPorcelainEntry[]> {
   const output = await git(repositoryRoot, [
     "status",
@@ -111,13 +124,16 @@ export async function getGitStatus(cwd: string): Promise<GitStatusResponse> {
     };
   }
 
+  const canonicalRoot = canonicalDirectory(repositoryRoot);
+  const canonicalCwd = canonicalDirectory(path.resolve(cwd));
   const [entries, trackedLineStats] = await Promise.all([
     readStatusEntries(repositoryRoot),
-    readTrackedLineStats(repositoryRoot, cwd),
+    readTrackedLineStats(canonicalRoot, canonicalCwd),
   ]);
   const files = entries.flatMap((entry): GitFileStatus[] => {
-    const filePath = path.resolve(repositoryRoot, entry.path);
-    if (!isWithinPath(cwd, filePath)) return [];
+    const canonicalPath = path.resolve(canonicalRoot, entry.path);
+    if (!isWithinPath(canonicalCwd, canonicalPath)) return [];
+    const filePath = path.resolve(cwd, path.relative(canonicalCwd, canonicalPath));
     const classified = classifyGitStatus(entry);
     return [{
       filePath,
@@ -187,10 +203,13 @@ async function createTrackedFilePatch(
 
 export async function getGitFileDiff(cwd: string, filePath: string): Promise<GitFileDiffResponse> {
   const repositoryRoot = await findRepositoryRoot(cwd);
-  if (!repositoryRoot || !isWithinPath(repositoryRoot, filePath)) return { supported: false };
+  if (!repositoryRoot) return { supported: false };
 
-  const resolvedFilePath = path.resolve(filePath);
-  const relativePath = toGitPath(path.relative(repositoryRoot, resolvedFilePath));
+  const canonicalRoot = canonicalDirectory(repositoryRoot);
+  const requestedPath = path.resolve(filePath);
+  const resolvedFilePath = path.join(canonicalDirectory(path.dirname(requestedPath)), path.basename(requestedPath));
+  if (!isWithinPath(canonicalRoot, resolvedFilePath)) return { supported: false };
+  const relativePath = toGitPath(path.relative(canonicalRoot, resolvedFilePath));
   const entries = await readStatusEntries(repositoryRoot);
   const entry = entries.find((candidate) => candidate.path === relativePath);
   if (!entry) return { supported: false };
