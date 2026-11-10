@@ -40,11 +40,13 @@ Windows with installed Microsoft Edge, Antigravity CLI 1.5.5 (verified SHA-512),
 
 ### Known Issues
 
+The native proxy supports public HTTPS on port 443. Internal services, plain HTTP and nonstandard ports are not covered by this proxy; the existing loopback bypass remains available.
+
 **PENDING LIVE VERIFICATION:** real Google account completion, inference and quotas. When checked on 11 November 2026, the Xbox DNS website reported an outage and its resolver returned zero addresses for the Gemini API hostname. Code cannot repair an upstream DNS outage. Public HTTPS checks and synthetic callback tests are not account verification. See the [live checklist](en/LIVE_VERIFICATION.md) and [verification record](IMPLEMENTATION_PROGRESS.md).
 
 ### Download
 
-Download only assets attached to the verified draft candidate and compare their SHA-256 with `SHA256SUMS`. Do not use the old stable executable to test this change. [Xbox DNS screenshots](screenshots/xbox-dns/README.md) · [Earlier UI gallery](screenshots/next/README.md).
+Download only assets attached to the verified candidate and compare their SHA-256 with `SHA256SUMS`. Do not use the old stable executable to test this change. [Xbox DNS screenshots](screenshots/xbox-dns/README.md) · [Earlier UI gallery](screenshots/next/README.md).
 
 ## Русский
 
@@ -86,8 +88,10 @@ Windows с установленным Microsoft Edge; Antigravity CLI 1.5.5 с �
 
 ### Известные проблемы
 
+Прокси клиента поддерживает публичные HTTPS-адреса на порту 443. Внутренние сервисы, обычный HTTP и нестандартные порты этим прокси не обслуживаются; существующий обход прокси для loopback сохраняется.
+
 **PENDING LIVE VERIFICATION:** завершение входа с реальным аккаунтом, ответы моделей и квоты. 11 ноября 2026 Xbox DNS сообщал о сбое и возвращал нулевые адреса Gemini API. Исправление кода не устраняет сбой DNS-сервиса. Проверки публичного HTTPS и тестового callback не доказывают реальную авторизацию. См. [чек-лист](ru/LIVE_VERIFICATION.md) и [результаты проверок](IMPLEMENTATION_PROGRESS.md).
 
 ### Скачать
 
-Используйте только файлы проверенного черновика кандидата и сверяйте SHA-256 с `SHA256SUMS`. Старый стабильный EXE не содержит эту правку. [Скриншоты Xbox DNS](screenshots/xbox-dns/README.md) · [Предыдущая галерея интерфейса](screenshots/next/README.md).
+Используйте только файлы проверенного кандидата и сверяйте SHA-256 с `SHA256SUMS`. Старый стабильный EXE не содержит эту правку. [Скриншоты Xbox DNS](screenshots/xbox-dns/README.md) · [Предыдущая галерея интерфейса](screenshots/next/README.md).
