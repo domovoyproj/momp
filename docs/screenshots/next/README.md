@@ -34,3 +34,7 @@ The screenshots show the menu open in a narrow desktop sidebar and a mobile draw
 | --- | --- | --- |
 | Narrow sidebar / Узкая панель | [Desktop](project-menu-desktop-light.png) | [Desktop](project-menu-desktop-dark.png) |
 | Touch sidebar / Мобильная панель | [Mobile](project-menu-mobile-light.png) | [Mobile](project-menu-mobile-dark.png) |
+
+## Xbox DNS in 1.6.3-rc.1 / Xbox DNS в 1.6.3-rc.1
+
+[Four real desktop/mobile light/dark screenshots / Четыре реальных скриншота для компьютера и мобильного размера в обеих темах](../xbox-dns/README.md). These account-free UI checks do not verify live Google sign-in. Проверка интерфейса без аккаунта не подтверждает реальный вход в Google.

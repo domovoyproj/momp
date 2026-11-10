@@ -9,11 +9,19 @@ Open **Connections → ChatGPT**, then complete the Codex sign-in flow in the br
 ## Google Antigravity
 
 1. On the computer running momp, choose **Connections → Google Antigravity → Sign in with Google**. You can do this before selecting a project.
-2. Choose your Google Account in the browser and return to momp. If needed, momp downloads the component directly from Google on first sign-in, verifies it and keeps it for later use. The initial download on Windows x64 is about 226 MB. Google's official client stores your credentials. [How Antigravity sign-in works](https://antigravity.google/docs/ide/extensions/acp#authentication)
+2. On Windows, momp prepares the official component if needed and opens a separate Microsoft Edge window through Xbox DNS. Sign in to your Google Account there and return to momp. There is no DNS setup, API key or authorization code to copy. The initial Windows x64 download is about 226 MB; momp verifies the Google-hosted file and reuses it later. Google's official CLI completes OAuth and stores your credentials. [Official CLI reference](https://antigravity.google/docs/cli/reference/)
 3. Open a project and choose **Antigravity chat**. Review project trust, allow Antigravity tools and select **Start conversation**. If Antigravity requests permission, you can deny the action or allow it once.
 4. To return to a saved conversation, select it from the history and choose **Reconnect conversation**.
 
-Automatic setup supports x64 and ARM64 on Windows, macOS and Linux with glibc. momp reuses the official client if it is already installed. For a custom installation, administrators can set the absolute path in `MOMP_ANTIGRAVITY_CLI`. Usage reports require client version 1.5.0 or newer.
+### Automatic Google routing on Windows
+
+The Windows server enables Xbox DNS for Google downloads, sign-in and model requests by default. This route requires an installed Edge for automatic Antigravity sign-in. It uses an app-owned browser profile; settings and cookies in your everyday browser stay separate. On first use, Google may request your password and two-factor confirmation. The selected account can be remembered for later attempts.
+
+The official CLI allows approximately 60 seconds for authentication. If it times out during the first sign-in, select **Sign in with Google** again; the momp browser profile is retained. A narrow temporary helper returns only the one-time code from the official Antigravity callback to the CLI. You may see Edge's developer-extension notification; momp does not hide it. If browser management policies block the helper, sign-in fails with an error rather than changing your policies or using a direct connection.
+
+Downloads and browser transport have been checked against public Google endpoints, and automatic callback delivery has been tested with synthetic data. **Real account sign-in and real model responses remain PENDING LIVE VERIFICATION.** On November 11, 2026, Xbox DNS reported a service outage and returned unusable addresses for the Gemini API hostname. The app reports route failures and does not silently change resolvers. See the [live checklist and optional diagnostics](LIVE_VERIFICATION.md).
+
+Component download supports x64 and ARM64 on Windows, macOS and Linux with glibc. The automatic Xbox DNS browser route described above is currently Windows-only and uses the hash-verified managed client 1.5.5, including for chat and usage reports. It does not launch a different system or custom CLI. Outside that mode, momp reuses an installed client or the administrator's `MOMP_ANTIGRAVITY_CLI` path; usage reports require version 1.5.0 or newer.
 
 This mode runs independently of ChatGPT. The Google Gemini API is another independent connection. Configure a Google AI Studio key from **Connections → Gemini API**, then use a Gemini model in the main OMP chat. OMP currently retains credentials for its paused legacy Antigravity integration.
 

@@ -5,7 +5,7 @@ $root = Join-Path ([IO.Path]::GetTempPath()) ('momp-smoke-' + [guid]::NewGuid())
 New-Item -ItemType Directory -Path $root | Out-Null
 $log = Join-Path $root 'desktop.log'
 $saved = @{}
-foreach ($key in @('HOME', 'USERPROFILE', 'LOCALAPPDATA', 'APPDATA', 'PI_CODING_AGENT_DIR', 'MOMP_DESKTOP_LOG', 'WEBVIEW2_USER_DATA_FOLDER')) { $saved[$key] = [Environment]::GetEnvironmentVariable($key) }
+foreach ($key in @('HOME', 'USERPROFILE', 'LOCALAPPDATA', 'APPDATA', 'PI_CODING_AGENT_DIR', 'MOMP_DESKTOP_LOG', 'WEBVIEW2_USER_DATA_FOLDER', 'MOMP_XBOX_DNS')) { $saved[$key] = [Environment]::GetEnvironmentVariable($key) }
 $app = $null
 try {
     $env:HOME = $root
@@ -13,6 +13,7 @@ try {
     $env:LOCALAPPDATA = $root
     $env:APPDATA = $root
     $env:PI_CODING_AGENT_DIR = Join-Path $root 'agent'
+    [Environment]::SetEnvironmentVariable('MOMP_XBOX_DNS', $null)
     $env:MOMP_DESKTOP_LOG = $log
     $env:WEBVIEW2_USER_DATA_FOLDER = Join-Path $root 'webview'
     $app = Start-Process -FilePath $executablePath -WorkingDirectory $root -WindowStyle Hidden -PassThru
@@ -41,7 +42,8 @@ try {
     foreach ($endpoint in @('/api/display-settings', '/api/auth/providers', '/api/auth/all-providers', '/api/settings', '/api/models-config/limits', '/api/workspace-activity', "/api/models$query", "/api/model-roles$query", "/api/skills$query", "/api/collaboration$query", "/api/antigravity$query")) {
         $response = Invoke-WebRequest -Uri "$origin$endpoint" -UseBasicParsing -TimeoutSec 90
         if ($response.StatusCode -ne 200) { throw "Failed: $endpoint" }
-        $null = $response.Content | ConvertFrom-Json
+        $payload = $response.Content | ConvertFrom-Json
+        if ($endpoint -like '/api/antigravity*' -and $payload.googleRoute -ne 'xbox-dns') { throw 'Packaged Windows server did not enable the automatic Google route' }
         Write-Host "PASS $endpoint"
     }
     Write-Host "PASS packaged EXE startup, SFX extraction, bundled Bun, UI and SDK-backed APIs: $executablePath"

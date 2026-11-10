@@ -3,6 +3,7 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, parse } from "node:path";
 import test from "node:test";
+import { __resetDirsFromEnvForTests } from "@oh-my-pi/pi-utils/dirs";
 import { NextRequest } from "next/server";
 import { GET as getFiles } from "./files/[...path]/route.ts";
 import { GET as getSkills } from "./skills/route.ts";
@@ -20,9 +21,11 @@ function useEnvironment(context, key, value) {
   const previous = process.env[key];
   if (value === undefined) delete process.env[key];
   else process.env[key] = value;
+  if (key === "PI_CODING_AGENT_DIR") __resetDirsFromEnvForTests();
   context.after(() => {
     if (previous === undefined) delete process.env[key];
     else process.env[key] = previous;
+    if (key === "PI_CODING_AGENT_DIR") __resetDirsFromEnvForTests();
   });
 }
 
@@ -119,13 +122,20 @@ test("only local sign-in starts preparation and concurrent clicks share the guar
   assert.equal(await antigravityExecutable(), undefined);
 });
 
-test("strict Xbox DNS mode blocks Google sign-in before launching an unmanaged browser", async (context) => {
+test("Xbox DNS sign-in prepares the pinned runtime even when a different executable was configured", async (context) => {
+  const directory = mkdtempSync(join(tmpdir(), "momp-pinned-auth-runtime-"));
+  useEnvironment(context, "PI_CODING_AGENT_DIR", directory);
   useEnvironment(context, "MOMP_XBOX_DNS", "1");
   useEnvironment(context, "MOMP_ANTIGRAVITY_CLI", join(tmpdir(), "momp-no-runtime-needed.exe"));
+  const originalFetch = globalThis.fetch;
+  let download = "";
+  globalThis.fetch = async url => { download = String(url); return new Response("invalid fixture binary"); };
+  context.after(() => { globalThis.fetch = originalFetch; rmSync(directory, { recursive: true, force: true }); });
   const response = await postAntigravity(new Request("http://localhost/api/antigravity", {
     method: "POST", headers: { ...localHeaders, "content-type": "application/json" },
     body: JSON.stringify({ action: "sign-in" }),
   }));
-  assert.equal(response.status, 409);
-  assert.equal((await response.json()).error, "xbox-dns-browser");
+  assert.equal(response.status, 503);
+  assert.equal((await response.json()).error, "setup-integrity");
+  assert.match(download, /antigravity-cli\/1\.5\.5-/);
 });

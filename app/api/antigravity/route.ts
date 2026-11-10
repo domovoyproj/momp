@@ -3,6 +3,7 @@ import { isAbsolute, join } from "node:path";
 import { getAgentDir } from "@oh-my-pi/pi-coding-agent";
 import { AntigravityFailure, antigravityError, signInToAntigravity } from "@/lib/antigravity-acp";
 import { managedAntigravityRuntime, prepareManagedAntigravity } from "@/lib/antigravity-runtime";
+import { AntigravitySignInGate } from "@/lib/antigravity-sign-in-gate";
 import { AntigravitySessions } from "@/lib/antigravity-sessions";
 import { readBoundedJson } from "@/lib/bounded-json";
 import { antigravityExecutable } from "@/lib/collaboration-providers";
@@ -82,6 +83,7 @@ export async function GET(req: Request) {
   try {
     if (!id) return json({ history: cwd ? sessions().history(cwd) : [], configured: Boolean(await antigravityExecutable()),
       canPrepare: Boolean(managedAntigravityRuntime()),
+      googleRoute: xboxDnsEnabled() ? "xbox-dns" : "default",
       localSignIn: canSignInLocally(req), workspaceAvailable: Boolean(cwd),
       trusted: Boolean(cwd && getProjectTrustStatus(cwd, getAgentDir()).trusted) });
     if (!cwd) return json({ error: "access" }, 403);
@@ -93,13 +95,10 @@ export async function GET(req: Request) {
 }
 
 declare global {
-  var __mompAntigravitySignIn: Promise<void> | undefined;
+  var __mompAntigravitySignInGate: AntigravitySignInGate | undefined;
 }
 
 async function prepareAndSignIn(signal: AbortSignal) {
-  // Google opens the default browser itself. Strict routing needs a supported
-  // browser launch hook before it can start this flow.
-  if (xboxDnsEnabled()) throw new AntigravityFailure("xbox-dns-browser");
   let executable = await antigravityExecutable();
   if (!executable) {
     const runtime = managedAntigravityRuntime();
@@ -119,9 +118,8 @@ export async function POST(req: Request) {
   try {
     if (action === "sign-in") {
       if (!canSignInLocally(req)) return json({ error: "local-sign-in" }, 403);
-      if (globalThis.__mompAntigravitySignIn) return json({ error: "sign-in-in-progress" }, 409);
-      const login = globalThis.__mompAntigravitySignIn = prepareAndSignIn(req.signal);
-      try { await login; } finally { if (globalThis.__mompAntigravitySignIn === login) globalThis.__mompAntigravitySignIn = undefined; }
+      const gate = globalThis.__mompAntigravitySignInGate ??= new AntigravitySignInGate();
+      if (!await gate.run(req.signal, prepareAndSignIn)) return json({ error: "sign-in-in-progress" }, 409);
       return json({ ok: true });
     }
     const cwd = await project(body.cwd);
@@ -145,7 +143,7 @@ export async function POST(req: Request) {
     else return json({ error: "invalid" }, 400);
     return json({ thread: store.get(cwd, id) }, 202);
   } catch (error) {
-    const kind = (error as NodeJS.ErrnoException)?.code === "ELOCKED" ? "busy" : antigravityError(error);
+    const kind = req.signal.aborted ? "cancelled" : (error as NodeJS.ErrnoException)?.code === "ELOCKED" ? "busy" : antigravityError(error);
     return json({ error: kind }, kind === "not-installed" || kind === "setup-failed" || kind === "setup-integrity" ? 503 : 409);
   }
 }

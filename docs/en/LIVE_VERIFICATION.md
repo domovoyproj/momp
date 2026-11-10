@@ -5,7 +5,7 @@
 Use a disposable Git project with one committed text file. Keep provider credentials and project contents out of reports.
 
 1. With only ChatGPT connected, sign in from **Connections → ChatGPT**. Select a model and reasoning level. Ask the agent to inspect the test file and reopen the session. Check usage and reported reset time, then sign out and sign back in.
-2. In a clean profile with no Antigravity installation or selected project, choose **Connections → Google Antigravity → Sign in with Google**. Wait for momp to prepare the component and open the browser. Choose your Google Account and return to momp. Open the test project, start a conversation, select a Gemini model and ask it to read the file. Check permissions, history and **Usage limits**. Restart momp and confirm the conversation opens without downloading the component again.
+2. In a clean profile with no Antigravity installation or selected project, choose **Connections → Google Antigravity → Sign in with Google**. Wait for momp to prepare the component and open the browser. Use the separate momp Edge window to sign in to your Google Account and return to momp. Open the test project, start a conversation, select a Gemini model and ask it to read the file. Check permissions, history and **Usage limits**. Restart momp and confirm the conversation opens without downloading the component again.
 3. Configure Gemini API separately if you use it. Run a normal chat with a file read and check that the saved session reopens.
 4. Connect both providers. Run GPT lead and Gemini lead. Check the displayed model, generated diff, test results and independent review. Confirm that working files change only after **Approve and apply**, then reverse the patch. When a real quota or connection error occurs, check pause, explicit retry and the optional single-provider fallback.
 
@@ -13,7 +13,17 @@ Record the outcomes separately for OAuth, model discovery, permissions, inferenc
 
 ## Xbox DNS verification
 
-This Windows PowerShell check resolves public Google hostnames with Xbox DNS over HTTPS. Antigravity opens Google sign-in in the default browser, which can use a different DNS resolver. [Xbox DNS setup](https://xbox-dns.ru/) · [Antigravity sign-in](https://antigravity.google/docs/ide/extensions/acp#authentication)
+On Windows, momp enables Xbox DNS routing automatically for Google hosts during component downloads, browser sign-in and model requests. No DNS settings, API key or pasted authorization code are needed for Antigravity sign-in. The server defaults to `MOMP_XBOX_DNS=1`; this is an implementation setting, not a setup step. Other platforms do not yet have this automatic browser route.
+
+The sign-in window uses an installed Microsoft Edge and a separate, persistent momp profile. Existing browser cookies are not copied, so the first sign-in may require your Google credentials and two-factor authentication. Later attempts can reuse the account selected in this profile. The official CLI has an approximately 60-second authentication window: if it expires while you complete the first sign-in, click **Sign in with Google** again. The browser profile is retained.
+
+A temporary helper observes only the official Antigravity callback URL and returns its one-time code to the official CLI. It has no permission to read Google Account pages or cookies. The CLI performs the OAuth exchange and stores credentials. Edge may display a developer-extension notification; momp does not suppress it. Browser management policies can block the helper. In that case sign-in reports an error and does not silently open an unrouted browser. [Edge notification](https://support.microsoft.com/en-au/edge/developer-mode-extension-notification)
+
+For the live check, complete step 2 above, send a real prompt and verify the saved account after restarting momp. Separately test a Gemini API request if you use that connection. Record failures of sign-in, model discovery and inference independently. A successful public page or synthetic callback does not prove that a real account can authenticate or use a model.
+
+### Optional connection diagnostics
+
+The following Windows PowerShell command is for troubleshooting only. It is not required for installation or sign-in. It resolves public Google hostnames with Xbox DNS over HTTPS. Xbox DNS decides which domains use its gateway; a successful DNS lookup alone does not establish the HTTPS gateway route. [Xbox DNS service](https://xbox-dns.ru/)
 
 ```powershell
 $googleEndpoints = @(
@@ -32,12 +42,13 @@ foreach ($url in $googleEndpoints) {
 }
 ```
 
-An HTTP status, including `4xx`, confirms that the endpoint responded over HTTPS. To check the download, substitute the binary URL for your platform from the [Antigravity manifest](../../lib/antigravity-runtime.ts) and expect `200`. Then verify the actual HTTPS route, browser sign-in, and a model response separately using steps 2–3.
+An HTTP status, including `4xx`, confirms that the endpoint responded over HTTPS; it does not verify account authorization or a model response. For the download check, substitute the binary URL for your platform from the [Antigravity manifest](../../lib/antigravity-runtime.ts) and expect `200`.
 
-On November 11, 2026, the Windows check received `200` for the Antigravity CLI 1.5.5 x64 download. Xbox DNS returned `0.0.0.0` and `::` for `generativelanguage.googleapis.com`. The Gemini API connection failed. End-to-end verification through Xbox DNS remains pending.
+### Evidence and remaining live checks
 
-### Route under development
+- The Windows download test installed the complete Antigravity CLI 1.5.5 in a temporary profile and verified its pinned SHA-512.
+- The separate Edge profile opened the public Google sign-in page through the app's Xbox DNS tunnel with TLS verification intact. A synthetic callback tested automatic code delivery without an account.
+- On November 11, 2026, the Xbox DNS website reported a service outage. Its resolver returned `0.0.0.0` and `::` for `generativelanguage.googleapis.com`; the Gemini API request failed. momp rejects these addresses and does not silently switch DNS providers.
+- **PENDING LIVE VERIFICATION:** real Google account sign-in, real Antigravity/Gemini responses, model discovery, account quota reports and reconnect after reauthorization. Public endpoint checks and synthetic flows do not replace these checks.
 
-The test build uses `MOMP_XBOX_DNS=1` to resolve public Google hosts over Xbox DNS and passes the local proxy to Antigravity CLI. The proxy checks its destination and leaves TLS between the client and Google. The Windows download test installed Antigravity CLI 1.5.5 in a temporary profile and verified its pinned SHA-512.
-
-In this mode, the sign-in button reports that the browser needs a managed route. Antigravity 1.5.5 opens the default browser itself. The browser sign-in and a live model response over Xbox DNS remain PENDING LIVE VERIFICATION.
+If Xbox DNS cannot return a usable address or connect, retry after the service recovers. The app cannot restore the external DNS service or change Google's account and regional access rules.

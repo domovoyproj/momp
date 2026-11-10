@@ -85,3 +85,54 @@ bun run test:browser
 Use Bun 1.4.4 or newer and an isolated `PI_CODING_AGENT_DIR` for interactive tests. Use `bun run desktop:build` or an isolated Next.js output directory for production checks. Live provider verification is pending and no account is required for the automated suite.
 
 On a clean Windows runner with MSVC and WebView2, run `cargo test --manifest-path src-tauri/Cargo.toml --locked`, `bun run desktop:fetch-bun windows-x64`, `bun run desktop:build` and `./scripts/smoke-desktop.ps1`. To build a draft prerelease, the owner can dispatch `publish-dist.yml` for the candidate branch or add the `[prepare-rc] ` prefix to the title of a same-repository draft PR. The title action pins all jobs to the PR head commit and the draft step requires successful checks and an RC version. Verify its `SHA256SUMS` and complete the owner review before publishing.
+
+## 1.6.3-rc.1 — automatic Xbox DNS route (2026-11-11)
+
+Branch: `codex/xbox-dns-routing`. Windows startup enables the app-scoped Google route automatically. Downloads and Google model requests use Xbox DNS over HTTPS; native Antigravity uses only the SHA-512-verified managed CLI 1.5.5. Bun remains pinned to 1.4.4 and OMP to 18.18.5.
+
+Sign-in opens installed Microsoft Edge in a separate persistent momp profile, with a Google-only proxy, TLS verification, direct DNS disabled and QUIC disabled. The official CLI owns OAuth, token exchange and credential storage. A temporary launcher and narrowly scoped callback extension return the official one-time code to that CLI after validating the relay nonce, PKCE parameters, state, callback destination, expiry and replay protection. No coding task is submitted during sign-in. No API key, pasted code or manual DNS configuration is required. Windows and the user's normal browser profile are unchanged. The login process sets the official session-only `modelProvider: ""` option so a previously saved API-key preference cannot turn this Google sign-in action into API-key mode; the saved preference is not overwritten.
+
+First use can require Google credentials and two-factor authentication because existing browser cookies are not copied. The official CLI allows approximately 60 seconds for authentication; retry after expiry retains the momp browser profile. Edge may show its developer-extension notification; it is not suppressed. Other platforms do not yet have this automatic browser flow. The authenticated native proxy permits non-Google **public HTTPS on port 443** through ordinary DNS so common coding tools can work. This is not transparent routing for arbitrary protocols, internal services or nonstandard ports; existing loopback bypass remains available.
+
+Verification recorded for this candidate:
+
+| Check | Result |
+| --- | --- |
+| Full `bun test --timeout 20000` | **733 passed, 6 skipped, 0 failed (739 tests, 134 files).** Includes relay/state/replay/cancellation, transport redirects, browser lifecycle, offline GUI-launcher compilation, cancelled sign-in cleanup and release-link rendering checks. |
+| Typecheck / ESLint / release consistency | Passed. ESLint: zero errors and two existing warnings. |
+| Actual Edge synthetic callback | `scripts/verify-google-browser.mjs` exited 0. Real isolated Edge and the callback helper delivered synthetic data to a fake CLI; no account or OAuth exchange. |
+| Official native launch contract | Pinned CLI 1.5.5 reached the browser-launch handoff in an isolated, account-free probe; authentication was deliberately blocked. |
+| Public network probes | Google public HTTPS endpoints responded through the Xbox DNS route with TLS verification. The managed CLI download and pinned SHA-512 verification passed. |
+| Production build | Final rebuild passed (60-second compile), including the native provider preference and cancellation gate, with the existing session-export dynamic-import warning. Release CI must also build and validate the exact candidate commit. |
+| Default Windows route UI | `scripts/verify-google-route-ui.mjs` passed in an empty isolated profile. Four real desktop/mobile light/dark [screenshots](screenshots/xbox-dns/README.md) were captured; no OAuth request was started. |
+| Final native sign-in preference regression | 15 targeted tests passed after adding the session-only provider selection override; the final full suite above includes this change. |
+| Cancel-and-retry regression | The production browser reproduced a race between client cancellation and release of the server lease. The new gate waits only for cancelled cleanup, rejects active concurrent sign-ins and rechecks competing retries. Five deterministic regression tests, six API access tests and the final production browser cancellation/retry scenario passed, including confirmation that the cancelled process exited. |
+| Full browser E2E / Windows release CI | Final production E2E passed: moved-workspace recovery, desktop/mobile light/dark collaboration, Antigravity, persisted history, keyboard and viewport checks. Windows release CI is pending; candidate artifacts must not be created before its required gates pass. |
+
+Xbox DNS reported an outage on November 11, 2026, and returned `0.0.0.0` / `::` for `generativelanguage.googleapis.com`. The app rejects these answers and does not silently change DNS providers. **PENDING LIVE VERIFICATION:** successful Google account sign-in, real Antigravity/Gemini inference, model discovery, account quotas and reauthorization. Public TLS and synthetic callback evidence do not prove these scenarios. Follow the [English](en/LIVE_VERIFICATION.md) or [Russian](ru/LIVE_VERIFICATION.md) checklist after service recovery.
+
+Resume from this candidate's checkout in Windows PowerShell; the first command downloads/reuses the project's pinned Bun when needed, without replacing the global installation:
+
+```powershell
+git switch codex/xbox-dns-routing
+bun scripts/fetch-bun.mjs windows-x64
+$mompBun = (Resolve-Path '.\src-tauri\resources\bun-windows-x64.exe').Path
+& $mompBun --version
+& $mompBun install --frozen-lockfile
+& $mompBun run typecheck
+& $mompBun run lint
+& $mompBun test --timeout 20000
+& $mompBun scripts/check-release.mjs
+$env:OMP_WEB_DIST_DIR = '.next-xbox-verification'
+& $mompBun --bun node_modules/next/dist/bin/next build --webpack
+$env:PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH = Join-Path ${env:ProgramFiles(x86)} 'Microsoft\Edge\Application\msedge.exe'
+& $mompBun scripts/test-browser.mjs
+$env:MOMP_SCREENSHOTS_DIR = 'test-artifacts/google-route'
+& $mompBun scripts/verify-google-route-ui.mjs
+# Optional network-dependent probe: opens real Edge using synthetic OAuth data.
+& $mompBun scripts/verify-google-browser.mjs
+```
+
+Release notes are rendered with links pinned to the verified commit, preserving local source documents and working links to both languages and the screenshot gallery. Five tests cover the current notes, safe path handling and the standalone Node CLI used by the release job.
+
+Next priorities: record the full browser E2E result; build and validate the exact final commit in Windows release CI, including desktop, installer/update/rollback and EXE smoke gates; prepare verified candidate artifacts and checksums; complete the live checklist before claiming validated account access. No stable-release readiness is implied by this checkpoint.

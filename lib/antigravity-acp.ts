@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ClientSideConnection, ndJsonStream, PROTOCOL_VERSION, type Client } from "@oh-my-pi/pi-utils/acp";
 import type { AntigravityError } from "./antigravity-types";
-import { antigravityNetworkEnv } from "./google-network";
+import { antigravityNetworkEnv, xboxDnsEnabled } from "./google-network";
 
 export class AntigravityFailure extends Error {
   constructor(readonly kind: AntigravityError) { super(kind); }
@@ -77,6 +77,13 @@ export function launchAntigravity(executable: string, cwd: string, client: Clien
 
 export async function signInToAntigravity(executable: string, signal?: AbortSignal): Promise<void> {
   if (signal?.aborted) throw new AntigravityFailure("cancelled");
+  if (xboxDnsEnabled()) {
+    const { signInToAntigravityBrowser, AntigravityBrowserLoginError } = await import("./antigravity-browser-login");
+    try { return await signInToAntigravityBrowser(executable, signal); }
+    catch (error) {
+      throw new AntigravityFailure(error instanceof AntigravityBrowserLoginError ? error.kind : "unavailable");
+    }
+  }
   const cwd = await mkdtemp(join(tmpdir(), "momp-agy-auth-"));
   let agent: ReturnType<typeof launchAntigravity> | undefined;
   const abort = () => agent?.stop();

@@ -7,7 +7,7 @@ import { promisify } from "node:util";
 import { completeSimple } from "@oh-my-pi/pi-ai";
 import { findManagedAntigravity } from "./antigravity-runtime";
 import { CollaborationFailure, type CollaborationTransport } from "./collaboration";
-import { antigravityNetworkEnv } from "./google-network";
+import { antigravityNetworkEnv, xboxDnsEnabled } from "./google-network";
 import { getOmpRuntime } from "./omp-runtime";
 
 const QUOTA = /(?:resource_exhausted|insufficient_quota|rate.limit|\b429\b|usage limit)/i;
@@ -43,6 +43,7 @@ export function readAntigravityResult(stdout: string, stderr: string, failed: bo
 }
 
 export async function antigravityExecutable(): Promise<string | undefined> {
+  if (xboxDnsEnabled()) return findManagedAntigravity();
   const windows = process.platform === "win32";
   const installed = windows
     ? process.env.LOCALAPPDATA && join(process.env.LOCALAPPDATA, "agy", "bin", "agy.exe")

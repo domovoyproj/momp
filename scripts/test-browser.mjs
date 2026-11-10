@@ -80,6 +80,9 @@ const serverLog = join(fixture, "server.log");
 const log = openSync(serverLog, "w");
 const server = Bun.spawn([process.execPath, "--bun", resolve("node_modules/next/dist/bin/next"), "start", "-H", "127.0.0.1", "-p", String(port)], {
   env: { ...safeEnv, PI_CODING_AGENT_DIR: agentDir, HOME: fixture, USERPROFILE: fixture,
+    // This suite uses the synthetic ACP executable. The real browser route has
+    // its own contract tests and optional verify-google-browser.mjs smoke.
+    MOMP_XBOX_DNS: "0",
     APPDATA: fixture, LOCALAPPDATA: fixture, NEXT_TELEMETRY_DISABLED: "1", OMP_WEB_UPDATE_INSTALL_DISABLED: "1",
     MOMP_TEST_RUNNER_IMAGE: process.env.MOMP_TEST_RUNNER_IMAGE },
   stdout: log, stderr: log,
@@ -287,12 +290,15 @@ try {
       await login.getByText("Preparing Antigravity. Google sign-in will open in your browser.", { exact: true }).waitFor();
       for (let attempt = 0; attempt < 100 && !existsSync(`${cliAccount}-started`); attempt++) await Bun.sleep(100);
       assert.ok(existsSync(`${cliAccount}-started`), "Fixture received the OAuth request");
+      const cancelledSignInPid = Number(readFileSync(`${cliAccount}-started`, "utf8"));
+      assert.ok(Number.isSafeInteger(cancelledSignInPid) && cancelledSignInPid > 0);
       await login.getByRole("button", { name: "Cancel sign-in" }).click();
       rmSync(`${cliAccount}-hold`);
       assert.equal(existsSync(cliAccount), false);
       await signIn.click();
       await login.getByText("Google sign-in finished", { exact: false }).waitFor();
       assert.ok(existsSync(cliAccount), "OAuth retry reached the provider after cancellation");
+      assert.throws(() => process.kill(cancelledSignInPid, 0), { code: "ESRCH" }, "Cancelled sign-in process exited before the retry completed");
       assert.equal(signInAttempts, 2, "Each click starts one sign-in without a manual setup step");
       await accountPage.screenshot({ path: join(screenshots, "antigravity-projectless-sign-in.png"), animations: "disabled" });
       await accountPage.close();
