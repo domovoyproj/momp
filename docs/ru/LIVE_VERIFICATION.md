@@ -10,3 +10,34 @@
 4. Подключите оба провайдера. Запустите задачу с GPT и затем с Gemini в роли исполнителя. Проверьте указанную модель, diff, результаты тестов и независимое ревью. Убедитесь, что рабочие файлы меняются после **Подтвердить применение**, затем отмените патч. При реальной ошибке квоты или соединения проверьте паузу, явный повтор и запуск отдельной задачи с другим провайдером.
 
 Запишите результаты отдельно для OAuth, списка моделей, разрешений, ответов, отчётов о квотах и восстановления. Автоматические тесты используют локальные имитаторы провайдеров.
+
+## Проверка Xbox DNS
+
+Проверка в PowerShell на Windows разрешает имена публичных узлов Google через Xbox DNS по HTTPS. Antigravity открывает вход в браузере по умолчанию, где может использоваться другой DNS-резолвер. [Настройки Xbox DNS](https://xbox-dns.ru/) · [Вход Antigravity](https://antigravity.google/docs/ide/extensions/acp#authentication)
+
+```powershell
+$googleEndpoints = @(
+  'https://storage.googleapis.com/antigravity-public/'
+  'https://accounts.google.com/'
+  'https://oauth2.googleapis.com/'
+  'https://cloudcode-pa.googleapis.com/'
+  'https://daily-cloudcode-pa.googleapis.com/'
+  'https://daily-cloudcode-pa.sandbox.googleapis.com/'
+  'https://generativelanguage.googleapis.com/v1beta/models'
+)
+foreach ($url in $googleEndpoints) {
+  curl.exe --disable --head --silent --show-error --max-time 10 --noproxy '*' `
+    --doh-url https://xbox-dns.ru/dns-query --output NUL `
+    --write-out '%{url_effective} HTTP %{http_code}\n' -- $url
+}
+```
+
+Код HTTP, включая `4xx`, подтверждает, что узел ответил по HTTPS. Для проверки загрузки подставьте URL бинарного файла для вашей платформы из [манифеста Antigravity](../../lib/antigravity-runtime.ts) и ожидайте `200`. Затем отдельно проверьте фактический маршрут HTTPS, вход в браузере и ответ модели по шагам 2–3.
+
+11 ноября 2026 года проверка в Windows получила `200` для файла Antigravity CLI 1.5.5 x64. Xbox DNS вернул `0.0.0.0` и `::` для `generativelanguage.googleapis.com`. Запрос к Gemini API завершился ошибкой соединения. Сквозная проверка через Xbox DNS остаётся открытой.
+
+### Маршрут в разработке
+
+В тестовой сборке `MOMP_XBOX_DNS=1` включает разрешение публичных адресов Google через Xbox DNS и передаёт локальный прокси в Antigravity CLI. Прокси проверяет адрес назначения, а TLS соединяет клиент напрямую с Google. В Windows тест загрузки установил Antigravity CLI 1.5.5 во временный профиль и сверил его SHA-512 с закреплённым значением.
+
+В этом режиме кнопка входа сообщает, что для браузера нужен управляемый маршрут. Antigravity 1.5.5 сам открывает браузер по умолчанию. Проверка входа и ответа модели через Xbox DNS остаётся в статусе PENDING LIVE VERIFICATION.

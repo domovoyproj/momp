@@ -7,6 +7,7 @@ import { AntigravitySessions } from "@/lib/antigravity-sessions";
 import { readBoundedJson } from "@/lib/bounded-json";
 import { antigravityExecutable } from "@/lib/collaboration-providers";
 import { getAllowedFileRoots, isExistingFilePathAllowed } from "@/lib/file-access";
+import { xboxDnsEnabled } from "@/lib/google-network";
 import { getProjectTrustStatus } from "@/lib/project-trust";
 import { hasJsonContentType, isApiRequestAllowed } from "@/lib/request-security";
 
@@ -96,6 +97,9 @@ declare global {
 }
 
 async function prepareAndSignIn(signal: AbortSignal) {
+  // Google opens the default browser itself. Strict routing needs a supported
+  // browser launch hook before it can start this flow.
+  if (xboxDnsEnabled()) throw new AntigravityFailure("xbox-dns-browser");
   let executable = await antigravityExecutable();
   if (!executable) {
     const runtime = managedAntigravityRuntime();

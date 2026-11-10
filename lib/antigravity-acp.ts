@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ClientSideConnection, ndJsonStream, PROTOCOL_VERSION, type Client } from "@oh-my-pi/pi-utils/acp";
 import type { AntigravityError } from "./antigravity-types";
+import { antigravityNetworkEnv } from "./google-network";
 
 export class AntigravityFailure extends Error {
   constructor(readonly kind: AntigravityError) { super(kind); }
@@ -48,7 +49,7 @@ function boundFrames(): TransformStream<Uint8Array, Uint8Array> {
 const ENVIRONMENT = /^(?:path|pathext|home|userprofile|homedrive|homepath|username|user|logname|shell|comspec|systemroot|windir|appdata|localappdata|programdata|programfiles(?:\(x86\))?|commonprogramfiles(?:\(x86\))?|temp|tmp|tmpdir|lang|lc_[a-z_]+|xdg_(?:config|data|cache|runtime)_home|xdg_runtime_dir|display|wayland_display|dbus_session_bus_address|https?_proxy|no_proxy|ssl_cert_file|ssl_cert_dir)$/i;
 
 export function launchAntigravity(executable: string, cwd: string, client: Client, args = ["acp", "--sandbox"]) {
-  const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => ENVIRONMENT.test(key)));
+  const env = Object.fromEntries(Object.entries(antigravityNetworkEnv(process.env)).filter(([key]) => ENVIRONMENT.test(key)));
   const child = Bun.spawn([executable, ...args], { cwd, env, stdin: "pipe", stdout: "pipe", stderr: "ignore", windowsHide: true });
   const output = new WritableStream<Uint8Array>({
     async write(chunk) {

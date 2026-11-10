@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { providerPauseReason, type OAuthAuthInfo, type OAuthPrompt } from "@oh-my-pi/pi-ai/oauth";
+import { XBOX_DNS_BROWSER_REQUIRED, xboxDnsEnabled } from "@/lib/google-network";
 import { invalidateModelsCache } from "@/lib/models-cache";
 import { getOmpRuntime, invalidateOmpRuntime } from "@/lib/omp-runtime";
 import { resolveOAuthLoginId } from "@/lib/provider-listing-runtime";
@@ -69,10 +70,12 @@ export async function GET(
   const stream = new ReadableStream({
     async start(controller) {
       const loginId = resolveOAuthLoginId(provider);
-      if (!loginId) {
+      const needsBrowserRoute = xboxDnsEnabled() && (loginId === "google" || loginId?.startsWith("google-"));
+      if (!loginId || needsBrowserRoute) {
         clearTimeout(timeout);
         req.signal.removeEventListener("abort", abortRequest);
-        send(controller, { type: "error", message: providerPauseReason(provider) ?? `Unknown provider: ${provider}` });
+        const message = needsBrowserRoute ? XBOX_DNS_BROWSER_REQUIRED : providerPauseReason(provider) ?? `Unknown provider: ${provider}`;
+        send(controller, { type: "error", message });
         controller.close();
         return;
       }

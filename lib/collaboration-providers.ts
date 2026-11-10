@@ -7,6 +7,7 @@ import { promisify } from "node:util";
 import { completeSimple } from "@oh-my-pi/pi-ai";
 import { findManagedAntigravity } from "./antigravity-runtime";
 import { CollaborationFailure, type CollaborationTransport } from "./collaboration";
+import { antigravityNetworkEnv } from "./google-network";
 import { getOmpRuntime } from "./omp-runtime";
 
 const QUOTA = /(?:resource_exhausted|insufficient_quota|rate.limit|\b429\b|usage limit)/i;
@@ -59,7 +60,8 @@ export async function antigravityExecutable(): Promise<string | undefined> {
 async function readAntigravityCommand(executable: string, args: string[]): Promise<string> {
   const cwd = await mkdtemp(join(tmpdir(), "momp-agy-status-"));
   try {
-    const { stdout } = await exec(executable, args, { cwd, windowsHide: true, timeout: 10_000, maxBuffer: 64_000, encoding: "utf8" });
+    const env = antigravityNetworkEnv(process.env);
+    const { stdout } = await exec(executable, args, { cwd, env, windowsHide: true, timeout: 10_000, maxBuffer: 64_000, encoding: "utf8" });
     return stdout;
   } finally {
     await rm(cwd, { recursive: true, force: true });
@@ -116,11 +118,12 @@ async function completeWithAntigravity(model: string, prompt: string, signal: Ab
   if (!executable) throw new CollaborationFailure("unavailable");
   const cwd = await mkdtemp(join(tmpdir(), "momp-antigravity-"));
   try {
+    const env = antigravityNetworkEnv(process.env);
     return await new Promise<string>((resolve, reject) => {
       const child = execFile(executable, [
         "--input-format", "stream-json", "--output-format", "stream-json", "--model", model,
         "--mode", "plan", "--sandbox", "--disable-slash-commands", "--print-timeout", "165s",
-      ], { cwd, signal, windowsHide: true, maxBuffer: 750_000 }, (error, stdout, stderr) => {
+      ], { cwd, env, signal, windowsHide: true, maxBuffer: 750_000 }, (error, stdout, stderr) => {
         if (signal.aborted || error && typeof error.code === "string") {
           reject(new CollaborationFailure("unavailable"));
           return;

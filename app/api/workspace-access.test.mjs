@@ -118,3 +118,14 @@ test("only local sign-in starts preparation and concurrent clicks share the guar
   assert.equal((await rejected.json()).error, "setup-integrity");
   assert.equal(await antigravityExecutable(), undefined);
 });
+
+test("strict Xbox DNS mode blocks Google sign-in before launching an unmanaged browser", async (context) => {
+  useEnvironment(context, "MOMP_XBOX_DNS", "1");
+  useEnvironment(context, "MOMP_ANTIGRAVITY_CLI", join(tmpdir(), "momp-no-runtime-needed.exe"));
+  const response = await postAntigravity(new Request("http://localhost/api/antigravity", {
+    method: "POST", headers: { ...localHeaders, "content-type": "application/json" },
+    body: JSON.stringify({ action: "sign-in" }),
+  }));
+  assert.equal(response.status, 409);
+  assert.equal((await response.json()).error, "xbox-dns-browser");
+});
