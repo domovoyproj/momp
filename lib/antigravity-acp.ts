@@ -74,18 +74,26 @@ export function launchAntigravity(executable: string, cwd: string, client: Clien
   };
 }
 
-export async function signInToAntigravity(executable: string): Promise<void> {
+export async function signInToAntigravity(executable: string, signal?: AbortSignal): Promise<void> {
+  if (signal?.aborted) throw new AntigravityFailure("cancelled");
   const cwd = await mkdtemp(join(tmpdir(), "momp-agy-auth-"));
   let agent: ReturnType<typeof launchAntigravity> | undefined;
+  const abort = () => agent?.stop();
   try {
+    signal?.throwIfAborted();
     agent = launchAntigravity(executable, cwd, {
       requestPermission: () => ({ outcome: { outcome: "cancelled" } }),
       sessionUpdate: () => {},
     });
+    signal?.addEventListener("abort", abort, { once: true });
     const initialization = await agent.initialize();
     if (!initialization.authMethods?.some((method) => method.id === "oauth-personal")) throw new AntigravityFailure("unsupported");
     await withAcpDeadline(agent.connection.authenticate({ methodId: "oauth-personal" }), 180_000);
+  } catch (error) {
+    if (signal?.aborted) throw new AntigravityFailure("cancelled");
+    throw error;
   } finally {
+    signal?.removeEventListener("abort", abort);
     agent?.stop();
     if (agent) await withAcpDeadline(agent.exited, 4000).catch(() => {});
     await rm(cwd, { recursive: true, force: true, maxRetries: 4, retryDelay: 100 });

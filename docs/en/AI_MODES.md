@@ -8,9 +8,9 @@ Open **Connections → ChatGPT**, then complete the Codex sign-in flow in the br
 
 ## Google Antigravity
 
-1. Install the [official Antigravity CLI](https://antigravity.google/docs/cli/install). Confirm that `agy acp --help` is available. CLI 1.5.0 or newer is required for the integrated usage report.
-2. Set `MOMP_ANTIGRAVITY_CLI` to the full path to the trusted executable before starting momp. On Windows PowerShell, use `$env:MOMP_ANTIGRAVITY_CLI = (Get-Command agy.exe).Source` and launch momp from the same session. On Linux or macOS, use `export MOMP_ANTIGRAVITY_CLI="$(command -v agy)"`.
-3. Open a project and choose **Antigravity chat**. Select **Sign in with Google** to open the CLI's browser sign-in on the machine running momp. The CLI owns the credential store. For a server without a browser, sign in on that machine with `agy acp --login`.
+1. Install the official Antigravity CLI. CLI 1.5.0 or newer is required for the integrated usage report. [Google installation instructions](https://antigravity.google/docs/getting-started?tab=cli)
+2. Open **Connections → Google Antigravity** and select **Sign in with Google**. You can sign in before choosing a project. The browser opens on the machine running momp, and the CLI stores your credentials. For a server without a browser, sign in on that machine with `agy acp --login`.
+3. If you installed the CLI with the panel open, select **Check installation again**. momp checks `%LOCALAPPDATA%\agy\bin\agy.exe` on Windows and `~/.local/bin/agy` on macOS and Linux. For a custom installation, set `MOMP_ANTIGRAVITY_CLI` to the full path of the trusted executable and restart momp. Open a project and choose **Antigravity chat**.
 4. Review project trust and confirm use of Antigravity tools. **Start conversation** opens the project. Select a model and thinking level from the options reported by the CLI. Tool requests can be denied or allowed once when the CLI asks. The CLI's permission rules and terminal sandbox also apply.
 5. Open a saved conversation from the history and choose **Reconnect conversation** when it is disconnected. The app preserves recent transcript entries and the CLI restores its own conversation context.
 

@@ -25,3 +25,12 @@ Captured from the momp 1.6.0-rc.2 production web build with a disposable Git pro
 | Mobile updates / Обновления на мобильном | [Mobile](update-mobile-light.png) | [Mobile](update-mobile-dark.png) |
 
 [Tool approval in Antigravity / Разрешение на действие в Antigravity](antigravity-permission-light.png)
+
+## Project menu in 1.6.1 / Меню проекта в 1.6.1
+
+The screenshots show the menu open in a narrow desktop sidebar and a mobile drawer. Снимки показывают открытое меню в узкой боковой панели и на мобильном экране.
+
+| View / Экран | Light / Светлая | Dark / Тёмная |
+| --- | --- | --- |
+| Narrow sidebar / Узкая панель | [Desktop](project-menu-desktop-light.png) | [Desktop](project-menu-desktop-dark.png) |
+| Touch sidebar / Мобильная панель | [Mobile](project-menu-mobile-light.png) | [Mobile](project-menu-mobile-dark.png) |

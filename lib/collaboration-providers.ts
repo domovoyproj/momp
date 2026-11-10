@@ -1,6 +1,7 @@
 import { execFile } from "node:child_process";
-import { access, mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { constants } from "node:fs";
+import { access, mkdtemp, rm, stat } from "node:fs/promises";
+import { homedir, tmpdir } from "node:os";
 import { isAbsolute, join } from "node:path";
 import { promisify } from "node:util";
 import { completeSimple } from "@oh-my-pi/pi-ai";
@@ -40,11 +41,15 @@ export function readAntigravityResult(stdout: string, stderr: string, failed: bo
 }
 
 export async function antigravityExecutable(): Promise<string | undefined> {
-  const executable = process.env.MOMP_ANTIGRAVITY_CLI;
-  if (!executable || !isAbsolute(executable) || (process.platform === "win32" && !/\.exe$/i.test(executable))) return undefined;
+  const windows = process.platform === "win32";
+  const installed = windows
+    ? process.env.LOCALAPPDATA && join(process.env.LOCALAPPDATA, "agy", "bin", "agy.exe")
+    : join(homedir(), ".local", "bin", "agy");
+  const executable = process.env.MOMP_ANTIGRAVITY_CLI?.trim() || installed;
+  if (!executable || !isAbsolute(executable) || (windows && !/\.exe$/i.test(executable))) return undefined;
   try {
-    await access(executable);
-    return executable;
+    await access(executable, constants.X_OK);
+    return (await stat(executable)).isFile() ? executable : undefined;
   } catch {
     return undefined;
   }

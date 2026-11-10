@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, openSync, closeSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, openSync, closeSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { chromium } from "playwright";
@@ -12,7 +12,11 @@ const agentDir = join(fixture, "agent");
 const screenshots = resolve(process.env.MOMP_SCREENSHOTS_DIR || "test-artifacts/browser");
 for (const directory of [project, agentDir, screenshots]) mkdirSync(directory, { recursive: true });
 const git = (...args) => execFileSync("git", args, { cwd: project, windowsHide: true });
-const antigravity = buildAntigravityFixture(fixture);
+const cliDirectory = process.platform === "win32" ? join(fixture, "agy", "bin") : join(fixture, ".local", "bin");
+const cliExecutable = join(cliDirectory, process.platform === "win32" ? "agy.exe" : "agy");
+const cliAccount = join(cliDirectory, "fixture-google-sign-in");
+mkdirSync(cliDirectory, { recursive: true });
+renameSync(buildAntigravityFixture(fixture), cliExecutable);
 git("init", "-q", "--template=");
 git("config", "core.autocrlf", "false");
 writeFileSync(join(project, "greeting.txt"), "Hello\n");
@@ -77,7 +81,7 @@ const log = openSync(serverLog, "w");
 const server = Bun.spawn([process.execPath, "--bun", resolve("node_modules/next/dist/bin/next"), "start", "-H", "127.0.0.1", "-p", String(port)], {
   env: { ...safeEnv, PI_CODING_AGENT_DIR: agentDir, HOME: fixture, USERPROFILE: fixture,
     APPDATA: fixture, LOCALAPPDATA: fixture, NEXT_TELEMETRY_DISABLED: "1", OMP_WEB_UPDATE_INSTALL_DISABLED: "1",
-    MOMP_ANTIGRAVITY_CLI: antigravity, MOMP_TEST_RUNNER_IMAGE: process.env.MOMP_TEST_RUNNER_IMAGE },
+    MOMP_TEST_RUNNER_IMAGE: process.env.MOMP_TEST_RUNNER_IMAGE },
   stdout: log, stderr: log,
 });
 
@@ -91,12 +95,55 @@ try {
   }
   assert.ok(ready, "Production application did not start");
   browser = await chromium.launch({ executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined });
+  const movedProject = join(fixture, "moved-project");
+  mkdirSync(movedProject);
+  writeFileSync(join(movedProject, "marker.txt"), "This project will move during the test.\n");
+  const recoveryPage = await browser.newPage({ viewport: { width: 1280, height: 900 }, locale: "en-US" });
+  activePage = recoveryPage;
+  await recoveryPage.addInitScript(() => localStorage.setItem("momp-locale", "en"));
+  const initialGitStatus = recoveryPage.waitForResponse((response) => new URL(response.url()).pathname === "/api/git/status");
+  await recoveryPage.goto(`${origin}/?${new URLSearchParams({ cwd: movedProject })}`);
+  await recoveryPage.getByText("marker.txt", { exact: true }).waitFor();
+  await initialGitStatus;
+  const relocatedProject = `${movedProject}-new-location`;
+  // Git can hold the directory open briefly during workspace discovery on Windows.
+  for (let attempt = 0; ; attempt++) {
+    try { renameSync(movedProject, relocatedProject); break; }
+    catch (error) {
+      if (process.platform !== "win32" || error.code !== "EBUSY" || attempt === 15) throw error;
+      await Bun.sleep(100);
+    }
+  }
+  await recoveryPage.getByTitle("Refresh explorer", { exact: true }).click();
+  const unavailable = "This project folder is unavailable. Select an existing folder to continue.";
+  const explorerRecovery = recoveryPage.getByText(unavailable, { exact: false });
+  await explorerRecovery.getByRole("button", { name: "Open project" }).click();
+  const picker = recoveryPage.getByRole("dialog", { name: "Select directory" });
+  await picker.waitFor();
+  await recoveryPage.keyboard.press("Escape");
+  await picker.waitFor({ state: "detached" });
+  await recoveryPage.getByRole("button", { name: "Skills library" }).click();
+  const skills = recoveryPage.getByRole("dialog", { name: "Settings" });
+  await skills.getByText(unavailable, { exact: false }).waitFor();
+  await recoveryPage.screenshot({ path: join(screenshots, "unavailable-project-skills.png"), animations: "disabled" });
+  await skills.getByRole("button", { name: "Open project" }).click();
+  await picker.waitFor();
+  await picker.getByText("Loading directories…", { exact: true }).waitFor({ state: "hidden" });
+  const pathInput = picker.getByRole("textbox", { name: "Directory path" });
+  await pathInput.fill(relocatedProject);
+  await pathInput.press("Enter");
+  await picker.getByRole("button", { name: "Select this folder", exact: true }).click();
+  await picker.waitFor({ state: "detached" });
+  await recoveryPage.getByText("marker.txt", { exact: true }).waitFor();
+  await recoveryPage.close();
+  console.log("PASS moved workspace: explorer and skills recover by selecting the new folder");
+
   let taskId;
   let antigravityChecked = false;
   let mcpSaved = false;
   for (const [theme, viewport] of [["light", { width: 1440, height: 960 }], ["dark", { width: 1440, height: 960 }], ["light", { width: 390, height: 844 }], ["dark", { width: 390, height: 844 }]]) {
     writeFileSync(join(project, "workspace.ts"), sampleWorkspace);
-    const page = await browser.newPage({ viewport, colorScheme: theme, locale: "en-US" });
+    const page = await browser.newPage({ viewport, colorScheme: theme, locale: "en-US", hasTouch: viewport.width < 600 });
     activePage = page;
     const errors = [];
     page.on("pageerror", (error) => errors.push(error.message));
@@ -122,6 +169,49 @@ try {
     const button = workspaceActions.getByRole("button", { name: "AI tasks", exact: true });
     await page.getByRole("heading", { name: "Where shall we start?", exact: true }).waitFor();
     await page.screenshot({ path: join(screenshots, `workspace-${size}-${theme}.png`), animations: "disabled" });
+    const toggleSidebar = page.getByRole("button", { name: "Show sidebar", exact: true });
+    const sidebarResize = page.locator(".sidebar-resize-handle");
+    if (size === "mobile") {
+      await page.setViewportSize({ width: viewport.width, height: 630 });
+      await toggleSidebar.click();
+    } else {
+      await page.setViewportSize({ width: 1000, height: 680 });
+      await sidebarResize.press("Home");
+    }
+    const projectRow = page.locator(".sidebar-project").filter({ hasText: /^project/ });
+    const menuTrigger = projectRow.getByRole("button", { name: "Project actions", exact: true });
+    if (size === "mobile") await menuTrigger.tap();
+    else await menuTrigger.click();
+    const menu = page.getByRole("group", { name: "Project actions" });
+    await menu.waitFor();
+    assert.equal(await menu.evaluate((node) => {
+      const rect = node.getBoundingClientRect();
+      return rect.left >= 0 && rect.right <= innerWidth && rect.top >= 0 && rect.bottom <= innerHeight;
+    }), true, "Project menu fits within the viewport");
+    for (const name of ["Copy project path", "Rename", "Remove from sidebar", "Delete folder from disk"]) {
+      const action = menu.getByRole("button", { name, exact: true });
+      await action.scrollIntoViewIfNeeded();
+      assert.equal(await action.evaluate((node) => {
+        const { x, y, width, height } = node.getBoundingClientRect();
+        return node.contains(document.elementFromPoint(x + width / 2, y + height / 2));
+      }), true, `${name} is reachable outside the project list`);
+    }
+    const menuBounds = await menu.boundingBox();
+    assert.ok(menuBounds);
+    const menuViewport = page.viewportSize();
+    await page.screenshot({ path: join(screenshots, `project-menu-${size}-${theme}.png`), animations: "disabled", clip: {
+      x: 0, y: 0, width: Math.min(560, menuViewport.width),
+      height: Math.min(menuViewport.height, Math.ceil(menuBounds.y + menuBounds.height + 18)),
+    } });
+    await page.keyboard.press("Escape");
+    await menu.waitFor({ state: "detached" });
+    assert.equal(await menuTrigger.evaluate((node) => node === document.activeElement), true);
+    if (size === "mobile") {
+      await page.locator(".sidebar-overlay-backdrop").click({ position: { x: viewport.width - 10, y: 400 } });
+    } else {
+      await sidebarResize.press("Enter");
+    }
+    await page.setViewportSize(viewport);
     await button.click();
     const dialog = page.getByRole("dialog", { name: "AI tasks" });
     await dialog.waitFor();
@@ -169,8 +259,30 @@ try {
       await agy.getByRole("checkbox", { name: /Use Antigravity tools/ }).check();
       await agy.getByRole("button", { name: "Start conversation", exact: true }).click();
       await agy.getByText("Antigravity needs Google sign-in", { exact: false }).waitFor();
-      await agy.getByRole("button", { name: "Sign in with Google", exact: true }).click();
-      await agy.getByText("Google sign-in finished", { exact: false }).waitFor();
+      const accountPage = await browser.newPage({ locale: "en-US" });
+      activePage = accountPage;
+      await accountPage.addInitScript(() => localStorage.setItem("momp-locale", "en"));
+      await accountPage.goto(origin);
+      await accountPage.locator(".sidebar-footer").getByRole("button", { name: "Connections", exact: true }).click();
+      await accountPage.getByRole("button", { name: /Google Antigravity.*official CLI/ }).click();
+      const login = accountPage.getByRole("dialog", { name: "Google Antigravity" });
+      const signIn = login.getByRole("button", { name: "Sign in with Google" });
+      await signIn.waitFor();
+      assert.equal(await login.getByRole("button", { name: "Start conversation" }).count(), 0);
+      writeFileSync(`${cliAccount}-hold`, "delay fixture sign-in");
+      await signIn.click();
+      await login.getByText("Complete Google sign-in in your browser", { exact: false }).waitFor();
+      for (let attempt = 0; attempt < 100 && !existsSync(`${cliAccount}-started`); attempt++) await Bun.sleep(100);
+      assert.ok(existsSync(`${cliAccount}-started`), "Fixture received the OAuth request");
+      await login.getByRole("button", { name: "Cancel sign-in" }).click();
+      rmSync(`${cliAccount}-hold`);
+      assert.equal(existsSync(cliAccount), false);
+      await signIn.click();
+      await login.getByText("Google sign-in finished", { exact: false }).waitFor();
+      assert.ok(existsSync(cliAccount), "OAuth retry reached the provider after cancellation");
+      await accountPage.screenshot({ path: join(screenshots, "antigravity-projectless-sign-in.png"), animations: "disabled" });
+      await accountPage.close();
+      activePage = page;
       await agy.getByRole("button", { name: "Reconnect conversation", exact: true }).click();
       await agy.getByRole("combobox", { name: "Model", exact: true }).selectOption("gemini-fixture-flash");
       await agy.getByRole("combobox", { name: "Thinking level", exact: true }).selectOption("high");
@@ -181,8 +293,17 @@ try {
       assert.equal((await (await page.request.get(`${origin}/api/workspace-activity`)).json()).busy, true);
       await page.screenshot({ path: join(screenshots, `antigravity-permission-${theme}.png`), animations: "disabled" });
 
-      await page.reload();
-      await openAntigravity.click();
+      const restore = Promise.withResolvers();
+      const delayProjectRestore = async (route) => { await restore.promise; await route.continue(); };
+      await page.route("**/api/cwd/validate", delayProjectRestore);
+      try {
+        await page.reload();
+        await openAntigravity.click();
+        await agy.getByText("Open a project to start an Antigravity conversation.", { exact: true }).waitFor();
+      } finally {
+        restore.resolve();
+        await page.unroute("**/api/cwd/validate", delayProjectRestore);
+      }
       await agy.getByRole("button", { name: "Review the workspace greeting", exact: true }).click();
       await agy.getByRole("button", { name: "Allow once", exact: true }).click();
       await agy.getByText("I found the workspace greeting. The approved edit is in greeting.txt.", { exact: true }).waitFor();

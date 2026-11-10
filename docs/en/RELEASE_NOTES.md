@@ -1,4 +1,12 @@
-# momp 1.6.0
+# momp 1.6.1
+
+- Google Antigravity can be connected in **Connections** before opening a project. momp detects the CLI at Google's standard installation path and offers an installation recheck and a cancellable sign-in. If you open Antigravity while the workspace is loading, the project history appears when it is ready.
+- The project menu stays within the window on desktop and mobile. Escape closes it and returns focus to the project.
+- File Explorer lists an explicitly selected Windows drive root. If a project folder moves, File Explorer and Skills offer to open another folder.
+
+Google sign-in with a real account remains **PENDING LIVE VERIFICATION**. The official CLI is required. See [AI modes](AI_MODES.md) and the [live checklist](LIVE_VERIFICATION.md).
+
+## momp 1.6.0
 
 [Русский](../ru/RELEASE_NOTES.md) · [Install or roll back](INSTALLATION.md) · [Live verification](LIVE_VERIFICATION.md)
 

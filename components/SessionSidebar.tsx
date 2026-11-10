@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useState, useCallback, useMemo, useRef, type CSSProperties, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import type { SessionInfo } from "@/lib/types";
 import { loadExplorerOpen, saveExplorerOpen } from "@/lib/file-explorer-state";
 import { dispatchSessionRowContextMenu } from "@/lib/session-row-context-menu";
@@ -501,6 +502,8 @@ export function SessionSidebar({ selectedSessionId, optimisticSession, onSelectS
   const [wtBusy, setWtBusy] = useState(false);
   const [wtConfirmRemove, setWtConfirmRemove] = useState<string | null>(null);
   const wtDropdownRef = useRef<HTMLDivElement>(null);
+  const projectMenuRef = useRef<HTMLDivElement>(null);
+  const projectMenuTriggerRef = useRef<HTMLButtonElement | null>(null);
   const wtNewInputRef = useRef<HTMLInputElement>(null);
   const [explorerOpen, setExplorerOpen] = useState(true);
   const [explorerKey, setExplorerKey] = useState(0);
@@ -885,23 +888,59 @@ export function SessionSidebar({ selectedSessionId, optimisticSession, onSelectS
     }
   }, [worktreeState, wtBusy, selectedCwd]);
 
-  // Close the project actions menu on outside click.
+  const closeProjectMenu = useCallback(() => {
+    setProjectMenuOpen(null);
+    setWtDropdownOpen(false);
+    setWtNewOpen(false);
+    setWtNewBranch("");
+    setWtError(null);
+    setWtConfirmRemove(null);
+    setWtFilter("");
+    setHoveredProject(null);
+  }, []);
+
+  useLayoutEffect(() => {
+    const menu = projectMenuRef.current;
+    const trigger = projectMenuTriggerRef.current;
+    if (!projectMenuOpen || !menu || !trigger) return;
+    const place = () => {
+      const rect = trigger.getBoundingClientRect();
+      const margin = 8;
+      const gap = 4;
+      const width = Math.min(260, window.innerWidth - margin * 2);
+      const above = rect.top - gap - margin;
+      const below = window.innerHeight - rect.bottom - gap - margin;
+      menu.style.width = `${width}px`;
+      const openAbove = below < menu.scrollHeight && above > below;
+      menu.style.left = `${Math.max(margin, Math.min(rect.right - width, window.innerWidth - margin - width))}px`;
+      menu.style.top = openAbove ? "auto" : `${rect.bottom + gap}px`;
+      menu.style.bottom = openAbove ? `${window.innerHeight - rect.top + gap}px` : "auto";
+      menu.style.maxHeight = `${Math.max(0, openAbove ? above : below)}px`;
+      menu.style.visibility = "visible";
+    };
+    const closeOnScroll = (event: Event) => {
+      if (!(event.target instanceof Node) || !menu.contains(event.target)) closeProjectMenu();
+    };
+    place();
+    menu.focus({ preventScroll: true });
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", closeOnScroll, true);
+    return () => {
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", closeOnScroll, true);
+    };
+  }, [projectMenuOpen, closeProjectMenu]);
+
+  // The floating menu and its trigger are separate DOM subtrees.
   useEffect(() => {
+    if (!projectMenuOpen) return;
     const handler = (e: MouseEvent) => {
-      if (wtDropdownRef.current && !wtDropdownRef.current.contains(e.target as Node)) {
-        setProjectMenuOpen(null);
-        setWtDropdownOpen(false);
-        setWtNewOpen(false);
-        setWtNewBranch("");
-        setWtError(null);
-        setWtConfirmRemove(null);
-        setWtFilter("");
-        setHoveredProject(null);
-      }
+      const target = e.target as Node;
+      if (!wtDropdownRef.current?.contains(target) && !projectMenuRef.current?.contains(target)) closeProjectMenu();
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, []);
+  }, [projectMenuOpen, closeProjectMenu]);
 
   // Clicking a session moves the effective cwd to that session's worktree.
   // Done on the click path (not via the selectedCwd prop sync) so it also
@@ -1368,7 +1407,8 @@ export function SessionSidebar({ selectedSessionId, optimisticSession, onSelectS
                   <div style={{ position: "static", flexShrink: 0 }}>
                     <button
                       type="button"
-                      onClick={() => {
+                      onClick={(event) => {
+                        projectMenuTriggerRef.current = event.currentTarget;
                         const nextOpen = projectMenuOpen === project ? null : project;
                         setProjectMenuOpen(nextOpen);
                         setWtDropdownOpen(false);
@@ -1392,9 +1432,7 @@ export function SessionSidebar({ selectedSessionId, optimisticSession, onSelectS
                         background: projectMenuOpen === project ? "var(--bg-selected)" : "transparent",
                         color: isSelectedProject && currentWt && !currentWt.isMain ? "var(--accent)" : "var(--text-dim)",
                         cursor: "pointer",
-                        opacity: hoveredProject === project || projectMenuOpen === project ? 1 : 0,
-                        pointerEvents: hoveredProject === project || projectMenuOpen === project ? "auto" : "none",
-                        transition: "opacity 0.12s, background 0.12s, color 0.12s",
+                        transition: "background 0.12s, color 0.12s",
                       }}
                       onFocus={() => setHoveredProject(project)}
                     >
@@ -1404,21 +1442,16 @@ export function SessionSidebar({ selectedSessionId, optimisticSession, onSelectS
                         <circle cx="11" cy="7" r="1.1" />
                       </svg>
                     </button>
-                    <AnimatedDropdown
-                      open={projectMenuOpen === project}
-                      style={{
-                        position: "absolute",
-                        top: "calc(100% + 4px)",
-                        right: 3,
-                        width: "min(260px, calc(100vw - 24px))",
-                        zIndex: 110,
-                        background: "var(--bg)",
-                        border: "1px solid var(--border)",
-                        borderRadius: 8,
-                        boxShadow: "0 6px 20px rgba(0,0,0,0.14)",
-                        boxSizing: "border-box",
-                        overflow: "hidden",
-                      }}
+                    {projectMenuOpen === project && createPortal(
+                      <div ref={projectMenuRef} className="sidebar-project-menu" tabIndex={-1}
+                        role="group" aria-label={t("sidebar.projectActions")}
+                        onKeyDown={(event) => {
+                          if (event.key !== "Escape") return;
+                          event.preventDefault();
+                          event.stopPropagation();
+                          closeProjectMenu();
+                          projectMenuTriggerRef.current?.focus({ preventScroll: true });
+                        }}
                     >
                       {showWorktreeSwitcher && worktreeState && (
                         <>
@@ -1456,7 +1489,7 @@ export function SessionSidebar({ selectedSessionId, optimisticSession, onSelectS
                             </svg>
                           </button>
                           <AnimatedDropdown
-                open={wtDropdownOpen}
+                            open={wtDropdownOpen}
                             style={{
                               position: "static",
                               width: "auto",
@@ -1469,7 +1502,7 @@ export function SessionSidebar({ selectedSessionId, optimisticSession, onSelectS
                               boxSizing: "border-box",
                               overflow: "hidden",
                             }}
-              >
+                          >
                   {showWtFilter && (
                     <div style={{ padding: "6px 8px", borderBottom: "1px solid var(--border)" }}>
                       <input
@@ -1477,6 +1510,7 @@ export function SessionSidebar({ selectedSessionId, optimisticSession, onSelectS
                         onChange={(e) => setWtFilter(e.target.value)}
                         onKeyDown={(e) => {
                           if (e.key === "Escape") {
+                            e.stopPropagation();
                             setWtFilter("");
                             setWtDropdownOpen(false);
                           }
@@ -1639,6 +1673,7 @@ export function SessionSidebar({ selectedSessionId, optimisticSession, onSelectS
                             void handleCreateWorktree();
                           }
                           if (e.key === "Escape") {
+                            e.stopPropagation();
                             setWtNewOpen(false);
                             setWtNewBranch("");
                             setWtError(null);
@@ -1842,7 +1877,7 @@ export function SessionSidebar({ selectedSessionId, optimisticSession, onSelectS
                           </svg>
                           {t("sidebar.deleteProjectFromDisk")}
                         </button>
-                      </AnimatedDropdown>
+                      </div>, document.body)}
                   </div>
                 )}
               </div>
@@ -2017,6 +2052,7 @@ export function SessionSidebar({ selectedSessionId, optimisticSession, onSelectS
                 ref={fileExplorerRef}
                 cwd={selectedCwd ?? selectedCwdProp!}
                 onOpenFile={onOpenFile ?? (() => {})}
+                onChooseProject={handleCustomPathClick}
                 refreshKey={explorerKey}
                 onAtMention={onAtMention}
                 onAtMentions={onAtMentions}

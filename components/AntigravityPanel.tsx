@@ -6,23 +6,36 @@ import type { AntigravityHistoryItem, AntigravityThread } from "@/lib/antigravit
 import { MarkdownBody } from "./MarkdownBody";
 import { WorkspaceIcon } from "./WorkspaceIcon";
 
-const INSTALL_URL = "https://antigravity.google/docs/cli/install";
+const INSTALL_URL = "https://antigravity.google/docs/getting-started?tab=cli";
+
+type ConnectionStatus = {
+  configured: boolean;
+  localSignIn: boolean;
+  workspaceAvailable: boolean;
+  trusted: boolean;
+};
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(url, { cache: "no-store", ...init });
-  const value = await response.json();
-  if (!response.ok) throw new Error(typeof value.error === "string" ? value.error : "unavailable");
+  const response = await fetch(url, { cache: "no-store", ...init }).catch(() => { throw new Error("unavailable"); });
+  const value = await response.json().catch(() => null);
+  if (!response.ok || !value) throw new Error(typeof value?.error === "string" ? value.error : "unavailable");
   return value;
 }
 
-export function AntigravityPanel({ cwd, onClose }: { cwd: string; onClose: () => void }) {
+export function AntigravityPanel({ cwd, onClose, onChooseProject }: {
+  cwd: string;
+  onClose: () => void;
+  onChooseProject: () => void;
+}) {
   const { t } = useI18n();
   const dialog = useRef<HTMLDialogElement>(null);
   const scroll = useRef<HTMLDivElement>(null);
   const following = useRef(true);
+  const signInRequest = useRef<AbortController | null>(null);
   const [history, setHistory] = useState<AntigravityHistoryItem[]>([]);
   const [thread, setThread] = useState<AntigravityThread>();
-  const [project, setProject] = useState<{ configured: boolean; trusted: boolean }>();
+  const [project, setProject] = useState<ConnectionStatus>();
+  const [statusRefresh, setStatusRefresh] = useState(0);
   const [query, setQuery] = useState("");
   const [message, setMessage] = useState("");
   const [consent, setConsent] = useState(false);
@@ -30,23 +43,26 @@ export function AntigravityPanel({ cwd, onClose }: { cwd: string; onClose: () =>
   const [error, setError] = useState("");
   const [signedIn, setSignedIn] = useState(false);
   const [reconnecting, setReconnecting] = useState(false);
-  const url = `/api/antigravity?${new URLSearchParams({ cwd })}`;
+  const url = `/api/antigravity?${new URLSearchParams(cwd ? { cwd } : {})}`;
   const id = thread?.id;
   const active = thread && ["connecting", "running", "stopping"].includes(thread.status);
 
   useEffect(() => {
     const element = dialog.current!;
     element.showModal();
-    return () => element.close();
+    return () => {
+      signInRequest.current?.abort();
+      element.close();
+    };
   }, []);
 
   useEffect(() => {
     const controller = new AbortController();
-    void request<{ history: AntigravityHistoryItem[]; configured: boolean; trusted: boolean }>(url, { signal: controller.signal })
-      .then(({ history, configured, trusted }) => { setHistory(history); setProject({ configured, trusted }); })
+    void request<ConnectionStatus & { history: AntigravityHistoryItem[] }>(url, { signal: controller.signal })
+      .then(({ history, ...status }) => { setHistory(history); setProject(status); })
       .catch(() => { if (!controller.signal.aborted) setError("unavailable"); });
     return () => controller.abort();
-  }, [url]);
+  }, [url, statusRefresh]);
 
   useEffect(() => {
     if (!id) return;
@@ -84,19 +100,29 @@ export function AntigravityPanel({ cwd, onClose }: { cwd: string; onClose: () =>
   }
 
   async function act(action: string, args: Record<string, unknown> = {}) {
+    const controller = action === "sign-in" ? new AbortController() : undefined;
+    if (controller) {
+      signInRequest.current = controller;
+      setSignedIn(false);
+    }
     setBusy(action);
     setError("");
     try {
       const value = await request<{ thread?: AntigravityThread }>(url, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action, cwd, id, ...args }),
+        signal: controller?.signal,
       });
       const next = value.thread;
       if (next) setThread((previous) => previous?.id === next.id && previous.revision > next.revision ? previous : next);
       if (action === "prompt") { following.current = true; setMessage(""); }
       if (action === "sign-in") setSignedIn(true);
-    } catch (error) { setError((error as Error).message); }
-    finally { setBusy(undefined); }
+    } catch (error) {
+      if (!controller?.signal.aborted) setError((error as Error).message);
+    } finally {
+      if (controller) signInRequest.current = null;
+      setBusy(undefined);
+    }
   }
 
   function newThread() {
@@ -108,7 +134,7 @@ export function AntigravityPanel({ cwd, onClose }: { cwd: string; onClose: () =>
   }
 
   const connectionError = error || (signedIn && thread?.error === "auth-required" ? "" : thread?.error);
-  const workspaceName = cwd.split(/[\\/]/).filter(Boolean).at(-1) ?? cwd;
+  const workspaceName = cwd.split(/[\\/]/).filter(Boolean).at(-1) ?? t("settings.globalProfile");
   const matches = history.filter((item) => (item.title || t("antigravity.untitled")).toLowerCase().includes(query.toLowerCase()));
 
   return <dialog ref={dialog} className="workbench-dialog antigravity-dialog" aria-labelledby="antigravity-title"
@@ -192,14 +218,25 @@ export function AntigravityPanel({ cwd, onClose }: { cwd: string; onClose: () =>
         </form> : <div className="antigravity-connect">
           {thread?.status === "connecting" ? <button type="button" disabled={Boolean(busy)} onClick={() => void act("cancel")}>{t("antigravity.cancel")}</button>
             : project?.configured ? <>
-              {!project.trusted && <p className="workbench-error">{t("antigravity.error.trust")}</p>}
-              <label><input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} />{t("antigravity.consent")}</label>
+              {busy === "sign-in" && <p role="status">{t("antigravity.signingIn")}</p>}
               {signedIn && <p role="status">{t("antigravity.signedIn")}</p>}
-              <div><button type="button" disabled={Boolean(busy)} onClick={() => void act("sign-in")}>
-                {t(busy === "sign-in" ? "antigravity.signingIn" : "antigravity.signIn")}</button>
-                <button className="workbench-primary" type="button" disabled={Boolean(busy) || !project.trusted || !consent}
-                  onClick={() => { setSignedIn(false); void act("open", { confirm: true }); }}>{t(thread ? "antigravity.resume" : "antigravity.connect")}</button></div>
-            </> : project && <><p>{t("antigravity.error.not-installed")}</p><a href={INSTALL_URL} target="_blank" rel="noreferrer">{t("connections.antigravitySetup")}</a></>}
+              {!project.localSignIn && <p>{t("antigravity.error.local-sign-in")}</p>}
+              {project.workspaceAvailable ? <>
+                {!project.trusted && <p className="workbench-error">{t("antigravity.error.trust")}</p>}
+                <label><input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} />{t("antigravity.consent")}</label>
+              </> : <p>{t(cwd ? "workspace.folderUnavailable" : "antigravity.chooseWorkspace")}</p>}
+              <div>
+                {project.localSignIn && <button type="button" disabled={Boolean(busy)} onClick={() => void act("sign-in")}>
+                  {t("antigravity.signIn")}</button>}
+                {busy === "sign-in" && <button type="button" onClick={() => signInRequest.current?.abort()}>{t("antigravity.cancelSignIn")}</button>}
+                {project.workspaceAvailable ? <button className="workbench-primary" type="button" disabled={Boolean(busy) || !project.trusted || !consent}
+                  onClick={() => { setSignedIn(false); void act("open", { confirm: true }); }}>{t(thread ? "antigravity.resume" : "antigravity.connect")}</button>
+                  : <button type="button" disabled={Boolean(busy)} onClick={onChooseProject}>{t("workspace.openProject")}</button>}
+              </div>
+            </> : project && <><p>{t("antigravity.error.not-installed")}</p><div>
+              <a href={INSTALL_URL} target="_blank" rel="noreferrer">{t("antigravity.installCli")}</a>
+              <button type="button" onClick={() => { setError(""); setStatusRefresh(value => value + 1); }}>{t("antigravity.checkCli")}</button>
+            </div></>}
         </div>}
       </section>
     </div>

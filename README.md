@@ -60,7 +60,7 @@ curl -fsSL https://raw.githubusercontent.com/domovoyproj/momp/main/install.sh | 
 
 ## ⚡ Google Antigravity
 
-В версии 1.6 установите официальный Antigravity CLI и задайте путь к `agy` в `MOMP_ANTIGRAVITY_CLI` перед запуском momp. Откройте проект, выберите **Чат Antigravity** и нажмите **Войти через Google**. После входа подтвердите доступ к проекту. В чате доступны модели и уровни рассуждений, которые возвращает CLI. Для совместных задач выберите **Google Antigravity CLI** как подключение Gemini.
+Начиная с 1.6.1, momp находит официальный Antigravity CLI в стандартной папке установки. Войдите через **Подключения → Google Antigravity**, затем откройте проект и подтвердите доступ в **Чате Antigravity**. Для совместных задач выберите **Google Antigravity CLI** как подключение Gemini.
 
 [Настройка AI-режимов](docs/ru/AI_MODES.md) · [AI modes setup](docs/en/AI_MODES.md)
 

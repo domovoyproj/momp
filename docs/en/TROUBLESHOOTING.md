@@ -6,7 +6,7 @@
 | --- | --- |
 | ChatGPT does not appear | Open Connections and check the OAuth sign-in. The OpenAI API key connects a separate provider. |
 | Legacy Antigravity sign-in is missing | OMP paused that route. Set up the official CLI as described in [AI modes](AI_MODES.md), or configure Gemini API separately. |
-| Antigravity chat cannot connect | Check `agy acp --help`, the executable path in `MOMP_ANTIGRAVITY_CLI`, project trust and Google sign-in on the momp host. |
+| Antigravity chat cannot connect | In **Connections → Google Antigravity**, check the CLI installation and sign in on the momp host. Then check that the project folder exists and is trusted. For a custom CLI path, check `MOMP_ANTIGRAVITY_CLI`. |
 | A task reports quota exhaustion | Check Usage limits, or check the official Antigravity client. Keep the task paused until the provider recovers. |
 | A task cannot read a file | Supply a tracked UTF-8 file from the selected Git project. Uncommitted edits and excluded credential paths are unavailable to the task. |
 | A patch no longer applies | Check that you are in the correct repo and compare the current file with the task's baseline commit. Review and resolve conflicts manually. |

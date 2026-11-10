@@ -34,7 +34,14 @@ for await (const line of createInterface({ input: process.stdin })) {
     reply(id, { protocolVersion: 1, agentCapabilities: { loadSession: true }, authMethods: [{ id: "oauth-personal", name: "Log in with Google" }] });
   } else if (method === "authenticate") {
     if (params.methodId !== "oauth-personal") failure(id, -32602, "Unknown sign-in method");
-    else { await Bun.write(account, "authenticated mock account"); reply(id); }
+    else {
+      if (existsSync(`${account}-hold`)) {
+        await Bun.write(`${account}-started`, String(process.pid));
+        await Bun.sleep(30_000);
+      }
+      await Bun.write(account, "authenticated mock account");
+      reply(id);
+    }
   } else if (method === "session/new" || method === "session/load") {
     if (!existsSync(account)) { failure(id, -32000, "Authentication required"); continue; }
     if (!Array.isArray(params.mcpServers) || params.mcpServers.length) { failure(id, -32602, "Unexpected MCP server"); continue; }

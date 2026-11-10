@@ -17,6 +17,11 @@ function json(data: unknown, status = 200) {
 
 function sessions() { return new AntigravitySessions(join(getAgentDir(), "momp-antigravity-v1")); }
 
+function canSignInLocally(req: Request): boolean {
+  // The CLI opens the provider's browser sign-in on the host running momp.
+  return /^(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/i.test(req.headers.get("host") ?? "");
+}
+
 async function project(value: unknown) {
   if (typeof value !== "string" || !isAbsolute(value)) return;
   if (!isExistingFilePathAllowed(value, await getAllowedFileRoots())) return;
@@ -71,12 +76,13 @@ export async function GET(req: Request) {
   if (!isApiRequestAllowed(req)) return json({ error: "access" }, 403);
   const query = new URL(req.url).searchParams;
   const cwd = await project(query.get("cwd"));
-  if (!cwd) return json({ error: "access" }, 403);
-  const store = sessions();
   const id = query.get("id");
   try {
-    if (!id) return json({ history: store.history(cwd), configured: Boolean(await antigravityExecutable()),
-      trusted: getProjectTrustStatus(cwd, getAgentDir()).trusted });
+    if (!id) return json({ history: cwd ? sessions().history(cwd) : [], configured: Boolean(await antigravityExecutable()),
+      localSignIn: canSignInLocally(req), workspaceAvailable: Boolean(cwd),
+      trusted: Boolean(cwd && getProjectTrustStatus(cwd, getAgentDir()).trusted) });
+    if (!cwd) return json({ error: "access" }, 403);
+    const store = sessions();
     const thread = store.get(cwd, id);
     if (!thread) return json({ error: "unavailable" }, 404);
     return query.get("events") === "1" ? streamThread(req, store, cwd, id) : json({ thread });
@@ -92,21 +98,21 @@ export async function POST(req: Request) {
   if (!hasJsonContentType(req)) return json({ error: "invalid" }, 415);
   let body: Record<string, unknown>;
   try { body = await readBoundedJson(req, 120_000); } catch { return json({ error: "invalid" }, 400); }
-  const cwd = await project(body.cwd);
-  if (!cwd) return json({ error: "access" }, 403);
-  const store = sessions();
   const id = typeof body.id === "string" ? body.id : undefined;
   const { action } = body;
   try {
     if (action === "sign-in") {
-      // Google's authorization opens on the machine that runs momp.
-      if (!/^(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/i.test(req.headers.get("host") ?? "")) return json({ error: "local-sign-in" }, 403);
+      if (!canSignInLocally(req)) return json({ error: "local-sign-in" }, 403);
       const executable = await antigravityExecutable();
       if (!executable) return json({ error: "not-installed" }, 503);
-      const login = globalThis.__mompAntigravitySignIn ??= signInToAntigravity(executable);
+      if (globalThis.__mompAntigravitySignIn) return json({ error: "sign-in-in-progress" }, 409);
+      const login = globalThis.__mompAntigravitySignIn = signInToAntigravity(executable, req.signal);
       try { await login; } finally { if (globalThis.__mompAntigravitySignIn === login) globalThis.__mompAntigravitySignIn = undefined; }
       return json({ ok: true });
     }
+    const cwd = await project(body.cwd);
+    if (!cwd) return json({ error: "access" }, 403);
+    const store = sessions();
     const safeToStop = action === "cancel" || action === "disconnect" || action === "permission" && body.allow === false;
     if (!safeToStop && !getProjectTrustStatus(cwd, getAgentDir()).trusted) return json({ error: "trust" }, 403);
     if (action === "open") {

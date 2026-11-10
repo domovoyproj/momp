@@ -1,93 +1,93 @@
-# momp 1.6.0
+# momp 1.6.1
 
 ## English
 
 ### Overview
 
-momp is a local coding workspace for Windows and the web. This release updates the Oh My Pi engine and brings two independent provider modes and an explicit workflow for working with both models.
+This update fixes a clipped project menu, restores browsing at Windows drive roots, and makes Google Antigravity sign-in available before opening a project.
 
-### What’s New
+### What's New
 
-Open a project, work in a saved conversation or prepare an AI task. Review the proposed patch and apply or reverse it from the task after checking the working files.
+The Antigravity panel can recheck the CLI installation and cancel a pending sign-in. File Explorer and Skills offer a directory picker when the selected project folder is gone.
 
 ### AI Providers
 
-ChatGPT uses Codex OAuth. Google Antigravity uses the official CLI for sign-in, model and thinking options, streamed chat and tool approvals. OpenAI API and Gemini API remain separate connections. Usage limits displays the latest successful reports and counts down to provider-reported reset times when available.
+momp finds Google's standard CLI installation automatically. Set the absolute path in MOMP_ANTIGRAVITY_CLI if you installed the CLI elsewhere. [AI modes](https://github.com/domovoyproj/momp/blob/v1.6.1/docs/en/AI_MODES.md)
 
 ### Hybrid AI
 
-Choose GPT Lead, Gemini Lead, Dual Review or smart routing. Independent reviewers receive the lead’s summary, the actual Git diff, the whitespace check and optional project test results. You can pause, retry an unfinished stage or approve a separate fallback. Optional project tests run in an offline, unprivileged container with a snapshot of the proposed tree.
+If you use Antigravity as the Gemini provider in AI tasks, the same detected CLI is available for its lead and review roles. [Hybrid AI guide](https://github.com/domovoyproj/momp/blob/v1.6.1/docs/en/HYBRID_MODE.md)
 
 ### Interface Improvements
 
-The split view keeps editor and composer controls readable. Connections, mobile settings search, tool permissions and the Update center have dedicated views. See the [screenshot gallery](https://github.com/domovoyproj/momp/tree/v1.6.0/docs/screenshots/next).
+The project menu opens over the sidebar and fits inside the window. Escape closes it and returns focus to the project button. [Desktop and mobile screenshots](https://github.com/domovoyproj/momp/tree/v1.6.1/docs/screenshots/next#project-menu-in-161--меню-проекта-в-161)
 
 ### How to Use
 
-Open a project, choose the provider in **Connections** or **Antigravity chat**, then select **AI tasks** for lead-and-review work. Follow the [workspace guide](https://github.com/domovoyproj/momp/blob/v1.6.0/docs/en/USER_GUIDE.md).
+Choose **Connections → Google Antigravity → Sign in with Google**, complete sign-in in the browser, then open a project to start or reconnect a conversation.
 
 ### Installation / Upgrade
 
-Verify the SHA-256 of the downloaded asset. Keep the previous stable installation and follow the [installation and rollback guide](https://github.com/domovoyproj/momp/blob/v1.6.0/docs/en/INSTALLATION.md). Preview builds stay outside the automatic stable update channel.
+Verify the SHA-256 before installing. Keep your previous installer for rollback. [Installation and rollback](https://github.com/domovoyproj/momp/blob/v1.6.1/docs/en/INSTALLATION.md)
 
 ### Bug Fixes
 
-Refresh failures preserve the most recent quota report. A replayed Antigravity session keeps the existing transcript. The editor supports leaving with Shift+Tab. MCP launch credentials and authenticated URLs are redacted while stored values survive an edit.
+An explicitly selected drive root now opens in File Explorer. Skills reports a missing project folder and links to the directory picker. Antigravity loads the conversation history when the workspace finishes restoring after a reload.
 
 ### Compatibility
 
-Oh My Pi 18.18.5, Bun 1.4.4, Next.js 16.4.3, React 19.2.8 and Tauri 2.11.5. The release workflow checks TypeScript, ESLint, unit and integration tests, simulated OAuth and providers, Docker isolation, production browser flows and installer rollback. The Windows job builds and smoke-tests the portable EXE and its embedded Bun runtime. The browser archive records the light and dark desktop and mobile runs.
+Oh My Pi 18.18.5 and Bun 1.4.4. The Google integration requires the official Antigravity CLI. Usage reports require CLI 1.5.0 or newer.
 
 ### Known Issues
 
-The published candidate produced the OpenAI OAuth authorization request and connected to Antigravity CLI 1.5.4 through ACP on Windows. Sign-in with real accounts, model responses and account quotas remain **PENDING LIVE VERIFICATION**. Antigravity requires the official CLI. Hybrid edits are scoped to selected UTF-8 paths. Isolated project tests require a local Linux container engine and a prepared Bun image. The Windows EXE has no Authenticode signature. See the [live checklist](https://github.com/domovoyproj/momp/blob/v1.6.0/docs/en/LIVE_VERIFICATION.md).
+Google sign-in, responses and quotas with a real account remain **PENDING LIVE VERIFICATION**. [Live verification checklist](https://github.com/domovoyproj/momp/blob/v1.6.1/docs/en/LIVE_VERIFICATION.md)
 
 ### Download
 
-Use `momp.exe` for portable Windows, `momp-web-dist.tar.gz` for web, and `browser-verification.tar.gz` for screenshots. Verify each with `SHA256SUMS`.
+The assets below include the Windows EXE, web distribution, browser verification archive and SHA-256 checksums.
 
 ## Русский
 
 ### Обзор обновления
 
-momp — локальная среда разработки для Windows и браузера. Выпуск обновляет ядро Oh My Pi и добавляет два самостоятельных режима и сценарий совместной работы моделей.
+В этой версии исправлено обрезание меню проекта и открытие корня диска в Windows. Войти в Google Antigravity теперь можно до выбора проекта.
 
 ### Что нового
 
-Откройте проект, продолжите сохранённый диалог или подготовьте задачу AI. Проверьте предложенный патч, примените или отмените его из задачи после сверки рабочих файлов.
+В панели Antigravity можно перепроверить установку CLI и отменить ожидающий вход. Если выбранная папка исчезла, проводник и **Навыки** предлагают выбрать другую.
 
 ### AI-провайдеры
 
-ChatGPT использует Codex OAuth. Google Antigravity использует официальный CLI для входа, выбора модели и рассуждений, потокового чата и разрешений на действия. OpenAI API и Gemini API остаются отдельными подключениями. Окно лимитов сохраняет последние успешные отчёты и показывает обратный отсчёт до сообщённого провайдером восстановления.
+momp автоматически находит CLI в стандартной папке Google. При установке в другое место укажите абсолютный путь в MOMP_ANTIGRAVITY_CLI. [Режимы AI](https://github.com/domovoyproj/momp/blob/v1.6.1/docs/ru/AI_MODES.md)
 
 ### Совместный режим
 
-Выберите GPT или Gemini исполнителем, двойное ревью или автоматическое распределение. Независимые ревьюеры получают сводку, настоящий Git diff, проверку пробелов и результаты запрошенных тестов. Задачу можно приостановить, повторить незавершённый этап или подтвердить отдельный запуск с одним провайдером. Тесты проекта работают в контейнере без сети и повышенных привилегий на снимке дерева с патчем.
+Если в **Задачах AI** вы используете Antigravity для Gemini, найденный CLI доступен для выполнения и ревью. [Руководство по совместному режиму](https://github.com/domovoyproj/momp/blob/v1.6.1/docs/ru/HYBRID_MODE.md)
 
 ### Улучшения интерфейса
 
-Редактор и панель ввода остаются читаемыми в разделённом окне. Добавлены отдельные экраны подключений, мобильного поиска настроек, разрешений и обновлений. Снимки доступны в [галерее](https://github.com/domovoyproj/momp/tree/v1.6.0/docs/screenshots/next).
+Меню проекта открывается поверх боковой панели и помещается в окне. Escape закрывает меню и возвращает фокус к кнопке проекта. [Скриншоты на компьютере и телефоне](https://github.com/domovoyproj/momp/tree/v1.6.1/docs/screenshots/next#project-menu-in-161--меню-проекта-в-161)
 
 ### Как пользоваться
 
-Откройте проект, выберите провайдера в **Подключениях** или **Чате Antigravity**. Для работы с исполнителем и ревьюером откройте **Задачи AI**. См. [руководство](https://github.com/domovoyproj/momp/blob/v1.6.0/docs/ru/USER_GUIDE.md).
+Выберите **Подключения → Google Antigravity → Войти через Google**, завершите вход в браузере, затем откройте проект, чтобы начать или переподключить диалог.
 
 ### Установка / обновление
 
-Сверьте SHA-256 скачанного файла. Сохраните предыдущую стабильную версию и следуйте [инструкции установки и отката](https://github.com/domovoyproj/momp/blob/v1.6.0/docs/ru/INSTALLATION.md). Предварительные сборки не попадают в автоматические стабильные обновления.
+Перед установкой сверьте SHA-256. Сохраните предыдущий установщик для отката. [Установка и откат](https://github.com/domovoyproj/momp/blob/v1.6.1/docs/ru/INSTALLATION.md)
 
 ### Исправления
 
-При сбое обновления лимитов виден последний успешный отчёт. Восстановление Antigravity сохраняет переписку без повторов. Из редактора можно выйти сочетанием Shift+Tab. Секреты в аргументах запуска MCP и URL скрыты, а сохранённые значения переживают редактирование.
+Проводник открывает явно выбранный корень диска. **Навыки** сообщают об исчезнувшей папке проекта и предлагают выбрать другую. После перезагрузки история диалогов Antigravity появляется, как только проект восстановлен.
 
 ### Совместимость
 
-Oh My Pi 18.18.5, Bun 1.4.4, Next.js 16.4.3, React 19.2.8 и Tauri 2.11.5. Релизный процесс проверяет TypeScript, ESLint, модульные и интеграционные тесты, имитацию OAuth и провайдеров, изоляцию Docker, браузерные сценарии production-сборки и откат установки. Задача Windows собирает и проверяет переносимый EXE со встроенным Bun. Браузерный архив содержит результаты в светлой и тёмной темах на desktop и mobile.
+Oh My Pi 18.18.5 и Bun 1.4.4. Для интеграции с Google нужен официальный Antigravity CLI. Для отчётов о лимитах нужна версия CLI 1.5.0 или новее.
 
 ### Известные проблемы
 
-Опубликованный кандидат сформировал запрос авторизации OpenAI и подключился к Antigravity CLI 1.5.4 по ACP на Windows. Вход на реальных аккаунтах, ответы моделей и квоты остаются в статусе **PENDING LIVE VERIFICATION**. Для Antigravity нужен официальный CLI. В Hybrid изменяются выбранные UTF-8 файлы. Для изолированных тестов нужен локальный движок Linux-контейнеров и подготовленный образ Bun. EXE Windows не подписан Authenticode. См. [порядок ручной проверки](https://github.com/domovoyproj/momp/blob/v1.6.0/docs/ru/LIVE_VERIFICATION.md).
+Вход в Google, ответы и квоты на реальном аккаунте остаются в статусе **PENDING LIVE VERIFICATION**. [Порядок ручной проверки](https://github.com/domovoyproj/momp/blob/v1.6.1/docs/ru/LIVE_VERIFICATION.md)
 
 ### Скачать
 
-`momp.exe` — переносимое приложение Windows, `momp-web-dist.tar.gz` — веб-сборка, `browser-verification.tar.gz` — скриншоты. Для каждого файла сверяйте `SHA256SUMS`.
+К релизу приложены EXE для Windows, веб-сборка, архив браузерных проверок и контрольные суммы SHA-256.
