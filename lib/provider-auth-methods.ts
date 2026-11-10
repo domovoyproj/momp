@@ -1,4 +1,4 @@
-import { getOAuthProviders } from "@oh-my-pi/pi-ai/oauth";
+import { getOAuthProviders, providerPauseReason } from "@oh-my-pi/pi-ai/oauth";
 import { authPolicyFor } from "@oh-my-pi/pi-catalog/compat/auth";
 import { PROVIDER_DESCRIPTORS } from "@oh-my-pi/pi-catalog/provider-models/descriptors";
 
@@ -12,6 +12,7 @@ export function getOAuthLoginProviders() {
 }
 
 export function supportsApiKeyLogin(provider: string): boolean {
+  if (providerPauseReason(provider)) return false;
   const oauthOnly = getOAuthLoginProviders().some((candidate) =>
     (candidate.storeCredentialsAs ?? candidate.id) === provider,
   );
@@ -19,6 +20,8 @@ export function supportsApiKeyLogin(provider: string): boolean {
 }
 
 export function apiKeyLoginError(provider: string): string {
+  const paused = providerPauseReason(provider);
+  if (paused) return `${provider}: ${paused}`;
   return provider === "openai-codex"
     ? "ChatGPT requires OAuth sign-in. Open Models → Add provider → ChatGPT Plus/Pro and sign in. For an OpenAI API key, choose the openai provider."
     : `${provider} requires OAuth sign-in; API-key login is not supported.`;

@@ -1476,6 +1476,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
 
   return (
     <div
+      className="composer-layout"
       style={{
         flexShrink: 0,
         background: "transparent",
@@ -2016,11 +2017,12 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
             }}
             onInput={handleInput}
             onPaste={handlePaste}
+            aria-label={t("chat.composerLabel")}
             placeholder={
               isStreaming && (onSteer || onFollowUp)
                 ? t("chat.steerPlaceholder")
                 : isStreaming ? t("chat.agentPlaceholder")
-                : t("chat.messagePlaceholder")
+                : t(isMobile ? "chat.composerLabel" : "chat.messagePlaceholder")
             }
             rows={1}
             style={{
@@ -2140,16 +2142,10 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
         )}
 
         {/* Bottom bar: left | center (context) | right */}
-        <div style={{
-          marginTop: 8,
-          display: isMobile ? "grid" : "flex",
-          gridTemplateColumns: isMobile ? "minmax(0, 1fr) auto" : undefined,
-          alignItems: "center",
-          gap: 6,
-        }}>
+        <div className="composer-footer" data-mobile={isMobile || undefined}>
 
           {/* LEFT: attach + model selector (idle) or steer/followup toggle (streaming) */}
-          <div style={{ flex: isMobile ? "1 1 auto" : "0 0 auto", minWidth: 0, display: "flex", alignItems: "center", gap: 2 }}>
+          <div className="composer-models">
             <button
               onClick={() => fileInputRef.current?.click()}
              title={t("chat.attachImage")}
@@ -2180,7 +2176,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
             </button>
             {/* Model selector — visible always, disabled while the session or switch is busy */}
             {(modelOptions.length > 0 || currentName || modelError) && onModelChange && (
-                <div ref={dropdownRef} style={{ position: "relative", flex: isMobile ? "1 1 auto" : undefined, minWidth: 0 }}>
+                <div ref={dropdownRef} className="composer-model-picker">
                   <button
                     onClick={(e) => {
                       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -2192,6 +2188,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                     }}
                     disabled={isStreaming || modelSwitching}
                     aria-busy={modelSwitching || undefined}
+                    aria-expanded={modelDropdownOpen}
                     style={{
                       display: "flex", alignItems: "center", gap: 6,
                       justifyContent: isMobile ? "flex-start" : undefined,
@@ -2437,17 +2434,12 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
           </div>
 
           {!isMobile && (
-            <div style={{
-              flex: 1,
-              minWidth: 0,
-              display: "flex",
-              justifyContent: "center",
-            }}>
+            <div className="composer-context">
               <ContextUsageMeter usage={contextUsage} t={t} />
             </div>
           )}
           {/* RIGHT: thinking + tools preset + compact + sound (idle) | Stop + sound (streaming) */}
-          <div ref={controlsMenuRef} style={{
+          <div ref={controlsMenuRef} className="composer-controls" style={{
             flex: "0 0 auto",
             display: "flex",
             alignItems: "center",
@@ -2500,7 +2492,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                 {t("chat.moreControls")}
               </button>
             )}
-            <div style={{
+            <div className="composer-controls-row" style={{
               display: isMobile ? (controlsMenuOpen ? "flex" : "none") : "flex",
               alignItems: "center",
               gap: isMobile ? 1 : 2,
@@ -2708,12 +2700,12 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                     cursor: "pointer",
                     transition: "all 0.15s ease",
                   }}
-                  title="Проверить лимиты (Check limits)"
+                  title={t("usage.title")}
                 >
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
                   </svg>
-                  {(!isMobile || controlsMenuOpen) && <span style={{ whiteSpace: "nowrap" }}>Лимиты</span>}
+                  {(!isMobile || controlsMenuOpen) && <span style={{ whiteSpace: "nowrap" }}>{t("usage.title")}</span>}
                 </button>
               </div>
             )}

@@ -1,272 +1,133 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { UsageReportView, UsageLimitView } from "@/lib/limits-checker";
+import type { AntigravityUsage } from "@/lib/collaboration-providers";
+import { useI18n } from "@/hooks/useI18n";
 
 const PROVIDER_NAMES: Record<string, string> = {
-  anthropic: "Claude (Anthropic)",
-  claude: "Claude (Anthropic)",
-  "claude-code": "Claude Code",
-  google: "Google Gemini",
-  gemini: "Google Gemini",
-  "google-antigravity": "Google Antigravity",
-  "google-vertex": "Google Vertex",
-  openai: "OpenAI",
-  "openai-codex": "ChatGPT / Codex",
-  openrouter: "OpenRouter",
-  deepseek: "DeepSeek",
-  groq: "Groq",
-  mistral: "Mistral",
+  "openai-codex": "ChatGPT / Codex", "google-antigravity": "Google Antigravity",
+  openai: "OpenAI API", google: "Gemini API", "google-vertex": "Vertex AI", anthropic: "Anthropic",
 };
-
-const WINDOW_NAMES: Record<string, string> = {
-  "5 hour": "5 часов",
-  "7 day": "7 дней",
-  weekly: "Неделя",
-  daily: "День",
-  monthly: "Месяц",
-  hourly: "Час",
-};
-
-function providerName(provider: string): string {
-  return PROVIDER_NAMES[provider.toLowerCase()] ?? provider;
-}
-
-function translateWindow(label?: string): string | undefined {
-  if (!label) return undefined;
-  return WINDOW_NAMES[label.toLowerCase()] ?? label;
-}
-
-/** "Claude 5 Hour" -> "Claude"; "Usage (Google)" -> "Google". */
-function brandLabel(limit: UsageLimitView): string {
-  const usage = limit.label.match(/^Usage \((.+)\)$/);
-  if (usage) return usage[1];
-  if (limit.windowLabel && limit.label.endsWith(limit.windowLabel)) {
-    return limit.label.slice(0, limit.label.length - limit.windowLabel.length).trim() || limit.label;
-  }
-  return limit.label;
-}
-
-function formatDuration(ms: number): string {
-  if (ms <= 0) return "сейчас";
-  const totalMinutes = Math.floor(ms / 60000);
-  const days = Math.floor(totalMinutes / (60 * 24));
-  const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
-  const minutes = totalMinutes % 60;
-  if (days > 0) return `${days}д ${hours}ч`;
-  if (hours > 0) return `${hours}ч ${minutes}м`;
-  return `${minutes}м`;
-}
-
-function barColor(freeFraction: number): string {
-  if (freeFraction <= 0.0001) return "var(--danger)";
-  if (freeFraction < 0.2) return "var(--warning)";
-  return "var(--success)";
-}
 
 function LimitRow({ limit, now }: { limit: UsageLimitView; now: number }) {
-  const freeFraction = Math.max(0, Math.min(1, 1 - limit.usedFraction));
-  const freePct = Math.round(freeFraction * 100);
-  const color = barColor(freeFraction);
-  const resetMs = limit.resetsAt ? limit.resetsAt - now : undefined;
-
-  return (
-    <div style={{ marginBottom: 14 }}>
-      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8, marginBottom: 5 }}>
-        <div style={{ display: "flex", alignItems: "baseline", gap: 8, minWidth: 0 }}>
-          <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", whiteSpace: "nowrap" }}>{brandLabel(limit)}</span>
-          {limit.windowLabel && (
-            <span style={{ fontSize: 11, color: "var(--text-muted)", whiteSpace: "nowrap" }}>{translateWindow(limit.windowLabel)}</span>
-          )}
-        </div>
-        <span style={{ fontSize: 12, fontWeight: 600, color, whiteSpace: "nowrap" }}>{freePct}% свободно</span>
-      </div>
-      <div style={{ position: "relative", height: 8, borderRadius: 6, background: "var(--bg-hover)", overflow: "hidden" }}>
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            width: `${freePct}%`,
-            background: color,
-            borderRadius: 6,
-            transition: "width 0.35s ease",
-          }}
-        />
-      </div>
-      {resetMs !== undefined && resetMs > 0 && (
-        <div style={{ fontSize: 10.5, color: "var(--text-dim)", marginTop: 3 }}>
-          {limit.resetLabel === "regen" ? "восстановление через" : "сброс через"} {formatDuration(resetMs)}
-        </div>
-      )}
+  const { t, locale } = useI18n();
+  const remaining = limit.usedFraction === null ? null : Math.max(0, Math.round((1 - limit.usedFraction) * 100));
+  const minutes = limit.resetsAt ? Math.ceil((limit.resetsAt - now) / 60_000) : null;
+  const status = limit.status === "exhausted" || (limit.usedFraction ?? 0) >= 1 ? "exhausted" : limit.status;
+  return <li className="usage-limit" data-status={status}>
+    <div className="usage-row"><strong>{limit.label}</strong><span>{remaining === null ? t("usage.unknown") : t("usage.remaining", { percent: remaining })}</span></div>
+    {remaining !== null && <meter min={0} max={100} value={remaining} aria-label={`${limit.label} · ${t("usage.remaining", { percent: remaining })}`} />}
+    <div className="usage-row usage-meta">
+      <span>{[limit.windowLabel, limit.modelId, t(`usage.source.${limit.source}`)].filter(Boolean).join(" · ")}</span>
+      {status === "exhausted" && <strong>{t("usage.exhausted")}</strong>}
     </div>
-  );
+    {limit.resetsAt && <div className="usage-meta">
+      {t(limit.resetLabel === "regen" ? "usage.regen" : "usage.reset")} {" "}
+      <time dateTime={new Date(limit.resetsAt).toISOString()}>{new Date(limit.resetsAt).toLocaleString(locale)}</time>
+      {" · "}{minutes !== null && minutes > 0 ? t("usage.countdown", { hours: Math.floor(minutes / 60), minutes: minutes % 60 }) : t("usage.refreshPending")}
+    </div>}
+    {limit.notes?.map((note, index) => <p key={index} className="usage-meta">{note}</p>)}
+  </li>;
+}
+
+function CliQuotaCell({ value, now }: { value: string; now: number }) {
+  const { t, locale } = useI18n();
+  const timestamp = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(value) ? Date.parse(value) : NaN;
+  if (!Number.isFinite(timestamp)) return <td>{value}</td>;
+  const reset = new Date(timestamp);
+  const minutes = Math.ceil((timestamp - now) / 60_000);
+  return <td><time dateTime={reset.toISOString()} title={value}>{reset.toLocaleString(locale)}</time>
+    <small className="usage-meta">{minutes > 0 ? t("usage.countdown", { hours: Math.floor(minutes / 60), minutes: minutes % 60 }) : t("usage.refreshPending")}</small></td>;
 }
 
 export function LimitsModal({ onClose }: { onClose: () => void }) {
+  const { t, locale } = useI18n();
+  const dialog = useRef<HTMLDialogElement>(null);
+  const active = useRef<AbortController | null>(null);
   const [reports, setReports] = useState<UsageReportView[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [antigravity, setAntigravity] = useState<AntigravityUsage | undefined>();
+  const [cliUnavailable, setCliUnavailable] = useState(false);
+  const [error, setError] = useState(false);
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(() => Date.now());
-  const [lastUpdated, setLastUpdated] = useState<number | null>(null);
 
   const load = useCallback(async () => {
+    if (active.current) return;
+    const controller = new AbortController();
+    active.current = controller;
     setLoading(true);
-    setError(null);
     try {
-      const res = await fetch("/api/models-config/limits", { cache: "no-store" });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      setReports(data.reports ?? []);
-      setLastUpdated(Date.now());
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(25_000)]);
+      const response = await fetch("/api/models-config/limits", { cache: "no-store", signal });
+      if (!response.ok) throw new Error();
+      const data = await response.json();
+      if (!Array.isArray(data.reports)) throw new Error();
+      if (!data.ompUnavailable) setReports(data.reports);
+      setError(Boolean(data.ompUnavailable));
+      setCliUnavailable(data.antigravity?.status === "unavailable");
+      setAntigravity((previous) => data.antigravity?.status === "ready" || !previous ? data.antigravity : previous);
+    } catch {
+      if (!controller.signal.aborted) setError(true);
     } finally {
-      setLoading(false);
+      if (active.current === controller) {
+        active.current = null;
+        setLoading(false);
+      }
     }
   }, []);
 
   useEffect(() => {
-    load();
+    const panel = dialog.current!;
+    panel.showModal();
+    void load();
+    const clock = setInterval(() => setNow(Date.now()), 15_000);
+    const polling = setInterval(() => { if (!document.hidden) void load(); }, 60_000);
+    return () => {
+      panel.close();
+      clearInterval(clock);
+      clearInterval(polling);
+      active.current?.abort();
+      active.current = null;
+    };
   }, [load]);
 
-  useEffect(() => {
-    const timer = window.setInterval(() => setNow(Date.now()), 30_000);
-    return () => window.clearInterval(timer);
-  }, []);
+  const order = ["openai-codex", "google-antigravity"];
+  const priority = (id: string) => order.includes(id) ? order.indexOf(id) : order.length;
+  const orderedReports = reports?.slice().sort((a, b) => priority(a.provider) - priority(b.provider) || a.provider.localeCompare(b.provider));
 
-  const orderedReports = reports
-    ? [...reports].sort((left, right) => {
-      const leftPriority = left.provider.toLowerCase() === "google-antigravity" ? 0 : 1;
-      const rightPriority = right.provider.toLowerCase() === "google-antigravity" ? 0 : 1;
-      return leftPriority - rightPriority || providerName(left.provider).localeCompare(providerName(right.provider));
-    })
-    : null;
-  const antigravityReport = orderedReports?.find((report) => report.provider.toLowerCase() === "google-antigravity");
-  const antigravityExhausted = antigravityReport?.limits.some((limit) => limit.usedFraction >= 0.9999) ?? false;
-
-  return (
-    <div
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 1200,
-        background: "rgba(0,0,0,0.45)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 16,
-      }}
-    >
-      <div
-        style={{
-          width: "100%",
-          maxWidth: 520,
-          maxHeight: "82vh",
-          display: "flex",
-          flexDirection: "column",
-          background: "var(--bg-panel)",
-          border: "1px solid var(--border)",
-          borderRadius: 12,
-          boxShadow: "0 12px 40px rgba(0,0,0,0.4)",
-          overflow: "hidden",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            padding: "14px 18px",
-            borderBottom: "1px solid var(--border)",
-            flexShrink: 0,
-          }}
-        >
-          <div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text)" }}>Лимиты использования</div>
-            <div style={{ marginTop: 2, fontSize: 10, color: "var(--text-dim)" }}>
-              {lastUpdated ? `Обновлено ${new Date(lastUpdated).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "OAuth-подписки и квоты"}
-            </div>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <button
-              type="button"
-              onClick={load}
-              disabled={loading}
-              style={{
-                background: "none",
-                border: "1px solid var(--border)",
-                borderRadius: 6,
-                color: "var(--text-muted)",
-                cursor: loading ? "default" : "pointer",
-                fontSize: 12,
-                padding: "4px 10px",
-                opacity: loading ? 0.5 : 1,
-              }}
-            >
-              {loading ? "Обновление…" : "Обновить"}
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Закрыть"
-              style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", fontSize: 20, lineHeight: 1, padding: "0 4px" }}
-            >
-              ×
-            </button>
-          </div>
-        </div>
-
-        <div style={{ overflowY: "auto", padding: "16px 18px", flex: 1 }}>
-          {antigravityReport && (
-            <div style={{
-              marginBottom: 16, padding: "10px 12px", borderRadius: 8,
-              border: `1px solid ${antigravityExhausted ? "color-mix(in srgb, var(--danger) 40%, var(--border))" : "color-mix(in srgb, var(--success) 35%, var(--border))"}`,
-              background: antigravityExhausted ? "color-mix(in srgb, var(--danger) 8%, transparent)" : "color-mix(in srgb, var(--success) 8%, transparent)",
-              display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
-            }}>
-              <div>
-                <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text)" }}>Google Antigravity</div>
-                <div style={{ marginTop: 2, fontSize: 10.5, color: "var(--text-muted)" }}>
-                  {antigravityExhausted ? "Квота исчерпана — дождитесь ближайшего сброса" : "Подключение активно, квота доступна"}
-                </div>
-              </div>
-              <span style={{ width: 8, height: 8, borderRadius: "50%", background: antigravityExhausted ? "var(--danger)" : "var(--success)", flexShrink: 0 }} />
-            </div>
-          )}
-          {loading && !reports && (
-            <div style={{ color: "var(--text-muted)", fontSize: 13, textAlign: "center", padding: "24px 0" }}>Загрузка лимитов…</div>
-          )}
-          {error && (
-            <div style={{ color: "var(--danger)", fontSize: 13, padding: "8px 0" }}>Ошибка: {error}</div>
-          )}
-          {!loading && !error && reports && reports.length === 0 && (
-            <div style={{ color: "var(--text-muted)", fontSize: 13, textAlign: "center", padding: "24px 0" }}>
-              Нет данных о лимитах для авторизованных провайдеров.
-              <br />
-              Лимиты доступны для аккаунтов с OAuth-подпиской (Claude, Google Antigravity и др.).
-            </div>
-          )}
-          {orderedReports?.map((report, i) => (
-            <div key={`${report.provider}:${report.email ?? i}`} style={{ marginBottom: 22 }}>
-              <div style={{ marginBottom: 10 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: "var(--accent)" }}>{providerName(report.provider)}</div>
-                {report.email && (
-                  <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 1 }}>{report.email}</div>
-                )}
-              </div>
-              {report.limits.map((limit) => (
-                <LimitRow key={limit.id + limit.windowLabel} limit={limit} now={now} />
-              ))}
-              {report.notes?.map((note, n) => (
-                <div key={n} style={{ fontSize: 10.5, color: "var(--text-dim)", marginTop: 4 }}>{note}</div>
-              ))}
-            </div>
-          ))}
-        </div>
+  return <dialog ref={dialog} className="workbench-dialog usage-dialog" aria-labelledby="usage-title"
+    onCancel={(event) => { event.preventDefault(); onClose(); }}>
+    <header className="workbench-dialog-header">
+      <div><div className="workbench-kicker">MOMP / CONNECTIONS</div><h2 id="usage-title">{t("usage.title")}</h2></div>
+      <div className="usage-actions">
+        <button type="button" onClick={() => void load()} disabled={loading}>{t(loading ? "usage.loading" : "usage.refresh")}</button>
+        <button type="button" onClick={onClose} aria-label={t("collaboration.close")}>×</button>
       </div>
+    </header>
+    <div className="workbench-dialog-body usage-content">
+      <p className="usage-meta">{t("usage.description")}</p>
+      {error && <p role="alert" className="workbench-error">{t("usage.error")}</p>}
+      {!loading && !error && !orderedReports?.length && antigravity?.status !== "ready" && <p>{t("usage.empty")}</p>}
+      {orderedReports?.map((report, index) => <section className="usage-report" key={`${report.provider}:${index}`}>
+        <h3>{PROVIDER_NAMES[report.provider] ?? report.provider}</h3>
+        <div className="usage-meta">{[report.email, report.orgName, new Date(report.fetchedAt).toLocaleString(locale)].filter(Boolean).join(" · ")}</div>
+        <ul>{report.limits.map((limit) => <LimitRow key={`${limit.id}:${limit.windowLabel}`} limit={limit} now={now} />)}</ul>
+        {report.notes?.map((note, n) => <p key={n} className="usage-meta">{note}</p>)}
+      </section>)}
+      {antigravity && <section className="usage-report">
+        <h3>Google Antigravity CLI</h3>
+        {antigravity.status === "ready" ? <>
+          <p className="usage-meta">{t("usage.source.provider")} · {new Date(antigravity.fetchedAt).toLocaleString(locale)}</p>
+          {cliUnavailable && <p className="workbench-error" role="status">{t("usage.antigravityUnavailable")}</p>}
+          <table className="usage-cli-table" aria-label="Google Antigravity CLI"><tbody>
+            {antigravity.rows.map((row, rowIndex) => <tr key={rowIndex}>
+              {row.map((cell, index) => <CliQuotaCell key={index} value={cell} now={now} />)}
+            </tr>)}
+          </tbody></table>
+        </> : <p className="usage-meta">{t("usage.antigravityUnavailable")}</p>}
+      </section>}
+      <p className="usage-meta">{t("usage.antigravity")}</p>
     </div>
-  );
+  </dialog>;
 }

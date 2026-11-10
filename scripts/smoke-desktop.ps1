@@ -29,10 +29,16 @@ try {
     if (!$origin) { throw 'Packaged server failed to start within eight minutes' }
     $page = Invoke-WebRequest -Uri "$origin/" -UseBasicParsing -TimeoutSec 60
     if ($page.StatusCode -ne 200 -or $page.Content -notmatch 'momp') { throw 'Application page failed' }
-    $project = @{ cwd = $root } | ConvertTo-Json
+    $projectDir = Join-Path $root 'project'
+    New-Item -ItemType Directory -Path $projectDir | Out-Null
+    git -C $projectDir init --quiet --template=
+    if ($LASTEXITCODE -ne 0) { throw 'Could not initialize smoke Git project' }
+    git -C $projectDir -c 'user.name=Smoke' -c 'user.email=smoke@example.invalid' commit --allow-empty --quiet -m 'Smoke fixture'
+    if ($LASTEXITCODE -ne 0) { throw 'Could not commit smoke Git fixture' }
+    $project = @{ cwd = $projectDir } | ConvertTo-Json
     $null = Invoke-WebRequest -Uri "$origin/api/cwd/validate" -Method Post -ContentType 'application/json' -Body $project -UseBasicParsing -TimeoutSec 60
-    $query = '?cwd=' + [Uri]::EscapeDataString($root)
-    foreach ($endpoint in @('/api/display-settings', '/api/auth/providers', '/api/auth/all-providers', '/api/settings', "/api/models$query", "/api/model-roles$query", "/api/skills$query")) {
+    $query = '?cwd=' + [Uri]::EscapeDataString($projectDir)
+    foreach ($endpoint in @('/api/display-settings', '/api/auth/providers', '/api/auth/all-providers', '/api/settings', '/api/models-config/limits', '/api/workspace-activity', "/api/models$query", "/api/model-roles$query", "/api/skills$query", "/api/collaboration$query", "/api/antigravity$query")) {
         $response = Invoke-WebRequest -Uri "$origin$endpoint" -UseBasicParsing -TimeoutSec 90
         if ($response.StatusCode -ne 200) { throw "Failed: $endpoint" }
         $null = $response.Content | ConvertFrom-Json

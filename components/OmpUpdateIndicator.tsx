@@ -6,7 +6,7 @@ import { copyText } from "@/lib/clipboard";
 import type { OmpWebUpdateResponse } from "@/lib/api-types";
 import { MarkdownBody } from "./MarkdownBody";
 
-type LoadState = "idle" | "loading" | "ready";
+import { WorkspaceIcon } from "./WorkspaceIcon";
 
 function displayVersion(version: string): string {
   return version === "unknown" ? version : `v${version}`;
@@ -42,299 +42,139 @@ async function openExternalUrl(url: string): Promise<void> {
 export function OmpUpdateIndicator() {
   const { locale, t } = useI18n();
   const [status, setStatus] = useState<OmpWebUpdateResponse | null>(null);
-  const [loadState, setLoadState] = useState<LoadState>("idle");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [open, setOpen] = useState(false);
   const [installing, setInstalling] = useState(false);
-  const [message, setMessage] = useState<{ kind: "success" | "error"; text: string } | null>(null);
-  const [copiedCommand, setCopiedCommand] = useState<string | null>(null);
-  const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const rootRef = useRef<HTMLDivElement>(null);
-  const [panelPosition, setPanelPosition] = useState<{ left: number; bottom: number; width: number } | null>(null);
+  const [message, setMessage] = useState<{ kind: "success" | "error"; text: string }>();
+  const [copied, setCopied] = useState<string>();
+  const request = useRef<AbortController | null>(null);
+  const dialog = useRef<HTMLDialogElement>(null);
 
-  const updatePanelPosition = useCallback(() => {
-    const rect = rootRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    const width = Math.min(430, window.innerWidth - 24);
-    const maxLeft = Math.max(12, window.innerWidth - width - 12);
-    setPanelPosition({
-      left: Math.min(rect.right + 8, maxLeft),
-      bottom: Math.max(12, window.innerHeight - rect.top + 8),
-      width,
-    });
-  }, []);
-
-  useEffect(() => {
-    if (!open) {
-      setPanelPosition(null);
-      return;
-    }
-    updatePanelPosition();
-    window.addEventListener("resize", updatePanelPosition);
-    window.addEventListener("scroll", updatePanelPosition, true);
-    return () => {
-      window.removeEventListener("resize", updatePanelPosition);
-      window.removeEventListener("scroll", updatePanelPosition, true);
-    };
-  }, [open, updatePanelPosition]);
-
-
-  const loadStatus = useCallback(async (signal?: AbortSignal) => {
-    setLoadState("loading");
-    try {
-      const response = await fetch("/api/updates", { cache: "no-store", signal });
-      if (!response.ok) { setLoadState("ready"); return; }
-      const next = await response.json() as OmpWebUpdateResponse;
-      setStatus(next);
-      setLoadState("ready");
-    } catch {
-      if (!signal?.aborted) setLoadState("ready");
-    }
-  }, []);
-
-  useEffect(() => {
+  const loadStatus = useCallback(async () => {
+    if (request.current) return;
     const controller = new AbortController();
-    void loadStatus(controller.signal);
+    request.current = controller;
+    setLoading(true);
+    try {
+      const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(20_000)]);
+      const response = await fetch("/api/updates", { cache: "no-store", signal });
+      if (!response.ok) throw new Error("Update check failed");
+      const data = await response.json() as OmpWebUpdateResponse;
+      setStatus(data);
+      setError(false);
+    } catch {
+      if (!controller.signal.aborted) setError(true);
+    } finally {
+      if (request.current === controller) {
+        request.current = null;
+        setLoading(false);
+      }
+    }
+  }, []);
 
-    // Re-check every 30 minutes so long-running sessions catch new releases.
-    const timer = setInterval(() => {
-      if (!controller.signal.aborted) void loadStatus(controller.signal);
-    }, 30 * 60 * 1000);
-
-    // Re-check when the user returns to the tab / app window.
-    const onVisible = () => {
-      if (document.visibilityState === "visible" && !controller.signal.aborted)
-        void loadStatus(controller.signal);
-    };
+  useEffect(() => {
+    void loadStatus();
+    const onVisible = () => { if (!document.hidden) void loadStatus(); };
+    const timer = setInterval(onVisible, 30 * 60_000);
     document.addEventListener("visibilitychange", onVisible);
-
     return () => {
-      controller.abort();
+      request.current?.abort();
+      request.current = null;
       clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisible);
     };
   }, [loadStatus]);
 
-  useEffect(() => () => {
-    clearTimeout(copiedTimerRef.current ?? undefined);
-    copiedTimerRef.current = null;
-  }, []);
-
   useEffect(() => {
     if (!open) return;
-    const onPointerDown = (event: PointerEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
-    };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("pointerdown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-    };
+    const panel = dialog.current!;
+    panel.showModal();
+    return () => panel.close();
   }, [open]);
 
-  if (loadState !== "ready" || !status?.updateAvailable) return null;
+  const release = status?.latestRelease;
+  const checked = status?.checkedAt;
+  const checkedAt = checked && Number.isFinite(Date.parse(checked)) ? new Date(checked) : undefined;
 
-  const release = status.latestRelease;
-  const releaseDate = release.publishedAt
-    ? new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(new Date(release.publishedAt))
-    : null;
-  const changelog = release.body.trim() || release.name;
-  const copyCommand = async (command: string) => {
-    try {
-      await copyText(command);
-      clearTimeout(copiedTimerRef.current ?? undefined);
-      setCopiedCommand(command);
-      copiedTimerRef.current = setTimeout(() => setCopiedCommand(null), 1600);
-    } catch {
-      setMessage({ kind: "error", text: t("updates.copyFailed") });
-    }
-  };
-  const installUpdate = async () => {
-    if (installing || !status.install.canInstall) return;
-    if (status.desktop) {
-      setInstalling(true);
-      setMessage(null);
-      try {
-        const bridge = (window as unknown as { __TAURI__?: { core?: { invoke?: (command: string) => Promise<void> } } }).__TAURI__;
-        if (!bridge?.core?.invoke) throw new Error("Desktop update bridge unavailable. Download the release manually.");
-        await bridge.core.invoke("install_desktop_update");
-        setMessage({ kind: "success", text: locale === "ru" ? "Обновление проверено. Перезапуск…" : "Update verified. Restarting…" });
-      } catch (error) {
-        setMessage({ kind: "error", text: String(error) });
-        setInstalling(false);
-      }
-      return;
-    }
+  async function copyCommand(command: string) {
+    try { await copyText(command); setCopied(command); }
+    catch { setMessage({ kind: "error", text: t("updates.copyFailed") }); }
+  }
+
+  async function installUpdate() {
+    if (installing || !status?.updateAvailable || !status.install.canInstall || !release) return;
     setInstalling(true);
-    setMessage(null);
+    setMessage(undefined);
     try {
-      const response = await fetch("/api/updates", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: "{}",
-      });
-      const body = await response.json().catch(() => ({})) as { error?: string; installedVersion?: string };
-      if (!response.ok) throw new Error(body.error ?? `HTTP ${response.status}`);
-      setMessage({
-        kind: "success",
-        text: t("updates.installed", { version: displayVersion(body.installedVersion ?? release.version) }),
-      });
+      const activity = await fetch("/api/workspace-activity", { cache: "no-store", signal: AbortSignal.timeout(8000) });
+      if (!activity.ok || (await activity.json()).busy !== false) throw new Error(t("updates.workspaceBusy"));
+      if (status.desktop) {
+        const bridge = (window as unknown as { __TAURI__?: { core?: { invoke?: (command: string) => Promise<void> } } }).__TAURI__;
+        if (!bridge?.core?.invoke) throw new Error(t("updates.bridgeUnavailable"));
+        await bridge.core.invoke("install_desktop_update");
+        setMessage({ kind: "success", text: t("updates.restarting") });
+      } else {
+        const response = await fetch("/api/updates", {
+          method: "POST", headers: { "Content-Type": "application/json" }, body: "{}",
+        });
+        const result = await response.json().catch(() => ({})) as { error?: string; installedVersion?: string };
+        if (!response.ok) throw new Error(result.error ?? t("updates.installFailed"));
+        setMessage({ kind: "success", text: t("updates.installed", { version: displayVersion(result.installedVersion ?? release.version) }) });
+      }
     } catch (error) {
-      setMessage({
-        kind: "error",
-        text: error instanceof Error ? error.message : String(error),
-      });
-    } finally {
-      setInstalling(false);
-    }
-  };
+      setMessage({ kind: "error", text: error instanceof Error ? error.message : String(error) });
+    } finally { setInstalling(false); }
+  }
 
-  return (
-    <div ref={rootRef} style={{ position: "relative", width: "100%" }}>
-      <button
-        type="button"
-        aria-expanded={open}
-        aria-haspopup="dialog"
-        onClick={() => {
-          setOpen((value) => !value);
-          setMessage(null);
-        }}
-        title={t("updates.availableTitle", { version: displayVersion(release.version) })}
-        style={{
-          width: "100%",
-          minHeight: 34,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 8,
-          padding: "7px 10px",
-          border: "1px solid color-mix(in srgb, var(--warning) 54%, var(--border))",
-          borderRadius: 9,
-          background: "color-mix(in srgb, var(--warning) 8%, transparent)",
-          color: "var(--warning)",
-          cursor: "pointer",
-          fontSize: 11,
-          fontFamily: "var(--font-mono)",
-          transition: "background 0.12s, border-color 0.12s, color 0.12s",
-        }}
-        onMouseEnter={(event) => {
-          event.currentTarget.style.background = "color-mix(in srgb, var(--warning) 14%, var(--bg-hover))";
-          event.currentTarget.style.borderColor = "var(--warning)";
-        }}
-        onMouseLeave={(event) => {
-          event.currentTarget.style.background = "color-mix(in srgb, var(--warning) 8%, transparent)";
-          event.currentTarget.style.borderColor = "color-mix(in srgb, var(--warning) 54%, var(--border))";
-        }}
-      >
-        <span aria-hidden="true" style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--warning)", boxShadow: "0 0 0 3px color-mix(in srgb, var(--warning) 14%, transparent)" }} />
-        <span>{t("updates.available")}</span>
-        <span style={{ color: "var(--text)", fontVariantNumeric: "tabular-nums" }}>{displayVersion(release.version)}</span>
-      </button>
-
-      {open && panelPosition && (
-        <div
-          role="dialog"
-          aria-label={t("updates.dialogTitle")}
-          style={{
-            position: "fixed",
-            left: panelPosition.left,
-            bottom: panelPosition.bottom,
-            zIndex: 700,
-            width: panelPosition.width,
-            maxHeight: "min(72vh, 620px)",
-            display: "flex",
-            flexDirection: "column",
-            overflow: "hidden",
-            border: "1px solid var(--border)",
-            borderRadius: 10,
-            background: "var(--bg-panel)",
-            boxShadow: "0 18px 46px rgba(0,0,0,0.28)",
-          }}
-        >
-          <div style={{ padding: "13px 14px 11px", borderBottom: "1px solid var(--border)", background: "linear-gradient(135deg, color-mix(in srgb, var(--warning) 10%, var(--bg-panel)), var(--bg-panel) 65%)" }}>
-            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
-              <div>
-                <div style={{ color: "var(--text-dim)", fontSize: 10, letterSpacing: "0.08em", textTransform: "uppercase" }}>{t("updates.dialogEyebrow")}</div>
-                <div style={{ marginTop: 3, color: "var(--text)", fontSize: 15, fontWeight: 650 }}>{t("updates.dialogTitle")}</div>
-              </div>
-              <div style={{ color: "var(--warning)", fontFamily: "var(--font-mono)", fontSize: 12, fontVariantNumeric: "tabular-nums" }}>{displayVersion(release.version)}</div>
-            </div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 14px", marginTop: 9, color: "var(--text-muted)", fontSize: 11, fontFamily: "var(--font-mono)" }}>
-              <span>{t("updates.current", { version: displayVersion(status.currentAppVersion) })}</span>
-              {releaseDate && <span>{releaseDate}</span>}
-            </div>
-          </div>
-
-          <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "11px 14px 14px" }}>
-            <div style={{ marginBottom: 7, color: "var(--text-dim)", fontSize: 10, letterSpacing: "0.08em", textTransform: "uppercase" }}>{t("updates.changelog")}</div>
-            <div className="update-changelog" style={{ color: "var(--text-muted)", fontSize: 11, lineHeight: 1.5 }}>
-              <MarkdownBody>{changelog}</MarkdownBody>
-            </div>
-
-          </div>
-
-          <div style={{ flexShrink: 0, padding: "10px 14px 12px", borderTop: "1px solid var(--border)", background: "var(--bg-panel)" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 10 }}>
-              <a
-                href={release.htmlUrl}
-                onClick={(event) => { event.preventDefault(); void openExternalUrl(release.htmlUrl); }}
-                target="_blank"
-                rel="noreferrer"
-                style={{ color: "var(--accent)", fontSize: 11, textDecoration: "underline", textUnderlineOffset: 3 }}
-              >
-                {t("updates.viewRelease")}
-              </a>
-            </div>
-
-            {status.install.canInstall ? (
-              <button
-                type="button"
-                onClick={() => void installUpdate()}
-                disabled={installing}
-                style={{ width: "100%", minHeight: 34, border: "1px solid var(--accent)", borderRadius: 7, background: installing ? "var(--bg-selected)" : "var(--accent)", color: installing ? "var(--accent)" : "var(--bg)", cursor: installing ? "wait" : "pointer", fontSize: 11, fontWeight: 700, fontFamily: "var(--font-mono)" }}
-              >
-                {installing ? t("updates.installing") : status.desktop ? (locale === "ru" ? "Обновить и перезапустить" : "Update and restart") : t("updates.install")}
-              </button>
-            ) : (
-              <div style={{ color: "var(--text-muted)", fontSize: 11, lineHeight: 1.45 }}>
-                <div style={{ marginBottom: 7, color: "var(--text-dim)" }}>{t("updates.manual")}</div>
-                {[status.install.command, status.install.alternateCommand].map((command) => (
-                  <div key={command} style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0, marginTop: 6, padding: "6px 7px", border: "1px solid var(--border)", borderRadius: 6, background: "var(--bg)", fontFamily: "var(--font-mono)" }}>
-                    <code style={{ flex: 1, minWidth: 0, overflowWrap: "anywhere", color: "var(--text)" }}>{command}</code>
-                    <button
-                      type="button"
-                      onClick={() => void copyCommand(command)}
-                      title={copiedCommand === command ? t("updates.commandCopied") : t("updates.copyCommand")}
-                      aria-label={copiedCommand === command ? t("updates.commandCopied") : t("updates.copyCommand")}
-                      style={{ flex: "0 0 auto", width: 24, height: 24, padding: 0, border: "1px solid var(--border)", borderRadius: 5, background: "var(--bg-panel)", color: copiedCommand === command ? "var(--accent)" : "var(--text-dim)", cursor: "pointer" }}
-                    >
-                      {copiedCommand === command ? (
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                          <polyline points="20 6 9 17 4 12" />
-                        </svg>
-                      ) : (
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                        </svg>
-                      )}
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-            {status.desktop && <p style={{ fontSize: 11, color: "var(--text-muted)", lineHeight: 1.5 }}>{locale === "ru" ? "Проверка GitHub Releases — автоматически. Установка — после нажатия: завершите текущие задачи перед перезапуском. EXE проверяется по SHA-256; предыдущая версия сохраняется рядом." : "GitHub Releases are checked automatically. Finish running tasks before installing and restarting. The EXE is SHA-256 verified; the previous version is retained beside it."}</p>}
-            {message && (
-              <div role={message.kind === "error" ? "alert" : "status"} style={{ marginTop: 9, color: message.kind === "error" ? "var(--danger)" : "var(--success)", fontSize: 11, lineHeight: 1.45 }}>
-                {message.text}
-              </div>
-            )}
-          </div>
+  return <>
+    <button type="button" className="update-center-trigger" aria-haspopup="dialog" aria-expanded={open}
+      onClick={() => { setOpen(true); setMessage(undefined); setCopied(undefined); }}>
+      <WorkspaceIcon name="release" size={17} />
+      <span>{t("updates.center")}</span>
+      {status?.updateAvailable && release && <small>{displayVersion(release.version)}</small>}
+    </button>
+    {open && <dialog ref={dialog} className="workbench-dialog update-center" aria-labelledby="updates-title"
+      onCancel={(event) => { event.preventDefault(); if (!installing) setOpen(false); }}>
+      <header className="workbench-dialog-header">
+        <h2 id="updates-title">{t("updates.center")}</h2>
+        <div className="usage-actions">
+          <button type="button" disabled={loading || installing} onClick={() => void loadStatus()}>{t(loading ? "updates.checking" : "updates.checkNow")}</button>
+          <button type="button" aria-label={t("collaboration.close")} disabled={installing} onClick={() => setOpen(false)}>×</button>
         </div>
-      )}
-    </div>
-  );
+      </header>
+      <div className="workbench-dialog-body update-center-content">
+        {status && <div className="update-versions">
+          <p><span>{t("updates.installedVersion")}</span><strong>{displayVersion(status.currentAppVersion)}</strong></p>
+          <p><span>{t("updates.stableVersion")}</span><strong>{displayVersion(status.latestRelease.version)}</strong></p>
+        </div>}
+        {error ? <p role="alert" className="workbench-error">{t("updates.checkFailed")}</p>
+          : status && <p role="status">{t(status.updateAvailable ? "updates.available" : "updates.currentVersion")}</p>}
+        {checkedAt && <p className="usage-meta">{t("updates.checkedAt")} <time dateTime={checkedAt.toISOString()}>{checkedAt.toLocaleString(locale)}</time></p>}
+        {status?.updateAvailable && release && <>
+          <section className="update-notes">
+            <h3>{t("updates.changelog")}</h3>
+            <MarkdownBody>{release.body.trim() || release.name}</MarkdownBody>
+          </section>
+          <div className="update-actions">
+            <a href={release.htmlUrl} onClick={(event) => { event.preventDefault(); void openExternalUrl(release.htmlUrl); }} target="_blank" rel="noreferrer">{t("updates.viewRelease")}</a>
+            {status.install.canInstall && <button type="button" className="workbench-primary" disabled={installing}
+              onClick={() => void installUpdate()}>{t(installing ? "updates.installing" : status.desktop ? "updates.installRestart" : "updates.install")}</button>}
+          </div>
+          {!status.install.canInstall && !status.desktop && <section className="update-notes">
+            <p>{t("updates.manual")}</p>
+            {[status.install.command, status.install.alternateCommand].map((command) => <div key={command} className="update-command">
+              <code>{command}</code>
+              <button type="button" onClick={() => void copyCommand(command)}>{t(copied === command ? "updates.commandCopied" : "updates.copyCommand")}</button>
+            </div>)}
+          </section>}
+        </>}
+        {status && <details className="update-rollback">
+          <summary>{t("updates.rollbackTitle")}</summary>
+          <p>{t(status.desktop ? "updates.desktopRollback" : "updates.webRollback")}</p>
+        </details>}
+        {message && <p role={message.kind === "error" ? "alert" : "status"} className={message.kind === "error" ? "workbench-error" : undefined}>{message.text}</p>}
+      </div>
+    </dialog>}
+  </>;
 }

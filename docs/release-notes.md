@@ -1,47 +1,93 @@
-# momp 1.5.0 — обновлённый интерфейс и ядро OMP
+# momp 1.6.0
 
-## Интерфейс
-- Новые светлая и графитовая палитры, аккуратная боковая панель, единые иконки и более свободная панель инструментов.
-- Стартовый экран, быстрые задачи и настройки стали спокойнее и читабельнее. Подсказки заполняют редактор, но не отправляют запрос самостоятельно.
-- Улучшены контраст, фокус клавиатуры и размеры областей нажатия кнопок окна. Пользовательские темы сохраняются.
+## English
 
-## GPT + Gemini
-- Ядро обновлено с **18.11.1 до 18.12.6**. Все пакеты OMP обновлены согласованно.
-- Upstream исправляет Codex HTTP 404 для некоторых личных аккаунтов ChatGPT, ложные HTTP 429 в Antigravity web search и сопоставление параллельных Gemini tool results.
-- Пресеты покрывают все 11 ролей чата, включая `tiny`, `memory` и `widget`. В пресете «Качество» память обрабатывает GPT; вспомогательные быстрые роли — Gemini.
-- Пресет распределяет модели по ролям. Он не запускает автоматическое перекрёстное ревью и не создаёт доступ к недоступным моделям.
+### Overview
 
-## Исправления
-- Закрыт обход доверия проекту через конфигурационные ссылки на расширения и MCP; ограничение сохраняется при перезагрузке расширений и создании дочерних сессий.
-- SVG-файлы выдаются как загрузки с ограничивающим CSP, без выполнения кода в origin приложения.
-- Ошибка удаления папки проекта больше не удаляет историю сессий заранее.
-- Исправлены переключение между новым и существующим чатом, гонки загрузки/сохранения файлов и перенос конфликта загрузки в другой проект.
-- Несохранённые правки переживают переключение открытых файлов; учтены поздние ответы сохранения и watcher. Явное закрытие вкладки или перезапуск пока очищает черновик — сохраните файл перед этим.
-- Сохраняется удаление последнего MCP-сервера; переименование провайдера не перезаписывает другой профиль.
-- Роли передают настройки thinking и сохраняют свою идентичность при первом запуске. Исправлены зависание завершения сессии на UI расширения и утечки асинхронного custom UI.
-- Навыки снова корректно включаются после отключения; конфликтующие старые YAML-флаги устраняются с сохранением содержимого SKILL.md.
-- При смене пользовательской темы очищаются цвета предыдущей, включая сохранённую при загрузке палитру.
-- Диалоги выбора расширений поддерживают новые варианты SDK с описаниями и возвращают исходное значение.
-- Идентификаторы моделей с двоеточием больше не обрезаются при чтении роли по умолчанию.
-- Пользовательский запрет самообновления учитывается в интерфейсе и Windows updater. В desktop web-установщик заблокирован отдельно от нативного обновления EXE.
+momp is a local coding workspace for Windows and the web. This release updates the Oh My Pi engine and brings two independent provider modes and an explicit workflow for working with both models.
 
-## Безопасность и сборка
-- Next.js обновлён до **16.4.3**, Undici — до **8.12.3**; закреплены исправленные транзитивные зависимости без отката OMP.
-- CLI-установщики проверяют GitHub asset, размер и SHA-256, устанавливают в staging-папку и сохраняют предыдущую версию. Сбой не удаляет рабочую установку; исключения Windows Defender больше не добавляются.
-- Выбор нативных зависимостей desktop-сборки учитывает Intel и Apple Silicon отдельно.
-- Исправлена гонка распаковки при одновременном запуске EXE. Повреждённые и прежние runtime-папки сохраняются; другие работающие версии больше не удаляются автоматически.
+### What’s New
 
-## Установка и ограничения
-Скачайте **momp.exe** из assets. Это portable-приложение со встроенным Bun; нужен Windows WebView2. Автообновление проверяет GitHub Releases и устанавливается по нажатию, с проверкой SHA-256 и резервной копией EXE.
+Open a project, work in a saved conversation or prepare an AI task. Review the proposed patch and apply or reverse it from the task after checking the working files.
 
-Обновление ядра не восстанавливает отозванные токены и не снимает региональные ограничения Google. При необходимости войдите в аккаунт повторно. Проверки сборки и API не являются подтверждением успешного ответа моделей на конкретном аккаунте.
+### AI Providers
 
-EXE не имеет Authenticode-подписи. SHA-256 подтверждает целостность относительно GitHub, но не заменяет подпись издателя.
+ChatGPT uses Codex OAuth. Google Antigravity uses the official CLI for sign-in, model and thinking options, streamed chat and tool approvals. OpenAI API and Gemini API remain separate connections. Usage limits displays the latest successful reports and counts down to provider-reported reset times when available.
 
-Upstream: [OMP 18.12.6](https://github.com/can1357/oh-my-pi/releases/tag/v18.12.6), [Codex](https://github.com/can1357/oh-my-pi/releases/tag/v18.12.5), [Antigravity](https://github.com/can1357/oh-my-pi/releases/tag/v18.12.4), [Gemini](https://github.com/can1357/oh-my-pi/releases/tag/v18.12.3).
+### Hybrid AI
 
-## Проверка релиза
-- [CI #45](https://github.com/domovoyproj/momp/actions/runs/40033692896): 651 Bun tests passed, 2 skipped, 0 failed на Linux и Windows; 10 Rust tests passed. TypeScript, lint (0 errors, 2 warnings), установщики и production-сборки прошли.
-- Настоящий EXE запущен в чистой Windows CI: проверены распаковка, встроенный Bun, UI и SDK-backed API. На неизменённом payload этого же EXE отдельно проверены редактор, переключение черновиков, Mermaid/KaTeX и обе темы в Chrome.
-- `momp.exe`: 776 519 696 байт; SHA-256 `14784aa94ea464361bb41d51a88148f04ab29cec673d808c707b259a72e5012a`.
-- [Полный отчёт аудита](https://github.com/domovoyproj/momp/blob/main/docs/code-audit-2026-10-24.md) и [покрытие 454 файлов](https://github.com/domovoyproj/momp/blob/main/docs/code-audit-coverage-2026-10-24.md) содержат методы, исключения и оставшиеся ограничения. Live-запросы GPT/Gemini не выдаются за пройденные тесты.
+Choose GPT Lead, Gemini Lead, Dual Review or smart routing. Independent reviewers receive the lead’s summary, the actual Git diff, the whitespace check and optional project test results. You can pause, retry an unfinished stage or approve a separate fallback. Optional project tests run in an offline, unprivileged container with a snapshot of the proposed tree.
+
+### Interface Improvements
+
+The split view keeps editor and composer controls readable. Connections, mobile settings search, tool permissions and the Update center have dedicated views. See the [screenshot gallery](https://github.com/domovoyproj/momp/tree/v1.6.0/docs/screenshots/next).
+
+### How to Use
+
+Open a project, choose the provider in **Connections** or **Antigravity chat**, then select **AI tasks** for lead-and-review work. Follow the [workspace guide](https://github.com/domovoyproj/momp/blob/v1.6.0/docs/en/USER_GUIDE.md).
+
+### Installation / Upgrade
+
+Verify the SHA-256 of the downloaded asset. Keep the previous stable installation and follow the [installation and rollback guide](https://github.com/domovoyproj/momp/blob/v1.6.0/docs/en/INSTALLATION.md). Preview builds stay outside the automatic stable update channel.
+
+### Bug Fixes
+
+Refresh failures preserve the most recent quota report. A replayed Antigravity session keeps the existing transcript. The editor supports leaving with Shift+Tab. MCP launch credentials and authenticated URLs are redacted while stored values survive an edit.
+
+### Compatibility
+
+Oh My Pi 18.18.5, Bun 1.4.4, Next.js 16.4.3, React 19.2.8 and Tauri 2.11.5. The release workflow checks TypeScript, ESLint, unit and integration tests, simulated OAuth and providers, Docker isolation, production browser flows and installer rollback. The Windows job builds and smoke-tests the portable EXE and its embedded Bun runtime. The browser archive records the light and dark desktop and mobile runs.
+
+### Known Issues
+
+The published candidate produced the OpenAI OAuth authorization request and connected to Antigravity CLI 1.5.4 through ACP on Windows. Sign-in with real accounts, model responses and account quotas remain **PENDING LIVE VERIFICATION**. Antigravity requires the official CLI. Hybrid edits are scoped to selected UTF-8 paths. Isolated project tests require a local Linux container engine and a prepared Bun image. The Windows EXE has no Authenticode signature. See the [live checklist](https://github.com/domovoyproj/momp/blob/v1.6.0/docs/en/LIVE_VERIFICATION.md).
+
+### Download
+
+Use `momp.exe` for portable Windows, `momp-web-dist.tar.gz` for web, and `browser-verification.tar.gz` for screenshots. Verify each with `SHA256SUMS`.
+
+## Русский
+
+### Обзор обновления
+
+momp — локальная среда разработки для Windows и браузера. Выпуск обновляет ядро Oh My Pi и добавляет два самостоятельных режима и сценарий совместной работы моделей.
+
+### Что нового
+
+Откройте проект, продолжите сохранённый диалог или подготовьте задачу AI. Проверьте предложенный патч, примените или отмените его из задачи после сверки рабочих файлов.
+
+### AI-провайдеры
+
+ChatGPT использует Codex OAuth. Google Antigravity использует официальный CLI для входа, выбора модели и рассуждений, потокового чата и разрешений на действия. OpenAI API и Gemini API остаются отдельными подключениями. Окно лимитов сохраняет последние успешные отчёты и показывает обратный отсчёт до сообщённого провайдером восстановления.
+
+### Совместный режим
+
+Выберите GPT или Gemini исполнителем, двойное ревью или автоматическое распределение. Независимые ревьюеры получают сводку, настоящий Git diff, проверку пробелов и результаты запрошенных тестов. Задачу можно приостановить, повторить незавершённый этап или подтвердить отдельный запуск с одним провайдером. Тесты проекта работают в контейнере без сети и повышенных привилегий на снимке дерева с патчем.
+
+### Улучшения интерфейса
+
+Редактор и панель ввода остаются читаемыми в разделённом окне. Добавлены отдельные экраны подключений, мобильного поиска настроек, разрешений и обновлений. Снимки доступны в [галерее](https://github.com/domovoyproj/momp/tree/v1.6.0/docs/screenshots/next).
+
+### Как пользоваться
+
+Откройте проект, выберите провайдера в **Подключениях** или **Чате Antigravity**. Для работы с исполнителем и ревьюером откройте **Задачи AI**. См. [руководство](https://github.com/domovoyproj/momp/blob/v1.6.0/docs/ru/USER_GUIDE.md).
+
+### Установка / обновление
+
+Сверьте SHA-256 скачанного файла. Сохраните предыдущую стабильную версию и следуйте [инструкции установки и отката](https://github.com/domovoyproj/momp/blob/v1.6.0/docs/ru/INSTALLATION.md). Предварительные сборки не попадают в автоматические стабильные обновления.
+
+### Исправления
+
+При сбое обновления лимитов виден последний успешный отчёт. Восстановление Antigravity сохраняет переписку без повторов. Из редактора можно выйти сочетанием Shift+Tab. Секреты в аргументах запуска MCP и URL скрыты, а сохранённые значения переживают редактирование.
+
+### Совместимость
+
+Oh My Pi 18.18.5, Bun 1.4.4, Next.js 16.4.3, React 19.2.8 и Tauri 2.11.5. Релизный процесс проверяет TypeScript, ESLint, модульные и интеграционные тесты, имитацию OAuth и провайдеров, изоляцию Docker, браузерные сценарии production-сборки и откат установки. Задача Windows собирает и проверяет переносимый EXE со встроенным Bun. Браузерный архив содержит результаты в светлой и тёмной темах на desktop и mobile.
+
+### Известные проблемы
+
+Опубликованный кандидат сформировал запрос авторизации OpenAI и подключился к Antigravity CLI 1.5.4 по ACP на Windows. Вход на реальных аккаунтах, ответы моделей и квоты остаются в статусе **PENDING LIVE VERIFICATION**. Для Antigravity нужен официальный CLI. В Hybrid изменяются выбранные UTF-8 файлы. Для изолированных тестов нужен локальный движок Linux-контейнеров и подготовленный образ Bun. EXE Windows не подписан Authenticode. См. [порядок ручной проверки](https://github.com/domovoyproj/momp/blob/v1.6.0/docs/ru/LIVE_VERIFICATION.md).
+
+### Скачать
+
+`momp.exe` — переносимое приложение Windows, `momp-web-dist.tar.gz` — веб-сборка, `browser-verification.tar.gz` — скриншоты. Для каждого файла сверяйте `SHA256SUMS`.

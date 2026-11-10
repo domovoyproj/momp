@@ -1,23 +1,31 @@
 # ⚡ momp — Modern Web & Desktop GUI for Oh My Pi
 
-## Версия 1.5 — GPT + Gemini
+**[Русский](docs/ru/USER_GUIDE.md) · [English](docs/en/USER_GUIDE.md)**
 
-Новый интерфейс в стиле разговорного desktop-клиента: спокойные темы, переработанная боковая панель, библиотека skills и нативные кнопки окна. Подключайте **ChatGPT, GitHub Copilot и Antigravity**, назначайте доступные модели через пресеты ролей и используйте общие Codex/Gemini skills.
+## momp 1.6
 
-[Изменения 1.5](docs/release-notes.md) · [Совместимость и ограничения](docs/compatibility.md)
+momp is a local AI coding workspace for the web and Windows. Use ChatGPT or Google Antigravity on its own, or coordinate GPT and Gemini on a saved task with test evidence, review and explicit patch approval.
+
+momp — локальное рабочее пространство для программирования с AI в браузере и Windows. Работайте только с ChatGPT или Google Antigravity либо поручайте задачу GPT и Gemini, чтобы проверить результат, провести ревью и подтвердить применение патча.
+
+[Release notes EN](docs/en/RELEASE_NOTES.md) · [Заметки RU](docs/ru/RELEASE_NOTES.md) · [Installation EN](docs/en/INSTALLATION.md) · [Установка RU](docs/ru/INSTALLATION.md)
+
+[Release history / История релизов](https://github.com/domovoyproj/momp/releases) · [Совместимость и ограничения](docs/compatibility.md)
 
 [Полное ревью кода](docs/code-audit-2026-10-24.md) · [Проверенные файлы и границы аудита](docs/code-audit-coverage-2026-10-24.md)
 
 <p align="center">
-  <img src="docs/screenshots/06-workspace-v1.4.jpg" alt="Рабочее пространство momp 1.4" width="1000" />
+  <img src="docs/screenshots/next/workspace-desktop-dark.png" alt="momp workspace with projects, files and chat" width="1000" />
 </p>
+
+[Screenshots / Скриншоты](docs/screenshots/next/README.md) · [Antigravity](docs/screenshots/next/antigravity-desktop-dark.png) · [Hybrid AI](docs/screenshots/next/ai-tasks-desktop-dark.png) · [Usage limits / Лимиты](docs/screenshots/next/usage-dark.png)
 
 <p align="center">
   <a href="https://github.com/domovoyproj/momp/releases"><img src="https://img.shields.io/github/v/release/domovoyproj/momp?style=for-the-badge&colorA=222222&colorB=58A6FF" alt="version"></a>
   <a href="https://github.com/domovoyproj/momp/actions/workflows/publish-dist.yml"><img src="https://img.shields.io/github/actions/workflow/status/domovoyproj/momp/publish-dist.yml?style=for-the-badge&label=Build&colorA=222222&colorB=2ea44f" alt="build"></a>
   <img src="https://img.shields.io/badge/Next.js-16-black?style=for-the-badge&logo=next.js&logoColor=white" alt="Next.js 16" />
   <img src="https://img.shields.io/badge/Tauri-v2-24C8DB?style=for-the-badge&logo=tauri&logoColor=white" alt="Tauri v2" />
-  <img src="https://img.shields.io/badge/Runtime-Bun%201.3.14+-FBF0DF?style=for-the-badge&logo=bun&logoColor=black" alt="Bun" />
+  <img src="https://img.shields.io/badge/Runtime-Bun%201.4.4+-FBF0DF?style=for-the-badge&logo=bun&logoColor=black" alt="Bun" />
   <img src="https://img.shields.io/badge/TypeScript-5-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" />
   <a href="https://github.com/domovoyproj/momp/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-58A6FF?style=for-the-badge&colorA=222222" alt="License"></a>
 </p>
@@ -26,7 +34,7 @@
   Форк <a href="https://github.com/ddallabenetta/omp-web">omp-web</a> • Совместимо с <b><a href="https://github.com/can1357/oh-my-pi">oh-my-pi</a></b>
 </p>
 
-Современный веб-интерфейс и десктопное приложение для **momp max** ([oh-my-pi](https://github.com/can1357/oh-my-pi)) с приоритетной поддержкой Google Antigravity. Сам автономный агент работает как обычно, а momp предоставляет полноценное интерактивное рабочее пространство: древовидный список сессий с ветвлением (fork), чат в реальном времени с поддержкой Server-Sent Events, матричную настройку ролей моделей, мониторинг лимитов и квот провайдеров, управление плагинами, навыками (skills) и встроенный просмотрщик файлов проекта.
+momp объединяет [Oh My Pi](https://github.com/can1357/oh-my-pi) и официальный интерфейс Google Antigravity. В рабочей области доступны сессии с ветвлением, потоковый чат, настройки моделей, отчёты о квотах, расширения, редактор и просмотр Git diff.
 
 ---
 
@@ -52,14 +60,9 @@ curl -fsSL https://raw.githubusercontent.com/domovoyproj/momp/main/install.sh | 
 
 ## ⚡ Google Antigravity
 
-Antigravity — один из трёх приоритетных провайдеров momp наряду с ChatGPT и GitHub Copilot. Для начала работы:
+В версии 1.6 установите официальный Antigravity CLI и задайте путь к `agy` в `MOMP_ANTIGRAVITY_CLI` перед запуском momp. Откройте проект, выберите **Чат Antigravity** и нажмите **Войти через Google**. После входа подтвердите доступ к проекту. В чате доступны модели и уровни рассуждений, которые возвращает CLI. Для совместных задач выберите **Google Antigravity CLI** как подключение Gemini.
 
-1. Откройте **Подключения** и выберите карточку **Antigravity**.
-2. Нажмите **Войти** и завершите авторизацию Google в браузере. Ключи вручную вводить не нужно.
-3. В разделе **Роли моделей** назначьте модели Antigravity для `default`, `smol`, `plan` и других задач.
-4. Нажмите **Лимиты**, чтобы увидеть доступную квоту и время до сброса.
-
-ChatGPT, GitHub Copilot и Antigravity вынесены в начало списка. Ошибки квоты `429 RESOURCE_EXHAUSTED` отображаются понятным сообщением, одинаковые уведомления не дублируются, а при истёкшей OAuth-сессии интерфейс предлагает переподключить аккаунт.
+[Настройка AI-режимов](docs/ru/AI_MODES.md) · [AI modes setup](docs/en/AI_MODES.md)
 
 ---
 

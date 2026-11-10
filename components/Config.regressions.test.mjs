@@ -22,7 +22,7 @@ test("provider rename rejects collisions without deleting configuration or switc
 
 test("MCP save remains reachable without a selected server and serializes an empty list", () => {
   const tree = sourceTree(new URL("./SettingsConfig.tsx", import.meta.url));
-  const saveLabel = findNode(tree, (node) => ts.isStringLiteral(node) && node.text === "Save MCP");
+  const saveLabel = findNode(tree, (node) => ts.isStringLiteral(node) && node.text === "mcp.save");
   assert.ok(saveLabel);
   for (let node = saveLabel.parent; node; node = node.parent) {
     if (ts.isConditionalExpression(node)) assert.notEqual(node.condition.getText(tree), "server");

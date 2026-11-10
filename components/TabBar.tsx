@@ -69,20 +69,10 @@ export function TabBar({ tabs, activeTabId, onSelectTab, onCloseTab }: Props) {
               transition: "background 0.1s, color 0.1s",
             }}
           >
-            <span style={{ flexShrink: 0, opacity: isActive ? 1 : 0.7, display: "flex", alignItems: "center" }}>
+            <button type="button" className="workspace-tab-select" aria-pressed={isActive} title={tab.filePath}>
               {getFileIcon(tab.label, 13)}
-            </span>
-            <span
-              style={{
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                flex: 1,
-                fontWeight: isActive ? 500 : 400,
-              }}
-              title={tab.filePath}
-            >
-              {tab.label}
-            </span>
+              <span>{tab.label}</span>
+            </button>
             <button
               onClick={(e) => { e.stopPropagation(); onCloseTab(tab.id); }}
               onMouseEnter={() => setHoveredClose(tab.id)}

@@ -2128,7 +2128,7 @@ export function ModelsConfig({ cwd, onClose, embedded = false, onModelsChanged }
                 )}
               </button>
             )}
-            <button onClick={() => setLimitsOpen(true)} style={{ fontSize: 11, padding: "4px 8px", background: "none", border: "1px solid var(--border)", borderRadius: 999, cursor: "pointer", color: "var(--text-muted)" }}>Лимиты</button>
+            <button type="button" onClick={() => setLimitsOpen(true)} style={{ fontSize: 11, padding: "4px 8px", background: "none", border: "1px solid var(--border)", borderRadius: 999, cursor: "pointer", color: "var(--text-muted)" }}>{t("usage.title")}</button>
           </div>
           <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", fontSize: 20, lineHeight: 1, padding: "2px 6px" }}>×</button>
         </div>
@@ -2137,15 +2137,25 @@ export function ModelsConfig({ cwd, onClose, embedded = false, onModelsChanged }
 
         <div className="featured-connections" aria-label={t("connections.title")}>
           {FEATURED_PROVIDERS.map((featured) => {
-            const provider = oauthProviders.find((entry) => entry.id === featured.id);
+            const oauth = featured.auth === "oauth" ? oauthProviders.find((entry) => entry.id === featured.id) : undefined;
+            const apiKey = featured.auth === "apikey" ? apiKeyProviders.find((entry) => entry.id === featured.id) : undefined;
+            const enabled = Boolean(oauth || apiKey);
+            if (featured.id === "google-antigravity" && !enabled) {
+              return <a key={featured.id} className="connection-card" href="https://antigravity.google/docs/cli/install" target="_blank" rel="noreferrer">
+                <ProviderIcon id={featured.id} size={23} />
+                <strong>{featured.name}</strong>
+                <small>{t("connections.antigravityCli")}</small>
+                <span className="connection-state">{t("connections.antigravitySetup")} ↗</span>
+              </a>;
+            }
             return (
-              <button key={featured.id} className="connection-card" disabled={!provider}
-                aria-pressed={selection?.type === "oauth" && selection.providerId === featured.id}
-                onClick={() => setSelection({ type: "oauth", providerId: featured.id })}>
+              <button key={featured.id} type="button" className="connection-card" disabled={!enabled}
+                aria-pressed={selection?.type === featured.auth && selection.providerId === featured.id}
+                onClick={() => setSelection({ type: featured.auth, providerId: featured.id })}>
                 <ProviderIcon id={featured.id} size={23} />
                 <strong>{featured.name}</strong>
                 <small>{t(featured.descriptionKey)}</small>
-                <span className="connection-state">{t(provider ? provider.loggedIn ? "connections.connected" : "connections.connect" : "connections.unavailable")}</span>
+                <span className="connection-state">{t(enabled ? oauth?.loggedIn || apiKey?.configured ? "connections.connected" : "connections.connect" : "connections.unavailable")}</span>
               </button>
             );
           })}
@@ -2316,7 +2326,7 @@ export function ModelsConfig({ cwd, onClose, embedded = false, onModelsChanged }
                   }
                 }}
               >
-                {localDiscovery.scanning ? "Поиск Ollama / LM Studio..." : "🔍 Найти Ollama / LM Studio"}
+                {t(localDiscovery.scanning ? "models.localDiscoveryScanning" : "models.localDiscoveryScan")}
               </button>
 
               {localDiscovery.services.length > 0 && (

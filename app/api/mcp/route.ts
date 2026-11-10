@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync } from "fs";
+import { existsSync, lstatSync, mkdirSync, readFileSync, realpathSync } from "fs";
 import { dirname, join } from "path";
 import { NextResponse } from "next/server";
 import { getAgentDir } from "@oh-my-pi/pi-coding-agent";
@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 
 const SERVER_NAME = /^[a-zA-Z0-9_.:-]{1,100}$/;
 const REDACTED_VALUE = "••••••••";
-const SECRET_ENV_KEY = /(token|key|secret|password|credential|auth)/i;
+const SECRET_FLAG = /^--?[\w.-]*(?:token|password|secret|api[-_]?key|credential|authorization|client[-_]?id)[\w.-]*(?:=|$)/i;
 const SERVER_KEYS: Record<string, true> = {
   enabled: true,
   timeout: true,
@@ -36,27 +36,48 @@ type McpDocument = {
 };
 
 function redactNestedStrings(value: Record<string, unknown>): Record<string, unknown> {
-  return Object.fromEntries(Object.entries(value).map(([key, item]) => [
-    key,
-    typeof item === "string"
-      ? REDACTED_VALUE
-      : item && typeof item === "object" && !Array.isArray(item)
-        ? redactNestedStrings(item as Record<string, unknown>)
-        : item,
-  ]));
+  const redact = (item: unknown): unknown => {
+    if (typeof item === "string") return REDACTED_VALUE;
+    if (Array.isArray(item)) return item.map(redact);
+    if (item && typeof item === "object") return redactNestedStrings(item as Record<string, unknown>);
+    return item;
+  };
+  return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, redact(item)]));
+}
+
+function privateUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return Boolean(url.username || url.password || url.search || url.hash);
+  } catch { return false; }
+}
+
+function redactArgs(args: string[]): string[] {
+  let nextPrivate = false;
+  return args.map((argument) => {
+    if (nextPrivate) {
+      nextPrivate = false;
+      return REDACTED_VALUE;
+    }
+    if (SECRET_FLAG.test(argument)) {
+      if (argument.includes("=")) return REDACTED_VALUE;
+      nextPrivate = true;
+      return argument;
+    }
+    return privateUrl(argument) || /\b(?:authorization|cookie)\s*:|\bbearer\s+\S/i.test(argument) ? REDACTED_VALUE : argument;
+  });
 }
 
 function redactConfig(config: McpServerConfig): McpServerConfig {
   return {
     ...config,
+    ...(config.url && privateUrl(config.url) && { url: REDACTED_VALUE }),
+    ...(Array.isArray(config.args) && { args: redactArgs(config.args) }),
     ...(config.headers && {
       headers: Object.fromEntries(Object.keys(config.headers).map((key) => [key, REDACTED_VALUE])),
     }),
     ...(config.env && {
-      env: Object.fromEntries(Object.entries(config.env).map(([key, value]) => [
-        key,
-        SECRET_ENV_KEY.test(key) ? REDACTED_VALUE : value,
-      ])),
+      env: Object.fromEntries(Object.keys(config.env).map((key) => [key, REDACTED_VALUE])),
     }),
     ...(config.auth && { auth: redactNestedStrings(config.auth) }),
     ...(config.oauth && { oauth: redactNestedStrings(config.oauth) }),
@@ -218,7 +239,15 @@ async function validatedCwd(req: Request): Promise<string | undefined> {
   if (!cwd) return undefined;
   const allowedRoots = await getAllowedFileRoots();
   if (!isExistingFilePathAllowed(cwd, allowedRoots)) throw new Error("Access denied");
-  return cwd;
+  const resolved = realpathSync(cwd);
+  if (!lstatSync(resolved).isDirectory()) throw new Error("Access denied");
+  const directory = join(resolved, ".omp");
+  const path = join(directory, "mcp.json");
+  const directoryEntry = lstatSync(directory, { throwIfNoEntry: false });
+  if (directoryEntry && !directoryEntry.isDirectory()) throw new Error("Access denied");
+  const fileEntry = lstatSync(path, { throwIfNoEntry: false });
+  if (fileEntry && !fileEntry.isFile()) throw new Error("Access denied");
+  return resolved;
 }
 
 export async function GET(req: Request) {
@@ -305,6 +334,7 @@ export async function PUT(req: Request) {
     writePrivateFileAtomicSync(path, `${JSON.stringify(document, null, 2)}\n`);
     return NextResponse.json({ success: true, scope: readScope(body.scope, cwd) });
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 400 });
+    const message = error instanceof Error ? error.message : String(error);
+    return NextResponse.json({ error: message }, { status: message === "Access denied" ? 403 : 400 });
   }
 }

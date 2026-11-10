@@ -1,6 +1,9 @@
 name: Verified release
 
 on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, edited]
   push:
     branches: [main]
     paths: [package.json, .github/workflows/publish-dist.yml]
@@ -14,33 +17,81 @@ concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
+env:
+  VERIFIED_COMMIT: ${{ github.event.action == 'edited' && github.event.pull_request.head.sha || github.sha }}
+
 jobs:
   version:
+    if: >-
+      github.event.action != 'edited' ||
+      (github.event.changes.title.from != null &&
+      !startsWith(github.event.changes.title.from, '[prepare-rc] ') &&
+      startsWith(github.event.pull_request.title, '[prepare-rc] ') &&
+      github.actor == github.repository_owner &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.draft)
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.version.outputs.tag }}
+      bun: ${{ steps.version.outputs.bun }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.VERIFIED_COMMIT }}
       - id: version
         run: |
           VERSION=$(node -p "require('./package.json').version")
+          BUN_VERSION=$(node -p "require('./package.json').packageManager.split('@')[1]")
           if [[ "$GITHUB_REF" == refs/tags/* && "$GITHUB_REF_NAME" != "v$VERSION" ]]; then exit 1; fi
           echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          echo "bun=$BUN_VERSION" >> "$GITHUB_OUTPUT"
 
   web:
     needs: version
     runs-on: ubuntu-latest
+    env:
+      # oven/bun:1.4.4, pinned to the verified multi-platform manifest.
+      MOMP_TEST_RUNNER_IMAGE: oven/bun@sha256:1d22548f177f4ff38e0c15baa3c2c46c6c2060ba2d1bc573bb4720b407548f1d
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.VERIFIED_COMMIT }}
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: "1.4.2"
+          bun-version: ${{ needs.version.outputs.bun }}
       - run: bun install --frozen-lockfile
+      - run: bun run test:release
       - run: bun run typecheck
       - run: bun run lint
-      - run: bun test
+      - run: bun audit --production --audit-level=high
+      - name: Prepare the isolated test runner
+        env:
+          EXPECTED_BUN: ${{ needs.version.outputs.bun }}
+        run: |
+          docker pull "$MOMP_TEST_RUNNER_IMAGE"
+          test "$(docker run --rm --pull=never --network=none --entrypoint=bun "$MOMP_TEST_RUNNER_IMAGE" --version)" = "$EXPECTED_BUN"
+      - name: Run unit and integration tests
+        shell: bash
+        env:
+          MOMP_VERIFY_ISOLATED_TESTS: '1'
+        run: |
+          mkdir -p test-artifacts/browser
+          bun test 2>&1 | tee test-artifacts/browser/web-tests.txt
       - run: bash scripts/test-installer.sh
-      - run: bun run build
+      - name: Build the production web app
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'
+        run: bun run build
+      - run: bun x playwright install --with-deps chromium
+      - name: Verify the browser workspace
+        shell: bash
+        run: bun run test:browser 2>&1 | tee test-artifacts/browser/browser-tests.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: browser-verification
+          path: test-artifacts/browser
+          if-no-files-found: warn
       - run: tar --exclude='.next/cache' --exclude='.next/dev' -czf momp-web-dist.tar.gz .next public bin next.config.js package.json bun.lock
       - uses: actions/upload-artifact@v4
         with:
@@ -52,9 +103,11 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.VERIFIED_COMMIT }}
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: "1.4.2"
+          bun-version: ${{ needs.version.outputs.bun }}
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
@@ -65,11 +118,18 @@ jobs:
           BUN_INSTALL_CACHE_DIR: ${{ github.workspace }}\.bun-cache
         run: bun install --frozen-lockfile --backend=copyfile
       - run: bun run typecheck
+      - run: bun run test:release
       - run: bun test
       - run: cargo test --manifest-path src-tauri/Cargo.toml --locked
       - run: ./scripts/test-update-helper.ps1
       - run: ./scripts/test-installer.ps1
       - run: bun run desktop:fetch-bun windows-x64
+      - name: Verify the bundled Bun version
+        env:
+          EXPECTED_BUN: ${{ needs.version.outputs.bun }}
+        run: |
+          $actual = & ./src-tauri/resources/bun-windows-x64.exe --version
+          if ($LASTEXITCODE -ne 0 -or $actual -ne $env:EXPECTED_BUN) { throw "Bundled Bun version mismatch" }
       - name: Stage server payload
         env:
           BUN_INSTALL_CACHE_DIR: ${{ github.workspace }}\.bun-cache
@@ -80,28 +140,53 @@ jobs:
           bun scripts/stage-desktop.mjs
       - run: bun scripts/build-desktop.mjs
       - name: Test the actual release executable
-        run: ./scripts/smoke-desktop.ps1
+        run: |
+          New-Item -ItemType Directory -Path test-artifacts/desktop -Force | Out-Null
+          ./scripts/smoke-desktop.ps1 *>&1 | Tee-Object -FilePath test-artifacts/desktop/smoke.txt
+          if (-not $?) { exit 1 }
       - uses: actions/upload-artifact@v4
         if: always()
+        with:
+          name: desktop-verification
+          path: test-artifacts/desktop
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v4
         with:
           name: desktop-release
           path: src-tauri/target/release/momp.exe
 
   publish:
-    if: github.event_name == 'workflow_dispatch'
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' && github.event.action == 'edited' &&
+      github.event.changes.title.from != null &&
+      !startsWith(github.event.changes.title.from, '[prepare-rc] ') &&
+      startsWith(github.event.pull_request.title, '[prepare-rc] ') &&
+      github.actor == github.repository_owner &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.draft && contains(needs.version.outputs.tag, '-rc.'))
     needs: [version, web, desktop]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.VERIFIED_COMMIT }}
       - uses: actions/download-artifact@v4
         with:
           pattern: '*-release'
           path: release
           merge-multiple: true
-      - run: cd release && sha256sum momp.exe momp-web-dist.tar.gz > SHA256SUMS
-      - name: Publish only verified artifacts
+      - uses: actions/download-artifact@v4
+        with:
+          name: browser-verification
+          path: release/browser-verification
+      - run: |
+          cd release
+          tar -czf browser-verification.tar.gz browser-verification
+          sha256sum momp.exe momp-web-dist.tar.gz browser-verification.tar.gz > SHA256SUMS
+      - name: Create a draft from verified artifacts
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ needs.version.outputs.tag }}
@@ -110,4 +195,12 @@ jobs:
             echo "Release already exists; refusing to overwrite published executables."
             exit 1
           fi
-          gh release create "$RELEASE_TAG" release/momp.exe release/momp-web-dist.tar.gz release/SHA256SUMS --draft --target "$GITHUB_SHA" --title "momp $RELEASE_TAG" --notes-file docs/release-notes.md
+          args=(--draft --target "$VERIFIED_COMMIT" --title "momp $RELEASE_TAG")
+          notes=docs/release-notes.md
+          if [[ "$RELEASE_TAG" == *-* ]]; then
+            args+=(--prerelease)
+            notes=docs/release-candidate.md
+          fi
+          cp "$notes" release/notes.md
+          printf '\n[Verification and build logs](%s/%s/actions/runs/%s)\n' "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" >> release/notes.md
+          gh release create "$RELEASE_TAG" release/momp.exe release/momp-web-dist.tar.gz release/browser-verification.tar.gz release/SHA256SUMS "${args[@]}" --notes-file release/notes.md

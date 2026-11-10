@@ -4,9 +4,9 @@ import test from "node:test";
 
 const source = await readFile(new URL("./LimitsModal.tsx", import.meta.url), "utf8");
 
-test("keeps reset countdowns live and prioritizes Antigravity", () => {
-  assert.match(source, /setInterval\(\(\) => setNow\(Date\.now\(\)\), 30_000\)/);
-  assert.match(source, /left\.provider\.toLowerCase\(\) === "google-antigravity"/);
-  assert.match(source, /Квота исчерпана/);
+test("updates countdowns and refreshes account reports while the dialog is visible", () => {
+  assert.match(source, /setInterval\(\(\) => setNow\(Date\.now\(\)\), 15_000\)/);
+  assert.match(source, /if \(!document\.hidden\) void load\(\)/);
+  assert.match(source, /order = \["openai-codex", "google-antigravity"\]/);
   assert.match(source, /orderedReports\?\.map/);
 });
