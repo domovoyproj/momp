@@ -13,7 +13,7 @@ try {
     $env:LOCALAPPDATA = $root
     $env:APPDATA = $root
     $env:PI_CODING_AGENT_DIR = Join-Path $root 'agent'
-    [Environment]::SetEnvironmentVariable('MOMP_XBOX_DNS', $null)
+    Remove-Item -LiteralPath Env:\MOMP_XBOX_DNS -ErrorAction SilentlyContinue
     $env:MOMP_DESKTOP_LOG = $log
     $env:WEBVIEW2_USER_DATA_FOLDER = Join-Path $root 'webview'
     $app = Start-Process -FilePath $executablePath -WorkingDirectory $root -WindowStyle Hidden -PassThru
@@ -52,6 +52,9 @@ try {
     throw
 } finally {
     if ($app -and !$app.HasExited) { & taskkill.exe /PID $app.Id /T /F | Out-Null }
-    foreach ($key in $saved.Keys) { [Environment]::SetEnvironmentVariable($key, $saved[$key]) }
+    foreach ($key in $saved.Keys) {
+        if ($null -eq $saved[$key]) { Remove-Item -LiteralPath ("Env:\" + $key) -ErrorAction SilentlyContinue }
+        else { [Environment]::SetEnvironmentVariable($key, $saved[$key]) }
+    }
     Write-Host "Smoke logs retained at $root"
 }
