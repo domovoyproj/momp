@@ -5,6 +5,7 @@ import { homedir, tmpdir } from "node:os";
 import { isAbsolute, join } from "node:path";
 import { promisify } from "node:util";
 import { completeSimple } from "@oh-my-pi/pi-ai";
+import { findManagedAntigravity } from "./antigravity-runtime";
 import { CollaborationFailure, type CollaborationTransport } from "./collaboration";
 import { getOmpRuntime } from "./omp-runtime";
 
@@ -46,13 +47,13 @@ export async function antigravityExecutable(): Promise<string | undefined> {
     ? process.env.LOCALAPPDATA && join(process.env.LOCALAPPDATA, "agy", "bin", "agy.exe")
     : join(homedir(), ".local", "bin", "agy");
   const executable = process.env.MOMP_ANTIGRAVITY_CLI?.trim() || installed;
-  if (!executable || !isAbsolute(executable) || (windows && !/\.exe$/i.test(executable))) return undefined;
-  try {
-    await access(executable, constants.X_OK);
-    return (await stat(executable)).isFile() ? executable : undefined;
-  } catch {
-    return undefined;
+  if (executable && isAbsolute(executable) && (!windows || /\.exe$/i.test(executable))) {
+    try {
+      await access(executable, constants.X_OK);
+      if ((await stat(executable)).isFile()) return executable;
+    } catch { /* No usable system installation. */ }
   }
+  return findManagedAntigravity();
 }
 
 async function readAntigravityCommand(executable: string, args: string[]): Promise<string> {

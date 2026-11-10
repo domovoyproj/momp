@@ -262,16 +262,29 @@ try {
       const accountPage = await browser.newPage({ locale: "en-US" });
       activePage = accountPage;
       await accountPage.addInitScript(() => localStorage.setItem("momp-locale", "en"));
+      let signInAttempts = 0;
+      await accountPage.route((url) => url.pathname === "/api/antigravity", async (route) => {
+        if (route.request().method() === "POST") {
+          assert.equal(route.request().postDataJSON().action, "sign-in");
+          signInAttempts++;
+          return route.continue();
+        }
+        // Show the first-run state while the backend uses the isolated ACP fixture.
+        const response = await route.fetch();
+        const status = await response.json();
+        return route.fulfill({ response, json: { ...status, configured: existsSync(cliAccount) && status.configured } });
+      });
       await accountPage.goto(origin);
       await accountPage.locator(".sidebar-footer").getByRole("button", { name: "Connections", exact: true }).click();
-      await accountPage.getByRole("button", { name: /Google Antigravity.*official CLI/ }).click();
+      await accountPage.getByRole("button", { name: /Google Antigravity.*your Google Account/ }).click();
       const login = accountPage.getByRole("dialog", { name: "Google Antigravity" });
       const signIn = login.getByRole("button", { name: "Sign in with Google" });
       await signIn.waitFor();
       assert.equal(await login.getByRole("button", { name: "Start conversation" }).count(), 0);
+      assert.equal(await login.getByRole("link", { name: /install antigravity/i }).count(), 0);
       writeFileSync(`${cliAccount}-hold`, "delay fixture sign-in");
       await signIn.click();
-      await login.getByText("Complete Google sign-in in your browser", { exact: false }).waitFor();
+      await login.getByText("Preparing Antigravity. Google sign-in will open in your browser.", { exact: true }).waitFor();
       for (let attempt = 0; attempt < 100 && !existsSync(`${cliAccount}-started`); attempt++) await Bun.sleep(100);
       assert.ok(existsSync(`${cliAccount}-started`), "Fixture received the OAuth request");
       await login.getByRole("button", { name: "Cancel sign-in" }).click();
@@ -280,6 +293,7 @@ try {
       await signIn.click();
       await login.getByText("Google sign-in finished", { exact: false }).waitFor();
       assert.ok(existsSync(cliAccount), "OAuth retry reached the provider after cancellation");
+      assert.equal(signInAttempts, 2, "Each click starts one sign-in without a manual setup step");
       await accountPage.screenshot({ path: join(screenshots, "antigravity-projectless-sign-in.png"), animations: "disabled" });
       await accountPage.close();
       activePage = page;

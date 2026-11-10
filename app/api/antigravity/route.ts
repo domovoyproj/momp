@@ -1,7 +1,8 @@
 import { realpath, stat } from "node:fs/promises";
 import { isAbsolute, join } from "node:path";
 import { getAgentDir } from "@oh-my-pi/pi-coding-agent";
-import { antigravityError, signInToAntigravity } from "@/lib/antigravity-acp";
+import { AntigravityFailure, antigravityError, signInToAntigravity } from "@/lib/antigravity-acp";
+import { managedAntigravityRuntime, prepareManagedAntigravity } from "@/lib/antigravity-runtime";
 import { AntigravitySessions } from "@/lib/antigravity-sessions";
 import { readBoundedJson } from "@/lib/bounded-json";
 import { antigravityExecutable } from "@/lib/collaboration-providers";
@@ -79,6 +80,7 @@ export async function GET(req: Request) {
   const id = query.get("id");
   try {
     if (!id) return json({ history: cwd ? sessions().history(cwd) : [], configured: Boolean(await antigravityExecutable()),
+      canPrepare: Boolean(managedAntigravityRuntime()),
       localSignIn: canSignInLocally(req), workspaceAvailable: Boolean(cwd),
       trusted: Boolean(cwd && getProjectTrustStatus(cwd, getAgentDir()).trusted) });
     if (!cwd) return json({ error: "access" }, 403);
@@ -93,6 +95,16 @@ declare global {
   var __mompAntigravitySignIn: Promise<void> | undefined;
 }
 
+async function prepareAndSignIn(signal: AbortSignal) {
+  let executable = await antigravityExecutable();
+  if (!executable) {
+    const runtime = managedAntigravityRuntime();
+    if (!runtime) throw new AntigravityFailure("not-installed");
+    executable = await prepareManagedAntigravity(runtime, signal);
+  }
+  await signInToAntigravity(executable, signal);
+}
+
 export async function POST(req: Request) {
   if (!isApiRequestAllowed(req)) return json({ error: "access" }, 403);
   if (!hasJsonContentType(req)) return json({ error: "invalid" }, 415);
@@ -103,10 +115,8 @@ export async function POST(req: Request) {
   try {
     if (action === "sign-in") {
       if (!canSignInLocally(req)) return json({ error: "local-sign-in" }, 403);
-      const executable = await antigravityExecutable();
-      if (!executable) return json({ error: "not-installed" }, 503);
       if (globalThis.__mompAntigravitySignIn) return json({ error: "sign-in-in-progress" }, 409);
-      const login = globalThis.__mompAntigravitySignIn = signInToAntigravity(executable, req.signal);
+      const login = globalThis.__mompAntigravitySignIn = prepareAndSignIn(req.signal);
       try { await login; } finally { if (globalThis.__mompAntigravitySignIn === login) globalThis.__mompAntigravitySignIn = undefined; }
       return json({ ok: true });
     }
@@ -131,6 +141,7 @@ export async function POST(req: Request) {
     else return json({ error: "invalid" }, 400);
     return json({ thread: store.get(cwd, id) }, 202);
   } catch (error) {
-    return json({ error: (error as NodeJS.ErrnoException)?.code === "ELOCKED" ? "busy" : antigravityError(error) }, 409);
+    const kind = (error as NodeJS.ErrnoException)?.code === "ELOCKED" ? "busy" : antigravityError(error);
+    return json({ error: kind }, kind === "not-installed" || kind === "setup-failed" || kind === "setup-integrity" ? 503 : 409);
   }
 }

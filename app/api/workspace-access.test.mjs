@@ -72,3 +72,49 @@ test("Antigravity sign-in is available without a project but starting a conversa
   assert.equal((await act("sign-in", { host: "192.0.2.1" })).status, 403);
   assert.equal((await act("open")).status, 403);
 });
+
+test("only local sign-in starts preparation and concurrent clicks share the guard", async (context) => {
+  const profile = mkdtempSync(join(tmpdir(), "momp-agy-first-sign-in-"));
+  useEnvironment(context, "PI_CODING_AGENT_DIR", join(profile, "agent"));
+  useEnvironment(context, process.platform === "win32" ? "LOCALAPPDATA" : "HOME", profile);
+  useEnvironment(context, "MOMP_ANTIGRAVITY_CLI", undefined);
+  const originalFetch = globalThis.fetch;
+  context.after(() => {
+    globalThis.fetch = originalFetch;
+    rmSync(profile, { recursive: true, force: true, maxRetries: 4, retryDelay: 100 });
+  });
+
+  const download = Promise.withResolvers();
+  const finish = Promise.withResolvers();
+  let requests = 0;
+  globalThis.fetch = async (url) => {
+    requests++;
+    download.resolve(String(url));
+    await finish.promise;
+    return new Response("not the pinned Google binary");
+  };
+
+  const url = "http://localhost/api/antigravity";
+  const status = await (await getAntigravity(new Request(url, { headers: localHeaders }))).json();
+  assert.equal(status.configured, false);
+  assert.equal(status.canPrepare, true);
+  assert.equal(status.localSignIn, true);
+  const signIn = (host = "localhost") => postAntigravity(new Request(url, {
+    method: "POST", headers: { host, "content-type": "application/json" }, body: JSON.stringify({ action: "sign-in" }),
+  }));
+  assert.equal((await signIn("192.0.2.1")).status, 403);
+  assert.equal(requests, 0);
+
+  const first = signIn();
+  try {
+    assert.match(await download.promise, /^https:\/\/storage\.googleapis\.com\/antigravity-public\/antigravity-cli\//);
+    const second = await signIn();
+    assert.equal(second.status, 409);
+    assert.equal((await second.json()).error, "sign-in-in-progress");
+    assert.equal(requests, 1);
+  } finally { finish.resolve(); }
+  const rejected = await first;
+  assert.equal(rejected.status, 503);
+  assert.equal((await rejected.json()).error, "setup-integrity");
+  assert.equal(await antigravityExecutable(), undefined);
+});

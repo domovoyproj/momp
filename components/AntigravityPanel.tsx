@@ -6,10 +6,9 @@ import type { AntigravityHistoryItem, AntigravityThread } from "@/lib/antigravit
 import { MarkdownBody } from "./MarkdownBody";
 import { WorkspaceIcon } from "./WorkspaceIcon";
 
-const INSTALL_URL = "https://antigravity.google/docs/getting-started?tab=cli";
-
 type ConnectionStatus = {
   configured: boolean;
+  canPrepare: boolean;
   localSignIn: boolean;
   workspaceAvailable: boolean;
   trusted: boolean;
@@ -120,7 +119,10 @@ export function AntigravityPanel({ cwd, onClose, onChooseProject }: {
     } catch (error) {
       if (!controller?.signal.aborted) setError((error as Error).message);
     } finally {
-      if (controller) signInRequest.current = null;
+      if (controller) {
+        signInRequest.current = null;
+        setStatusRefresh((value) => value + 1);
+      }
       setBusy(undefined);
     }
   }
@@ -134,6 +136,7 @@ export function AntigravityPanel({ cwd, onClose, onChooseProject }: {
   }
 
   const connectionError = error || (signedIn && thread?.error === "auth-required" ? "" : thread?.error);
+  const canSignIn = project?.localSignIn && (project.configured || project.canPrepare);
   const workspaceName = cwd.split(/[\\/]/).filter(Boolean).at(-1) ?? t("settings.globalProfile");
   const matches = history.filter((item) => (item.title || t("antigravity.untitled")).toLowerCase().includes(query.toLowerCase()));
 
@@ -217,26 +220,26 @@ export function AntigravityPanel({ cwd, onClose, onChooseProject }: {
           </div>
         </form> : <div className="antigravity-connect">
           {thread?.status === "connecting" ? <button type="button" disabled={Boolean(busy)} onClick={() => void act("cancel")}>{t("antigravity.cancel")}</button>
-            : project?.configured ? <>
-              {busy === "sign-in" && <p role="status">{t("antigravity.signingIn")}</p>}
+            : project && <>
+              {busy === "sign-in" && <p role="status">{t(project.configured ? "antigravity.signingIn" : "antigravity.preparingSignIn")}</p>}
               {signedIn && <p role="status">{t("antigravity.signedIn")}</p>}
               {!project.localSignIn && <p>{t("antigravity.error.local-sign-in")}</p>}
+              {project.localSignIn && !canSignIn && <p>{t("antigravity.error.not-installed")}</p>}
               {project.workspaceAvailable ? <>
                 {!project.trusted && <p className="workbench-error">{t("antigravity.error.trust")}</p>}
                 <label><input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} />{t("antigravity.consent")}</label>
               </> : <p>{t(cwd ? "workspace.folderUnavailable" : "antigravity.chooseWorkspace")}</p>}
               <div>
-                {project.localSignIn && <button type="button" disabled={Boolean(busy)} onClick={() => void act("sign-in")}>
+                {canSignIn && <button type="button" className={project.configured && project.workspaceAvailable ? undefined : "workbench-primary"}
+                  disabled={Boolean(busy)} onClick={() => void act("sign-in")}>
                   {t("antigravity.signIn")}</button>}
                 {busy === "sign-in" && <button type="button" onClick={() => signInRequest.current?.abort()}>{t("antigravity.cancelSignIn")}</button>}
-                {project.workspaceAvailable ? <button className="workbench-primary" type="button" disabled={Boolean(busy) || !project.trusted || !consent}
+                {project.workspaceAvailable ? <button className={project.configured ? "workbench-primary" : undefined} type="button"
+                  disabled={Boolean(busy) || !project.configured || !project.trusted || !consent}
                   onClick={() => { setSignedIn(false); void act("open", { confirm: true }); }}>{t(thread ? "antigravity.resume" : "antigravity.connect")}</button>
                   : <button type="button" disabled={Boolean(busy)} onClick={onChooseProject}>{t("workspace.openProject")}</button>}
               </div>
-            </> : project && <><p>{t("antigravity.error.not-installed")}</p><div>
-              <a href={INSTALL_URL} target="_blank" rel="noreferrer">{t("antigravity.installCli")}</a>
-              <button type="button" onClick={() => { setError(""); setStatusRefresh(value => value + 1); }}>{t("antigravity.checkCli")}</button>
-            </div></>}
+            </>}
         </div>}
       </section>
     </div>
