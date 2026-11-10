@@ -5,7 +5,7 @@ const eslintConfig = [
   ...coreWebVitals,
   ...typescript,
   {
-    ignores: ["**/src-tauri/target", "**/src-tauri/gen", "src-tauri/server/**", ".next-desktop/**", ".agents/**", ".codex/**", ".gitnexus/**", "graphify-out/**"],
+    ignores: ["**/src-tauri/target", "**/src-tauri/gen", "src-tauri/server/**", ".next-*/**", ".agents/**", ".codex/**", ".gitnexus/**", "graphify-out/**"],
   },
   {
     files: ["bin/momp.js", "bin/momp-web.js", "next.config.js"],

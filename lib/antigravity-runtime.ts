@@ -6,6 +6,7 @@ import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { getAgentDir } from "@oh-my-pi/pi-coding-agent";
 import { AntigravityFailure } from "./antigravity-acp";
+import { xboxDnsEnabled } from "./google-network";
 
 type FileDigest = { size: number; sha512: string };
 type ReleaseFile = FileDigest & { path: string; member?: FileDigest };
@@ -65,7 +66,9 @@ const FILES: Readonly<Partial<Record<string, ReleaseFile>>> = {
 };
 
 export function managedAntigravityRuntime(): ManagedRuntime | undefined {
-  if (process.env.MOMP_ANTIGRAVITY_CLI?.trim()) return undefined;
+  // The Windows browser adapter is verified against this exact vendor build.
+  // Never launch a different executable that might bypass the app's route.
+  if (process.env.MOMP_ANTIGRAVITY_CLI?.trim() && !xboxDnsEnabled()) return undefined;
   const target = `${process.platform}-${process.arch}`;
   const file = FILES[target];
   if (!file) return undefined;

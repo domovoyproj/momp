@@ -1,4 +1,8 @@
-# momp 1.6.2
+# momp 1.6.3-rc.1
+
+Automatic Xbox DNS for Google downloads, sign-in and Gemini requests on Windows. Antigravity sign-in opens a dedicated Edge profile and returns the code to the official client automatically. No manual DNS or code entry is needed. First sign-in may require Google credentials and 2FA. Real account completion and inference remain **PENDING LIVE VERIFICATION**; Xbox DNS currently reports an outage. [Candidate details](../release-candidate.md) · [Live checklist](LIVE_VERIFICATION.md)
+
+## momp 1.6.2
 
 - Choose **Connections → Google Antigravity → Sign in with Google**. If needed, momp downloads and verifies the official client and keeps it for later use. You complete sign-in in the browser and can cancel it in momp.
 - If you open Antigravity while the workspace is loading, the project history appears when it is ready.

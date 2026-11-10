@@ -1,93 +1,97 @@
-# momp 1.6.0-rc.2
+# momp 1.6.3-rc.1
 
 ## English
 
 ### Overview
 
-momp is a local coding workspace for Windows and the web. This candidate updates the Oh My Pi engine and brings two independent provider modes and an explicit workflow for working with both models.
+This candidate adds automatic Xbox DNS routing to Google's connections on Windows. It keeps Google's official Antigravity client responsible for OAuth, token storage and model requests.
 
-### What’s New
+### What's New
 
-Open a project, work in a saved conversation or prepare an AI task. Review the proposed patch and apply or reverse it from the task after checking the working files.
+Choose **Connections → Google Antigravity → Sign in with Google**. momp prepares the verified client, opens its own Edge profile and returns the authorization code to the official client automatically. No DNS settings, terminal commands or pasted codes are required.
 
 ### AI Providers
 
-ChatGPT uses Codex OAuth. Google Antigravity uses the official CLI for sign-in, model and thinking options, streamed chat and tool approvals. OpenAI API and Gemini API remain separate connections. Usage limits displays the latest successful reports and counts down to provider-reported reset times when available.
+Google downloads, SDK requests and native Antigravity connections resolve Google hosts through Xbox DNS. ChatGPT remains independent. Gemini API remains a separate API-key connection. Invalid DNS answers fail without a direct Google fallback.
 
 ### Hybrid AI
 
-Choose GPT Lead, Gemini Lead, Dual Review or smart routing. Independent reviewers receive the lead’s summary, the actual Git diff, the whitespace check and optional project test results. You can pause, retry an unfinished stage or approve a separate fallback. Optional project tests run in an offline, unprivileged container with a snapshot of the proposed tree.
+Existing GPT/Gemini task orchestration uses the same routed Antigravity runtime. Ordinary public HTTPS destinations used by native coding tools remain available through the authenticated transport.
 
 ### Interface Improvements
 
-The split view keeps editor and composer controls readable. Connections, mobile settings search, tool permissions and the Update center have dedicated views. See the [screenshot gallery](https://github.com/domovoyproj/momp/tree/feat/next-generation-rc/docs/screenshots/next).
+Antigravity shows the active automatic route. Sign-in uses a dedicated Edge profile and preserves its cookies for a retry; ordinary browser profiles and Windows networking remain unchanged.
 
 ### How to Use
 
-Open a project, choose the provider in **Connections** or **Antigravity chat**, then select **AI tasks** for lead-and-review work. Follow the [workspace guide](https://github.com/domovoyproj/momp/blob/feat/next-generation-rc/docs/en/USER_GUIDE.md).
+Open **Sign in with Google**, complete Google's account selection and consent, and return to momp. The first use of this separate profile may require a password or 2FA. The official CLI allows about 60 seconds for authentication; retry if it times out. Edge may display its developer-extension notice. It is not suppressed.
 
 ### Installation / Upgrade
 
-Verify the SHA-256 of the downloaded asset. Keep the previous stable installation and follow the [installation and rollback guide](https://github.com/domovoyproj/momp/blob/feat/next-generation-rc/docs/en/INSTALLATION.md). Preview builds stay outside the automatic stable update channel.
+Use the candidate assets attached only after the release gates pass. Follow the [installation and rollback guide](en/INSTALLATION.md). Keep the current executable to roll back; existing account/session stores are preserved. This candidate does not change stable update eligibility.
 
 ### Bug Fixes
 
-Refresh failures preserve the most recent quota report. A replayed Antigravity session keeps the existing transcript. The editor supports leaving with Shift+Tab. MCP launch credentials and authenticated URLs are redacted while stored values survive an edit.
+The browser no longer escapes the selected Google route. Redirects into Google are checked at each hop; callback codes require the expected state and a per-attempt secret, expire and cannot be reused. Browser startup waits for the callback helper before navigating to Google. Closing or cancelling sign-in closes only its own browser and temporary listeners.
 
 ### Compatibility
 
-Oh My Pi 18.18.5, Bun 1.4.4, Next.js 16.4.3, React 19.2.8 and Tauri 2.11.5. The release workflow checks TypeScript, ESLint, unit and integration tests, simulated OAuth and providers, Docker isolation, production browser flows and installer rollback. The Windows job builds and smoke-tests the portable EXE and its embedded Bun runtime. The browser archive records the light and dark desktop and mobile runs.
+Windows with installed Microsoft Edge, Antigravity CLI 1.5.5 (verified SHA-512), Oh My Pi 18.18.5, Bun 1.4.4, Next.js 16.4.3, React 19.2.8 and Tauri 2.11.5. The native Google route uses the pinned managed runtime even if a different CLI was configured. Other platforms retain their existing default route. A Windows administrator's browser policies can prevent the callback helper; momp reports failure and does not bypass those policies.
 
 ### Known Issues
 
-**PENDING LIVE VERIFICATION** for real OAuth, responses and account quotas. Antigravity requires the official CLI. Hybrid edits are scoped to selected UTF-8 paths. Isolated project tests require a local Linux container engine and a prepared Bun image. The Windows EXE has no Authenticode signature. See the [live checklist](https://github.com/domovoyproj/momp/blob/feat/next-generation-rc/docs/en/LIVE_VERIFICATION.md).
+The native proxy supports public HTTPS on port 443. Internal services, plain HTTP and nonstandard ports are not covered by this proxy; the existing loopback bypass remains available.
+
+**PENDING LIVE VERIFICATION:** real Google account completion, inference and quotas. When checked on 11 November 2026, the Xbox DNS website reported an outage and its resolver returned zero addresses for the Gemini API hostname. Code cannot repair an upstream DNS outage. Public HTTPS checks and synthetic callback tests are not account verification. See the [live checklist](en/LIVE_VERIFICATION.md) and [verification record](IMPLEMENTATION_PROGRESS.md).
 
 ### Download
 
-Use `momp.exe` for portable Windows, `momp-web-dist.tar.gz` for web, and `browser-verification.tar.gz` for screenshots. Verify each with `SHA256SUMS`.
+Download only assets attached to the verified candidate and compare their SHA-256 with `SHA256SUMS`. Do not use the old stable executable to test this change. [Xbox DNS screenshots](screenshots/xbox-dns/README.md) · [Earlier UI gallery](screenshots/next/README.md).
 
 ## Русский
 
 ### Обзор обновления
 
-momp — локальная среда разработки для Windows и браузера. Кандидат обновляет ядро Oh My Pi и добавляет два самостоятельных режима и сценарий совместной работы моделей.
+Кандидат добавляет автоматический Xbox DNS для подключений Google на Windows. OAuth, обмен кодов, хранение токенов и запросы моделей по-прежнему выполняет официальный клиент Antigravity.
 
 ### Что нового
 
-Откройте проект, продолжите сохранённый диалог или подготовьте задачу AI. Проверьте предложенный патч, примените или отмените его из задачи после сверки рабочих файлов.
+Откройте **Подключения → Google Antigravity → Войти через Google**. momp подготовит проверенный клиент, откроет отдельный профиль Edge и автоматически передаст код авторизации официальному клиенту. Не нужно менять DNS, запускать команды или вставлять код.
 
 ### AI-провайдеры
 
-ChatGPT использует Codex OAuth. Google Antigravity использует официальный CLI для входа, выбора модели и рассуждений, потокового чата и разрешений на действия. OpenAI API и Gemini API остаются отдельными подключениями. Окно лимитов сохраняет последние успешные отчёты и показывает обратный отсчёт до сообщённого провайдером восстановления.
+Загрузки Google, запросы SDK и Antigravity разрешают имена Google через Xbox DNS. ChatGPT работает независимо. Gemini API остаётся отдельным подключением с API-ключом. Некорректный ответ DNS вызывает ошибку, без скрытого подключения к Google напрямую.
 
 ### Совместный режим
 
-Выберите GPT или Gemini исполнителем, двойное ревью или автоматическое распределение. Независимые ревьюеры получают сводку, настоящий Git diff, проверку пробелов и результаты запрошенных тестов. Задачу можно приостановить, повторить незавершённый этап или подтвердить отдельный запуск с одним провайдером. Тесты проекта работают в контейнере без сети и повышенных привилегий на снимке дерева с патчем.
+Существующие задачи GPT/Gemini используют тот же маршрут Antigravity. Обычные публичные HTTPS-адреса, нужные инструментам разработки, доступны через защищённый транспорт клиента.
 
 ### Улучшения интерфейса
 
-Редактор и панель ввода остаются читаемыми в разделённом окне. Добавлены отдельные экраны подключений, мобильного поиска настроек, разрешений и обновлений. Снимки доступны в [галерее](https://github.com/domovoyproj/momp/tree/feat/next-generation-rc/docs/screenshots/next).
+Antigravity показывает включённый маршрут. Вход использует отдельный профиль Edge и сохраняет его cookies для следующей попытки. Обычные профили браузера и сетевые настройки Windows не меняются.
 
 ### Как пользоваться
 
-Откройте проект, выберите провайдера в **Подключениях** или **Чате Antigravity**. Для работы с исполнителем и ревьюером откройте **Задачи AI**. См. [руководство](https://github.com/domovoyproj/momp/blob/feat/next-generation-rc/docs/ru/USER_GUIDE.md).
+Нажмите **Войти через Google**, выберите аккаунт и подтвердите доступ в Google, затем вернитесь в momp. При первом входе в отдельный профиль Google может запросить пароль или 2FA. Официальный CLI ограничивает вход примерно 60 секундами; при таймауте повторите попытку. Edge может показать уведомление о расширении разработчика — оно не отключается.
 
 ### Установка / обновление
 
-Сверьте SHA-256 скачанного файла. Сохраните предыдущую стабильную версию и следуйте [инструкции установки и отката](https://github.com/domovoyproj/momp/blob/feat/next-generation-rc/docs/ru/INSTALLATION.md). Предварительные сборки не попадают в автоматические стабильные обновления.
+Используйте артефакты кандидата, прикреплённые только после проверок. См. [установку и откат](ru/INSTALLATION.md). Сохраните текущий EXE для отката: существующие аккаунты и сессии остаются в своих хранилищах. Кандидат не меняет правила стабильных автообновлений.
 
 ### Исправления
 
-При сбое обновления лимитов виден последний успешный отчёт. Восстановление Antigravity сохраняет переписку без повторов. Из редактора можно выйти сочетанием Shift+Tab. Секреты в аргументах запуска MCP и URL скрыты, а сохранённые значения переживают редактирование.
+Окно входа больше не выходит из выбранного маршрута Google. Каждый редирект проверяется заново. Для кода возврата обязательны правильный state и одноразовый секрет; повторная отправка и просроченные запросы отклоняются. Google открывается после готовности помощника возврата. Отмена закрывает только окно этой попытки и её временные сетевые службы.
 
 ### Совместимость
 
-Oh My Pi 18.18.5, Bun 1.4.4, Next.js 16.4.3, React 19.2.8 и Tauri 2.11.5. Релизный процесс проверяет TypeScript, ESLint, модульные и интеграционные тесты, имитацию OAuth и провайдеров, изоляцию Docker, браузерные сценарии production-сборки и откат установки. Задача Windows собирает и проверяет переносимый EXE со встроенным Bun. Браузерный архив содержит результаты в светлой и тёмной темах на desktop и mobile.
+Windows с установленным Microsoft Edge; Antigravity CLI 1.5.5 с проверкой SHA-512; Oh My Pi 18.18.5; Bun 1.4.4; Next.js 16.4.3; React 19.2.8; Tauri 2.11.5. Для этого маршрута используется закреплённый клиент, даже если ранее был задан другой CLI. На других платформах остаётся прежний маршрут по умолчанию. Корпоративные политики Edge могут запретить помощник возврата; momp покажет ошибку и не будет обходить эти политики.
 
 ### Известные проблемы
 
-**PENDING LIVE VERIFICATION** для реального OAuth, ответов и квот. Для Antigravity нужен официальный CLI. В Hybrid изменяются выбранные UTF-8 файлы. Для изолированных тестов нужен локальный движок Linux-контейнеров и подготовленный образ Bun. EXE Windows не подписан Authenticode. См. [порядок ручной проверки](https://github.com/domovoyproj/momp/blob/feat/next-generation-rc/docs/ru/LIVE_VERIFICATION.md).
+Прокси клиента поддерживает публичные HTTPS-адреса на порту 443. Внутренние сервисы, обычный HTTP и нестандартные порты этим прокси не обслуживаются; существующий обход прокси для loopback сохраняется.
+
+**PENDING LIVE VERIFICATION:** завершение входа с реальным аккаунтом, ответы моделей и квоты. 11 ноября 2026 Xbox DNS сообщал о сбое и возвращал нулевые адреса Gemini API. Исправление кода не устраняет сбой DNS-сервиса. Проверки публичного HTTPS и тестового callback не доказывают реальную авторизацию. См. [чек-лист](ru/LIVE_VERIFICATION.md) и [результаты проверок](IMPLEMENTATION_PROGRESS.md).
 
 ### Скачать
 
-`momp.exe` — переносимое приложение Windows, `momp-web-dist.tar.gz` — веб-сборка, `browser-verification.tar.gz` — скриншоты. Для каждого файла сверяйте `SHA256SUMS`.
+Используйте только файлы проверенного кандидата и сверяйте SHA-256 с `SHA256SUMS`. Старый стабильный EXE не содержит эту правку. [Скриншоты Xbox DNS](screenshots/xbox-dns/README.md) · [Предыдущая галерея интерфейса](screenshots/next/README.md).

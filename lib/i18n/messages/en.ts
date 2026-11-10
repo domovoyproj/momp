@@ -131,6 +131,8 @@ export const enLocale: LocalePlugin = {
     "antigravity.error.not-installed": "Automatic Antigravity setup is unavailable on this device.",
     "antigravity.error.setup-failed": "Antigravity setup failed. Check your connection and try signing in again.",
     "antigravity.error.setup-integrity": "momp could not verify the Antigravity download. Try signing in again later.",
+    "antigravity.error.xbox-dns-browser": "Could not open the Google sign-in window in Edge. Close the previous momp window and try again.",
+    "antigravity.googleRoute": "Xbox DNS is enabled automatically. Google sign-in opens in a separate Edge profile for momp.",
     "antigravity.error.sign-in-in-progress": "A Google sign-in is already in progress. Finish or cancel it in the other momp window.",
     "antigravity.error.auth-required": "Antigravity needs Google sign-in. Sign in and reconnect this conversation.",
     "antigravity.error.local-sign-in": "Start Google sign-in on the computer running momp.",

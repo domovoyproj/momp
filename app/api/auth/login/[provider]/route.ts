@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { providerPauseReason, type OAuthAuthInfo, type OAuthPrompt } from "@oh-my-pi/pi-ai/oauth";
+import { createGoogleAuthBrowser } from "@/lib/google-auth-browser";
+import { xboxDnsEnabled } from "@/lib/google-network";
 import { invalidateModelsCache } from "@/lib/models-cache";
 import { getOmpRuntime, invalidateOmpRuntime } from "@/lib/omp-runtime";
 import { resolveOAuthLoginId } from "@/lib/provider-listing-runtime";
@@ -69,10 +71,13 @@ export async function GET(
   const stream = new ReadableStream({
     async start(controller) {
       const loginId = resolveOAuthLoginId(provider);
-      if (!loginId) {
+      const needsBrowserRoute = xboxDnsEnabled() && (loginId === "google" || loginId?.startsWith("google-"));
+      const localBrowser = /^(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/i.test(req.headers.get("host") ?? "");
+      if (!loginId || needsBrowserRoute && !localBrowser) {
         clearTimeout(timeout);
         req.signal.removeEventListener("abort", abortRequest);
-        send(controller, { type: "error", message: providerPauseReason(provider) ?? `Unknown provider: ${provider}` });
+        const message = needsBrowserRoute && !localBrowser ? "Open momp on this computer to sign in to Google." : providerPauseReason(provider) ?? `Unknown provider: ${provider}`;
+        send(controller, { type: "error", message });
         controller.close();
         return;
       }
@@ -128,8 +133,11 @@ export async function GET(
       // Also cancel on client disconnect
       abort.signal.addEventListener("abort", cleanup);
 
+      let browser: Awaited<ReturnType<typeof createGoogleAuthBrowser>> | undefined;
+      let browserFailed = false;
       try {
         abort.signal.throwIfAborted();
+        if (needsBrowserRoute) browser = await createGoogleAuthBrowser({ signal: abort.signal, onClose: abortRequest });
         const { authStorage } = await getOmpRuntime();
         abort.signal.throwIfAborted();
         await authStorage.oauth.login(loginId, {
@@ -147,8 +155,13 @@ export async function GET(
           },
           // Manual-code flows resolve through the same pending request as the
           // auth URL so a user who pastes the redirect completes the login.
-          onManualCodeInput: () => getManualInputRequest().promise,
+          onManualCodeInput: needsBrowserRoute ? undefined : () => getManualInputRequest().promise,
           onAuth: (info: OAuthAuthInfo) => {
+            if (browser) {
+              void browser.open(info.url).catch(() => { browserFailed = true; abort.abort(); });
+              send(controller, { type: "progress", message: "Complete Google sign-in in the momp browser window." });
+              return;
+            }
             const request = getManualInputRequest();
             send(controller, {
               type: "auth",
@@ -170,9 +183,11 @@ export async function GET(
         invalidateOmpRuntime();
         send(controller, { type: "success" });
       } catch {
-        if (abort.signal.aborted) send(controller, { type: "cancelled" });
+        if (browserFailed) send(controller, { type: "error", message: "Could not open the momp Google sign-in window. Close its previous window and retry." });
+        else if (abort.signal.aborted) send(controller, { type: "cancelled" });
         else send(controller, { type: "error", message: "Provider sign-in failed. Check the account and retry." });
       } finally {
+        await browser?.close();
         clearTimeout(timeout);
         req.signal.removeEventListener("abort", abortRequest);
         cleanup();

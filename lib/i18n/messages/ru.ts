@@ -130,6 +130,8 @@ export const ruLocale: LocalePlugin = {
     "antigravity.error.not-installed": "Автоматическая подготовка Antigravity недоступна на этом устройстве.",
     "antigravity.error.setup-failed": "Не удалось подготовить Antigravity. Проверьте подключение и попробуйте войти ещё раз.",
     "antigravity.error.setup-integrity": "momp не смог проверить загруженный компонент Antigravity. Попробуйте войти позже.",
+    "antigravity.error.xbox-dns-browser": "Не удалось открыть защищённое окно входа Google в Edge. Закройте предыдущее окно momp и повторите вход.",
+    "antigravity.googleRoute": "Xbox DNS включён автоматически. Вход Google откроется в отдельном профиле Edge для momp.",
     "antigravity.error.sign-in-in-progress": "Вход через Google уже запущен. Завершите или отмените его в другом окне momp.",
     "antigravity.error.auth-required": "Для Antigravity требуется вход через Google. Войдите и продолжите диалог.",
     "antigravity.error.local-sign-in": "Запустите вход через Google на компьютере, где работает momp.",

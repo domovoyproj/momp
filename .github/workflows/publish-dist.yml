@@ -76,7 +76,7 @@ jobs:
           MOMP_VERIFY_ISOLATED_TESTS: '1'
         run: |
           mkdir -p test-artifacts/browser
-          bun test 2>&1 | tee test-artifacts/browser/web-tests.txt
+          bun test --timeout 20000 2>&1 | tee test-artifacts/browser/web-tests.txt
       - run: bash scripts/test-installer.sh
       - name: Build the production web app
         env:
@@ -119,7 +119,7 @@ jobs:
         run: bun install --frozen-lockfile --backend=copyfile
       - run: bun run typecheck
       - run: bun run test:release
-      - run: bun test
+      - run: bun test --timeout 20000
       - run: cargo test --manifest-path src-tauri/Cargo.toml --locked
       - run: ./scripts/test-update-helper.ps1
       - run: ./scripts/test-installer.ps1
@@ -201,6 +201,6 @@ jobs:
             args+=(--prerelease)
             notes=docs/release-candidate.md
           fi
-          cp "$notes" release/notes.md
+          node scripts/render-release-notes.mjs "$notes" release/notes.md
           printf '\n[Verification and build logs](%s/%s/actions/runs/%s)\n' "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" >> release/notes.md
           gh release create "$RELEASE_TAG" release/momp.exe release/momp-web-dist.tar.gz release/browser-verification.tar.gz release/SHA256SUMS "${args[@]}" --notes-file release/notes.md

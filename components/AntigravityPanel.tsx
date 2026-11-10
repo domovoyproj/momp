@@ -10,6 +10,7 @@ type ConnectionStatus = {
   configured: boolean;
   canPrepare: boolean;
   localSignIn: boolean;
+  googleRoute?: "xbox-dns" | "default";
   workspaceAvailable: boolean;
   trusted: boolean;
 };
@@ -221,6 +222,7 @@ export function AntigravityPanel({ cwd, onClose, onChooseProject }: {
         </form> : <div className="antigravity-connect">
           {thread?.status === "connecting" ? <button type="button" disabled={Boolean(busy)} onClick={() => void act("cancel")}>{t("antigravity.cancel")}</button>
             : project && <>
+              {project.googleRoute === "xbox-dns" && <p>{t("antigravity.googleRoute")}</p>}
               {busy === "sign-in" && <p role="status">{t(project.configured ? "antigravity.signingIn" : "antigravity.preparingSignIn")}</p>}
               {signedIn && <p role="status">{t("antigravity.signedIn")}</p>}
               {!project.localSignIn && <p>{t("antigravity.error.local-sign-in")}</p>}

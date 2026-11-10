@@ -1,5 +1,5 @@
 export type AntigravityStatus = "offline" | "connecting" | "ready" | "running" | "stopping";
-export type AntigravityError = "not-installed" | "setup-failed" | "setup-integrity" | "auth-required" | "quota" | "interrupted" | "timeout" | "unsupported" | "unavailable" | "cancelled";
+export type AntigravityError = "not-installed" | "setup-failed" | "setup-integrity" | "xbox-dns-browser" | "auth-required" | "quota" | "interrupted" | "timeout" | "unsupported" | "unavailable" | "cancelled";
 
 export interface AntigravityMessage {
   id: string;
