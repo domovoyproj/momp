@@ -1,6 +1,6 @@
 # Workspace guide
 
-[Русский](../ru/USER_GUIDE.md) · [Installation](INSTALLATION.md) · [AI modes](AI_MODES.md) · [Troubleshooting](TROUBLESHOOTING.md)
+[Русский](../ru/USER_GUIDE.md) · [Installation](INSTALLATION.md) · [AI modes](AI_MODES.md) · [Troubleshooting](TROUBLESHOOTING.md) · [Screenshots](../screenshots/next/README.md)
 
 Open a project from the sidebar, then create a chat and choose a model in the composer. The reasoning menu shows the levels offered by the selected model. Existing chats can be reopened from session history. Continue from an earlier message to branch within the conversation, or fork it into a new session. Use the composer controls to stop a run or compact context.
 

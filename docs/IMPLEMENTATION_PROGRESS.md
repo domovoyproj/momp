@@ -46,10 +46,11 @@ The code-only Graphify index covered 371 files, 2,750 nodes and 6,529 edges. The
 | Web production build | Passed with the existing dynamic-import warning from the session export route. |
 | `bun run test:browser` | Production build verified in Edge at 1440×960 and 390×844 in both themes. GPT and Gemini were synthetic HTTP providers. Usage used synthetic reports. |
 | PowerShell/Bash installers and update helper | Passed hash, incomplete payload, backup and rollback cases. |
-| Windows native build and EXE smoke | Blocked locally by the missing MSVC `link.exe`. Requires a green Windows GitHub Actions job and a smoke run of the candidate executable. |
+| Windows native build and EXE smoke | Passed in [release CI #49](https://github.com/domovoyproj/momp/actions/runs/42724223875) for `ed1a902`: 10 Rust tests, SFX extraction, bundled Bun, UI and SDK-backed APIs. Local MSVC `link.exe` is absent. |
+| Draft release | [1.6.0-rc.1](https://github.com/domovoyproj/momp/releases/tag/untagged-40ead598f02af6bf4f63) created after the release gates with the EXE, web archive, browser evidence and SHA-256 checksums. |
 | Live provider checks | **PENDING LIVE VERIFICATION.** No real model response or OAuth login was exercised. |
 
-Priority follow-ups are the Windows release gate, full Antigravity chat via a permission-aware integration, project test execution in an explicit sandbox, and broader browser verification of the existing editor, extensions and updater UI. Hybrid currently validates Git whitespace and exports the patch for manual review and application. Antigravity account quotas are shown as CLI-supplied rows when available.
+Priority follow-ups are full Antigravity chat via a permission-aware integration, project test execution in an explicit sandbox, and broader browser verification of the existing editor, extensions and updater UI. Hybrid currently validates Git whitespace and exports the patch for manual review and application. Antigravity account quotas are shown as CLI-supplied rows when available.
 
 ## Resume
 

@@ -15,10 +15,10 @@ momp — локальное рабочее пространство для пр�
 [Полное ревью кода](docs/code-audit-2026-10-24.md) · [Проверенные файлы и границы аудита](docs/code-audit-coverage-2026-10-24.md)
 
 <p align="center">
-  <img src="docs/screenshots/next/ai-tasks-desktop-dark.png" alt="momp AI tasks with a GPT lead, Gemini review and Git diff" width="1000" />
+  <img src="docs/screenshots/next/workspace-desktop-dark.png" alt="momp workspace with projects, files and chat" width="1000" />
 </p>
 
-[Mobile workspace](docs/screenshots/next/ai-tasks-mobile-light.png) · [Usage limits](docs/screenshots/next/usage-dark.png)
+[Screenshots / Скриншоты](docs/screenshots/next/README.md) · [Hybrid AI](docs/screenshots/next/ai-tasks-desktop-dark.png) · [Usage limits / Лимиты](docs/screenshots/next/usage-dark.png)
 
 <p align="center">
   <a href="https://github.com/domovoyproj/momp/releases"><img src="https://img.shields.io/github/v/release/domovoyproj/momp?style=for-the-badge&colorA=222222&colorB=58A6FF" alt="version"></a>
