@@ -60,6 +60,11 @@ The code-only Graphify index covered 371 files, 2,750 nodes and 6,529 edges. The
 - The extended production browser suite passed all four light/dark desktop/mobile runs, including normal GPT and Gemini chat, Antigravity stream recovery, MCP saving and redaction, file edits, Git diff, skills, plugins and update checks. The [gallery](screenshots/next/README.md) contains 35 captured states. The Linux Docker contract and native Windows EXE smoke are enforced by GitHub Actions.
 - **PENDING LIVE VERIFICATION.** Follow the [English checklist](en/LIVE_VERIFICATION.md) or [Russian checklist](ru/LIVE_VERIFICATION.md) with real accounts. Prepare a new GitHub draft only after the automated gates pass.
 
+## Stable 1.6.0 preparation
+
+- The released RC web archive matched GitHub's SHA-256 and launched under Bun 1.4.4 in a temporary profile. Its ChatGPT route emitted an OpenAI PKCE authorization request. The official Windows Antigravity CLI 1.5.4 matched Google's SHA-512 manifest, negotiated ACP v1 and returned the expected sign-in requirement. With no Google account on that profile, the usage endpoint reported Antigravity quota data as unavailable.
+- The owner approved the stable release with automated checks and protocol verification. Interactive account sign-in, real model responses and account quota values remain pending live verification. The stable artifacts go through the same Windows and web release gates.
+
 ## Resume
 
 ```powershell

@@ -2,7 +2,7 @@
 
 **[Русский](docs/ru/USER_GUIDE.md) · [English](docs/en/USER_GUIDE.md)**
 
-## momp 1.6 candidate branch
+## momp 1.6
 
 momp is a local AI coding workspace for the web and Windows. Use ChatGPT or Google Antigravity on its own, or coordinate GPT and Gemini on a saved task with test evidence, review and explicit patch approval.
 
@@ -10,7 +10,7 @@ momp — локальное рабочее пространство для пр�
 
 [Release notes EN](docs/en/RELEASE_NOTES.md) · [Заметки RU](docs/ru/RELEASE_NOTES.md) · [Installation EN](docs/en/INSTALLATION.md) · [Установка RU](docs/ru/INSTALLATION.md)
 
-[Изменения 1.5](docs/release-notes.md) · [Совместимость и ограничения](docs/compatibility.md)
+[Release history / История релизов](https://github.com/domovoyproj/momp/releases) · [Совместимость и ограничения](docs/compatibility.md)
 
 [Полное ревью кода](docs/code-audit-2026-10-24.md) · [Проверенные файлы и границы аудита](docs/code-audit-coverage-2026-10-24.md)
 

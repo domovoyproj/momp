@@ -30,12 +30,14 @@ for (const [name, version] of Object.entries(manifest.dependencies)) {
 }
 
 const names = ["AI_MODES.md", "HYBRID_MODE.md", "INSTALLATION.md", "LIVE_VERIFICATION.md", "RELEASE_NOTES.md", "TROUBLESHOOTING.md", "USER_GUIDE.md"];
-const linkedDocuments = ["README.md", "docs/release-candidate.md", "docs/screenshots/next/README.md"];
+const releaseNotes = manifest.version.includes("-rc.") ? "docs/release-candidate.md" : "docs/release-notes.md";
+const releaseTitle = new RegExp("^# momp " + manifest.version.replaceAll(".", "\\.") + "\\r?$", "m");
+const linkedDocuments = ["README.md", releaseNotes, "docs/screenshots/next/README.md"];
+assert.match(read(releaseNotes), releaseTitle);
 for (const language of ["en", "ru"]) {
   const directory = "docs/" + language;
   assert.deepEqual(readdirSync(join(root, directory)).filter((file) => file.endsWith(".md")).sort(), names);
-  const title = "^# momp " + manifest.version.replaceAll(".", "\\.") + "\\r?$";
-  assert.match(read(directory + "/RELEASE_NOTES.md"), new RegExp(title, "m"));
+  assert.match(read(directory + "/RELEASE_NOTES.md"), releaseTitle);
   linkedDocuments.push(...names.map((name) => directory + "/" + name));
 }
 for (const document of linkedDocuments) {
@@ -48,5 +50,4 @@ for (const document of linkedDocuments) {
   }
 }
 assert.ok(read("README.md").includes("docs/ru/USER_GUIDE.md") && read("README.md").includes("docs/en/USER_GUIDE.md"));
-assert.ok(read("docs/release-candidate.md").startsWith(`# momp ${manifest.version}`));
 console.log(`PASS versions, OMP lockfiles, and RU/EN documentation for momp ${manifest.version}`);

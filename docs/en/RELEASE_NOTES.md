@@ -1,4 +1,4 @@
-# momp 1.6.0-rc.2
+# momp 1.6.0
 
 [Русский](../ru/RELEASE_NOTES.md) · [Install or roll back](INSTALLATION.md) · [Live verification](LIVE_VERIFICATION.md)
 
@@ -14,4 +14,4 @@ Review a diff and optional offline project test evidence before applying a patch
 
 Oh My Pi 18.18.5, Bun 1.4.4, Next.js 16.4.3, React 19.2.8 and Tauri 2.11.5. Existing OMP sessions, settings and credentials use their existing stores. MCP secret values in supported configuration fields stay on the server.
 
-Preview builds use a separate release channel. The Windows EXE is portable and has no Authenticode signature. Real account sign-in, inference and quota reporting are [pending live verification](LIVE_VERIFICATION.md). See [implementation progress](../IMPLEMENTATION_PROGRESS.md) for the release gates and [the screenshot gallery](../screenshots/next/README.md) for captured application states.
+The Windows EXE is portable and ships without an Authenticode signature. The published candidate started under Bun 1.4.4 and produced the OpenAI OAuth authorization request. Google's Antigravity CLI 1.5.4 negotiated ACP v1 on Windows. Real account sign-in, inference and quota reporting are [pending live verification](LIVE_VERIFICATION.md). See [implementation progress](../IMPLEMENTATION_PROGRESS.md) for the release gates and [the screenshot gallery](../screenshots/next/README.md) for captured application states.
